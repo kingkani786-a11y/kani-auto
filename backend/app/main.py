@@ -66,6 +66,8 @@ async def lifespan(app: FastAPI):
         weight_approval.rehydrate()   # Phase 22 — restore human-approved weights
         missed_winner.rehydrate()     # V1.0 — restore gate-calibration evidence
         verdicts.rehydrate()          # RC1.5 — Gate Efficiency survives restarts
+        from .services import global_feed
+        global_feed.rehydrate_overnight()   # RC1.9 — morning bias handoff
     except Exception:
         pass
     # Phase 23 — always-on nightly self-tuning audit (independent of broker).

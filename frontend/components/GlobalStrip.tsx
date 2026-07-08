@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 
-const ORDER = ["NQ=F", "ES=F", "CL=F", "GC=F", "DX-Y.NYB", "^VIX", "USDINR=X"];
+const ORDER = ["NQ=F", "ES=F", "CL=F", "GC=F", "DX-Y.NYB", "^VIX", "USDINR=X", "^GDAXI", "^FTSE"];
 
 export function GlobalStrip() {
   const [d, setD] = useState<any>(null);
@@ -36,6 +36,12 @@ export function GlobalStrip() {
           {d.risk_state.replace("_", "-")} · confidence {d.adjust > 0 ? "+" : ""}{d.adjust}
         </span>
       </div>
+      {d.clock?.phase && (
+        <div className="text-[10px] text-terminal-muted mb-1">
+          {d.clock.ist} IST · {d.clock.phase}
+          {d.clock.us_open ? ` (US open ${d.clock.mins_since_us_open}m ago)` : ` (US opens ${d.clock.us_open_ist})`}
+        </div>
+      )}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-mono">
         {ORDER.filter((s) => d.quotes[s]).map((s) => {
           const q = d.quotes[s];
@@ -52,7 +58,34 @@ export function GlobalStrip() {
       {(d.reasons || []).length > 0 && (
         <div className="text-[10px] text-terminal-muted mt-1">{d.reasons.join(" · ")}</div>
       )}
-      <div className="text-[9px] text-terminal-muted/70 italic mt-0.5">
+
+      {d.next_session && (
+        <div className="mt-2 pt-2 border-t border-terminal-border/50">
+          <div className="flex items-center justify-between flex-wrap gap-2 text-[11px] mb-1">
+            <span className="font-bold tracking-wider text-terminal-accent">🌙 NEXT SESSION PREP</span>
+            <span className="text-terminal-muted">captured {d.next_session.captured_at} IST</span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+            <span>US composite <span className="font-mono">{d.next_session.us_composite_pct > 0 ? "+" : ""}{d.next_session.us_composite_pct}%</span></span>
+            <span>Likely bias{" "}
+              <span className={`font-bold ${d.next_session.tomorrow_bias === "BULLISH" ? "text-terminal-bull"
+                : d.next_session.tomorrow_bias === "BEARISH" ? "text-terminal-bear" : "text-terminal-muted"}`}>
+                {d.next_session.tomorrow_bias}
+              </span>
+            </span>
+            <span>Gap likelihood <span className="font-mono">{d.next_session.gap_likelihood}</span></span>
+            <span>Overnight risk{" "}
+              <span className={d.next_session.overnight_risk === "ELEVATED" ? "text-terminal-warn font-bold" : "text-terminal-muted"}>
+                {d.next_session.overnight_risk}
+              </span>
+            </span>
+          </div>
+          <div className="text-[10px] text-terminal-muted mt-1">{d.next_session.holding_note}</div>
+          <div className="text-[9px] text-terminal-muted/70 italic mt-0.5">{d.next_session.note}</div>
+        </div>
+      )}
+
+      <div className="text-[9px] text-terminal-muted/70 italic mt-1">
         {d.doctrine} · source: {d.source} · 📰 News: Not Connected
       </div>
     </div>
