@@ -7,9 +7,10 @@ A limitation listed here is a fact, not a bug.*
 - **Historical option-chain data unavailable** — Dhan provides historical
   candles for underlyings only. Premium/strike/IV history cannot be learned
   without an external EOD source (NSE bhavcopy ingestion = separate project).
-- **Global market feeds not connected** — US futures, DXY, yields, etc. need an
-  external API the owner must choose and supply. Until then the dashboard shows
-  "Waiting for Data Source" (never fabricated).
+- **Global market feed is UNOFFICIAL** (RC1.8) — US futures/DXY/VIX/USDINR come
+  from Yahoo's public chart endpoint: best-effort, no SLA, may break without
+  notice. On failure the dashboard honestly reverts to "Waiting for Data
+  Source". Doctrine-locked: context only (±3 confidence), never a gate.
 - **News intelligence not connected** — same as above ("News Feed Not Connected").
 - **Intraday history depth ~40 sessions** (broker limit) — strategy-level
   intraday backtests (VWAP/ORB win-rates) would be under-sampled and are
