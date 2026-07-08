@@ -1,0 +1,25 @@
+{
+  "name": "Cloud AI Trader X Pro",
+  "short_name": "AI Trader X",
+  "description": "Institutional AI Trading Terminal — index, stock & commodity market intelligence. Analysis only; no orders are placed.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0e14",
+  "theme_color": "#0a0e14",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Command Center", "url": "/command" },
+    { "name": "Scanner", "url": "/scanner" },
+    { "name": "Paper Trading", "url": "/paper" }
+  ]
+}

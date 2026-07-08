@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0e14"/>
+      <stop offset="1" stop-color="#11161f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#16c784"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- candlesticks -->
+  <g stroke="url(#accent)" stroke-width="16" stroke-linecap="round">
+    <line x1="150" y1="150" x2="150" y2="362"/>
+    <line x1="256" y1="120" x2="256" y2="392"/>
+    <line x1="362" y1="180" x2="362" y2="330"/>
+  </g>
+  <g fill="url(#accent)">
+    <rect x="128" y="210" width="44" height="120" rx="10"/>
+    <rect x="234" y="170" width="44" height="190" rx="10"/>
+    <rect x="340" y="230" width="44" height="70" rx="10"/>
+  </g>
+  <!-- rising trend arrow -->
+  <path d="M120 360 L210 300 L300 330 L410 200" fill="none" stroke="#22d3ee"
+        stroke-width="18" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <path d="M372 196 L412 196 L412 236" fill="none" stroke="#22d3ee"
+        stroke-width="18" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+</svg>

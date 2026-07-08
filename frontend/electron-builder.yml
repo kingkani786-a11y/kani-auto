@@ -1,0 +1,40 @@
+# electron-builder config — produces Windows EXE/MSI and macOS DMG/PKG.
+# Run after `npm run build:static` so ./out exists.
+appId: com.cloudaitraderxpro.app
+productName: Cloud AI Trader X Pro
+copyright: Cloud AI Trader X Pro
+directories:
+  output: dist-desktop
+  buildResources: electron/build
+files:
+  - electron/**/*
+  - out/**/*
+  - package.json
+extraMetadata:
+  main: electron/main.js
+
+mac:
+  category: public.app-category.finance
+  icon: electron/build/icon.png        # 1024x1024 png (electron-builder makes .icns)
+  target:
+    - dmg
+    - pkg
+  # Apple Silicon + Intel
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+win:
+  icon: electron/build/icon.png        # electron-builder derives .ico from this 1024px png
+  target:
+    - nsis        # -> .exe installer
+    - msi
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true          # Windows desktop shortcut
+  createStartMenuShortcut: true
+
+dmg:
+  title: "Cloud AI Trader X Pro"

@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-terminal-bg text-gray-200 antialiased;
+}
+
+.panel {
+  @apply bg-terminal-panel border border-terminal-border rounded-xl p-4;
+}
+
+.panel-title {
+  @apply text-[11px] uppercase tracking-widest text-terminal-muted mb-3 font-semibold;
+}
+
+.stat-label {
+  @apply text-[10px] uppercase tracking-wider text-terminal-muted;
+}
+
+.stat-value {
+  @apply font-mono text-sm;
+}
+
+.tick-up { animation: flashUp 0.6s ease-out; }
+.tick-down { animation: flashDown 0.6s ease-out; }
+@keyframes flashUp { 0% { color: #16c784; } 100% { color: inherit; } }
+@keyframes flashDown { 0% { color: #ea3943; } 100% { color: inherit; } }
