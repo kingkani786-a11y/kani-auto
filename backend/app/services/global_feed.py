@@ -78,7 +78,14 @@ def _score(q: dict[str, dict]) -> tuple[float, str, list[str]]:
 
 def _clock() -> dict[str, Any]:
     """Owner's 3-layer clock, DST-safe: US open computed from America/New_York
-    09:30 local (auto 6:30/8:00 PM IST), never hardcoded."""
+    09:30 local via zoneinfo — never a hardcoded IST clock time.
+
+    VERIFIED against authoritative references (2026-07-08, cross-checked
+    multiple financial-data sites — bajajfinserv, indmoney, groww, motilaloswal
+    all agree): NYSE/Nasdaq 9:30 AM ET = 7:00 PM IST during EDT (Mar–Nov) and
+    8:00 PM IST during EST (Nov–Mar). This function computes 19:00 IST for
+    today (EDT), matching the reference exactly. The commonly repeated
+    "6:30 PM IST" figure for summer is the inaccurate one — do NOT hardcode it."""
     import datetime, zoneinfo
     ist = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata"))
     ny = ist.astimezone(zoneinfo.ZoneInfo("America/New_York"))
@@ -182,12 +189,97 @@ async def refresh() -> dict[str, Any]:
         "risk_state": state, "adjust": adj, "reasons": why,
         # Morning handoff: yesterday evening's US-open reaction (if captured)
         "next_session": dict(_overnight) if _overnight else None,
+        "prediction_accuracy": dict(_accuracy) if _accuracy.get("scored") else None,
         "source": "Yahoo Finance chart API (unofficial, best-effort)",
         "doctrine": "Context only — ±3 confidence adjustment; never a gate, never overrides Trend. "
                     "Next-session block is PREPARATION, not an entry signal.",
         "ts": now,
     }
     return _cache["data"]
+
+
+_accuracy: dict[str, Any] = {"scored": 0, "correct": 0, "history": []}
+
+
+def score_overnight_prediction(day_open: float, prev_day_close: float) -> dict[str, Any] | None:
+    """Layer-4 (owner-ordered) — Prediction → Actual → Accuracy.
+
+    Call once per session after today's day_open is known. Compares
+    YESTERDAY's stored next_session.tomorrow_bias against the ACTUAL gap
+    direction. NEUTRAL predictions are excluded from the accuracy ratio (no
+    directional call was made). Never rescored twice for the same date.
+    """
+    if not _overnight or not day_open or not prev_day_close:
+        return None
+    pred_date = _overnight.get("date")
+    if not pred_date or _overnight.get("scored_against"):
+        return None                      # nothing new, or already scored
+    import datetime as _dt
+    if pred_date == _dt.date.today().isoformat():
+        return None                      # prediction is for TODAY evening, not yet due
+
+    actual_gap_pct = round((day_open / prev_day_close - 1) * 100, 2)
+    actual_dir = ("GAP_UP" if actual_gap_pct >= 0.15 else
+                 "GAP_DOWN" if actual_gap_pct <= -0.15 else "FLAT")
+    predicted = _overnight.get("tomorrow_bias", "NEUTRAL")
+    directional = predicted != "NEUTRAL"
+    correct = (directional and
+              ((predicted == "BULLISH" and actual_dir == "GAP_UP") or
+               (predicted == "BEARISH" and actual_dir == "GAP_DOWN")))
+    result = {
+        "prediction_date": pred_date, "scored_date": _dt.date.today().isoformat(),
+        "predicted_bias": predicted, "gap_likelihood": _overnight.get("gap_likelihood"),
+        "actual_gap_pct": actual_gap_pct, "actual_direction": actual_dir,
+        "directional_call": directional, "correct": bool(correct) if directional else None,
+    }
+    _overnight["scored_against"] = result["scored_date"]   # prevent re-scoring
+    if directional:
+        _accuracy["scored"] += 1
+        _accuracy["correct"] += 1 if correct else 0
+    _accuracy["history"].append(result)
+    _accuracy["history"] = _accuracy["history"][-30:]
+    _accuracy["accuracy_pct"] = (round(_accuracy["correct"] / _accuracy["scored"] * 100, 1)
+                                 if _accuracy["scored"] else None)
+    try:
+        from .journal import _sb
+        if _sb:
+            _sb.table("evolution_reports").insert(
+                {"period": "overnight_accuracy", "accuracy": _accuracy["accuracy_pct"],
+                 "report": result}).execute()
+    except Exception:
+        pass
+    log.info("overnight prediction scored: %s predicted %s, actual %s (%s)",
+             pred_date, predicted, actual_dir, "correct" if correct else "wrong" if directional else "n/a")
+    return result
+
+
+def accuracy_report() -> dict[str, Any]:
+    return dict(_accuracy)
+
+
+def rehydrate_accuracy() -> None:
+    try:
+        from .journal import _sb
+        if not _sb:
+            return
+        rows = (_sb.table("evolution_reports").select("report,accuracy")
+                .eq("period", "overnight_accuracy").order("id", desc=True)
+                .limit(30).execute().data or [])
+        for row in reversed(rows):
+            rec = row.get("report")
+            if isinstance(rec, dict):
+                _accuracy["history"].append(rec)
+                if rec.get("directional_call"):
+                    _accuracy["scored"] += 1
+                    _accuracy["correct"] += 1 if rec.get("correct") else 0
+        _accuracy["history"] = _accuracy["history"][-30:]
+        _accuracy["accuracy_pct"] = (round(_accuracy["correct"] / _accuracy["scored"] * 100, 1)
+                                     if _accuracy["scored"] else None)
+        if rows:
+            log.info("overnight accuracy rehydrated: %d scored, %.1f%%",
+                     _accuracy["scored"], _accuracy["accuracy_pct"] or 0)
+    except Exception as e:
+        log.debug("accuracy rehydrate skipped: %s", e)
 
 
 def rehydrate_overnight() -> None:

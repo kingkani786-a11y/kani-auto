@@ -94,6 +94,7 @@ def institutional_levels(candles_1m: list[dict]) -> dict[str, Any]:
                             "BREAKDOWN" if close < orl else "INSIDE")
 
     out["spot"] = round(today_candles[-1]["close"], 2)
+    out["day_open"] = round(today_candles[0]["open"], 2)   # RC — Layer-4 gap scoring
     return out
 
 

@@ -68,6 +68,7 @@ async def lifespan(app: FastAPI):
         verdicts.rehydrate()          # RC1.5 — Gate Efficiency survives restarts
         from .services import global_feed
         global_feed.rehydrate_overnight()   # RC1.9 — morning bias handoff
+        global_feed.rehydrate_accuracy()    # RC1.10 — Layer-4 prediction accuracy
     except Exception:
         pass
     # Phase 23 — always-on nightly self-tuning audit (independent of broker).

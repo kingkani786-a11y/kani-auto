@@ -432,6 +432,15 @@ class MarketService:
         except BrokerError:
             pass
 
+        # Global-feed Layer-4 (owner-ordered): score yesterday's Next-Session
+        # bias against today's actual gap, once day_open is known. No extra calls.
+        if levels.get("day_open") and levels.get("prev_day_close"):
+            try:
+                from . import global_feed
+                global_feed.score_overnight_prediction(levels["day_open"], levels["prev_day_close"])
+            except Exception:
+                log.exception("overnight prediction scoring failed")
+
         # Phase 14 — Kill Switch (capital protection): evaluate before deciding
         from . import kill_switch as ks_eng, analytics as _an
         from ..broker.dhan import DhanClient
