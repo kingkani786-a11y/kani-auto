@@ -4,6 +4,34 @@
 
 ---
 
+## RC1.10 — 2026-07-08 — US-Open Verification + Layer-4 Prediction Accuracy
+
+### Purpose
+Owner asked for cross-check of US market open time against an authoritative
+reference before Production, plus a Prediction → Actual → Accuracy layer for
+the Next-Session engine (owner-ordered, RC1.9 follow-up).
+
+### Verified
+Cross-checked 4 independent financial-data sources: NYSE/Nasdaq 9:30 AM ET =
+**7:00 PM IST during EDT** (Mar–Nov), 8:00 PM IST during EST. Our existing
+zoneinfo-based clock already computed this correctly (19:00 IST) — no logic
+change needed. The commonly assumed "6:30 PM IST" figure is inaccurate;
+documented in code so it's never "corrected" backwards.
+
+### Added
+- `market_context.institutional_levels()` returns `day_open`
+- `global_feed.score_overnight_prediction()`: scores yesterday's stored
+  tomorrow_bias against today's actual gap direction (GAP_UP/GAP_DOWN/FLAT).
+  NEUTRAL predictions excluded from the ratio. Never double-scores a date.
+- Rolling accuracy_pct, persisted + rehydrated on boot
+- GlobalStrip.tsx "Tomorrow-Bias Accuracy" line
+
+### Doctrine
+This closes the Observation → Evidence loop for Layer-3: the engine now
+grades its own forecasts instead of only making them.
+
+---
+
 ## RC1.9 — 2026-07-08 — 3-Layer Global Clock + Next-Session Prep
 
 ### Purpose
