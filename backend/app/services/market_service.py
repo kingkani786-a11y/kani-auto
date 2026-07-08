@@ -679,7 +679,13 @@ class MarketService:
             from . import verdicts
             verdicts.observe(decision, packet["signal"], spot,
                              regime=(packet["layers"].get("regime") or {}).get("regime") or "")
-            decision["gate_efficiency"] = verdicts.report()
+            # RC1.3 audit — broadcast only the slim summary every cycle; the
+            # full efficiency tables live at GET /api/verdicts (payload diet)
+            _vr = verdicts.report()
+            decision["gate_efficiency"] = {
+                "settled": _vr["settled"], "open_shadows": _vr["open_shadows"],
+                "modules_measured": sum(1 for r in _vr["gate_efficiency"] if r["status"] == "MEASURED"),
+            }
         except Exception:
             log.exception("verdict engine failed")
 

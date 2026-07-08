@@ -109,7 +109,17 @@ def _tick(spot: float) -> None:
 
 
 def _persist(s: dict[str, Any]) -> None:
-    """Best-effort durable log — reuses the missed_winners table columns."""
+    """Best-effort durable log — OFF the event loop (supabase-py is sync HTTP;
+    inline it froze the tick for a network RTT per settle — RC1.3 audit fix)."""
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _persist_sync, dict(s))
+    except RuntimeError:
+        _persist_sync(s)
+
+
+def _persist_sync(s: dict[str, Any]) -> None:
     try:
         from . import journal
         _sb = getattr(journal, "_sb", None)

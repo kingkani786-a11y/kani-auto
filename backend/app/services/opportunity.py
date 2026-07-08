@@ -128,6 +128,45 @@ async def _deep(client, cand: dict) -> None:
             if abs(_parity) > max(spot * 0.02, 2.0):
                 raise ValueError(f"parity off by {_parity:.2f} (CE {_ce} PE {_pe_l})")
     except ValueError as ve:
+        # RC1.3 hypothesis probe: 15× TATA STEEL sanity-fails suggest stock
+        # chains may need UnderlyingSeg NSE_FNO (not NSE_EQ). One rate-guarded
+        # retry with the alternate segment; loud log either way so the live
+        # session settles the hypothesis with evidence.
+        if inst.market_type == "STOCK" and inst.segment == "NSE_EQ" and not cand.get("_retried_seg"):
+            from ..broker.dhan import DhanClient
+            import dataclasses
+            if not DhanClient.stats().get("cooldown_active"):
+                log.warning("sanity FAILED for %s (%s) — probing NSE_FNO underlying segment", sym, ve)
+                cand["_retried_seg"] = True
+                try:
+                    alt = dataclasses.replace(inst, segment="NSE_FNO")
+                    await asyncio.sleep(CHAIN_SPACING)
+                    expiries2 = await client.get_expiries(alt)
+                    if expiries2:
+                        await asyncio.sleep(CHAIN_SPACING)
+                        chain2 = await client.get_option_chain(alt, expiries2[0])
+                        analytics2 = index_analytics.analyze_chain(
+                            chain2, cand["ltp"], expiries2[0], inst.strike_step)
+                        if analytics2.get("chain") and index_analytics.chain_sane(analytics2, cand["ltp"]):
+                            log.warning("NSE_FNO probe SUCCEEDED for %s — stock chains need NSE_FNO", sym)
+                            # re-run the pick against the sane chain
+                            rows2 = analytics2["chain"]
+                            picks2 = strike_selector.select_top(rows2, direction, spot,
+                                                                analytics2.get("expiry", ""), levels, n=1)
+                            if picks2:
+                                p2 = picks2[0]
+                                cand.update({
+                                    "strike": p2["strike"], "type": p2["type"],
+                                    "premium": p2["premium_entry"], "premium_sl": p2["premium_stop_loss"],
+                                    "premium_t1": p2["premium_target1"],
+                                    "prob_itm": p2["prob_itm_pct"], "spread_pct": p2["spread_pct"],
+                                    "sel_score": p2["selection_score"],
+                                    "ai_score": round(0.5 * cand["score"] + 0.5 * p2["selection_score"], 0),
+                                    "detail": "ok",
+                                })
+                                return
+                except Exception as e2:
+                    log.info("NSE_FNO probe failed for %s: %s", sym, e2)
         log.warning("opportunity sanity FAILED for %s %s %s: %s — momentum-only",
                     sym, p.get("strike"), p.get("type"), ve)
         cand["detail"] = "sanity-failed (chain/underlying mismatch)"

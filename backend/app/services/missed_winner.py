@@ -51,15 +51,22 @@ def track(spot: float, is_trade: bool, bias: str, blocking_reasons: list[str]) -
 
 
 def _persist(rec: dict) -> None:
-    """P1 — persist each missed winner so validation evidence survives restart
-    (active once Supabase creds exist; silent no-op otherwise)."""
+    """P1 — persist each missed winner so validation evidence survives restart.
+    RC1.3: runs OFF the event loop (supabase-py is sync HTTP)."""
     from .journal import _sb
     if not _sb:
         return
+    import asyncio
+
+    def _do(r=dict(rec)):
+        try:
+            _sb.table("missed_winners").insert(r).execute()
+        except Exception:
+            pass
     try:
-        _sb.table("missed_winners").insert(rec).execute()
-    except Exception:
-        pass
+        asyncio.get_running_loop().run_in_executor(None, _do)
+    except RuntimeError:
+        _do()
 
 
 def rehydrate(limit: int = 500) -> int:
