@@ -174,6 +174,19 @@ def rehydrate(limit: int = 1000) -> int:
 
 def report() -> dict[str, Any]:
     total = {"settled": len(_settled), "open_shadows": len(_open)}
+
+    def _wilson95(k: int, n: int):
+        """95% CI for a proportion — required by Proposal approval condition #3.
+        Optimistic under shadow autocorrelation; the digest must say so."""
+        if n < 5:
+            return None
+        import math as _m
+        z, p = 1.96, k / n
+        d = 1 + z * z / n
+        c = (p + z * z / (2 * n)) / d
+        hw = z * _m.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+        return [round(max(0.0, c - hw) * 100, 1), round(min(1.0, c + hw) * 100, 1)]
+
     rows = []
     for mod, m in sorted(module_stats.items(), key=lambda kv: kv[1]["blocked"], reverse=True):
         decided = m["saved"] + m["missed"]
@@ -181,6 +194,7 @@ def report() -> dict[str, Any]:
             "module": mod, **m,
             "saved_pct": round(m["saved"] / decided * 100, 0) if decided else None,
             "missed_pct": round(m["missed"] / decided * 100, 0) if decided else None,
+            "missed_ci95": _wilson95(m["missed"], decided),
             "status": "LEARNING" if m["blocked"] < MIN_SAMPLES else "MEASURED",
         })
     by_regime = []
