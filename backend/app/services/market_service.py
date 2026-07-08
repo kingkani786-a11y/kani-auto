@@ -184,6 +184,10 @@ class MarketService:
                     # V26 — Level-2 deep scan on the strongest L1 candidates
                     from . import opportunity
                     await opportunity.build_board(self.client, scanner.results)
+                # Global context feed (cache-gated 180s; runs even off-hours —
+                # US futures trade nearly 24h; context-only per doctrine)
+                from . import global_feed
+                await global_feed.refresh()
             except asyncio.CancelledError:
                 raise
             except Exception as e:

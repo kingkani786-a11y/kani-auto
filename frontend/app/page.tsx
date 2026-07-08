@@ -38,6 +38,7 @@ import { SelfCheck } from "@/components/SelfCheck";
 import { OpportunityBoard } from "@/components/OpportunityBoard";
 import { TradeManagement } from "@/components/TradeManagement";
 import { MarketMemory } from "@/components/MarketMemory";
+import { GlobalStrip } from "@/components/GlobalStrip";
 import { FeedDiagnostics } from "@/components/FeedDiagnostics";
 import { SignalMaturity } from "@/components/SignalMaturity";
 import { EntryChecklist } from "@/components/EntryChecklist";
@@ -314,13 +315,8 @@ export default function Dashboard() {
           <SafeBoundary name="Signal Maturity"><SignalMaturity /></SafeBoundary>
           {/* V32 Layer-6 — historical analogue days (Research; context, not prediction) */}
           <SafeBoundary name="Market Memory"><MarketMemory /></SafeBoundary>
-          {/* V12 §6/§7 — honest placeholders: these engines need external APIs
-              the Dhan-only stack does not have; never fabricated. */}
-          <div className="panel py-2 text-[11px] text-terminal-muted">
-            🌐 Global Market Engine: <span className="text-terminal-warn">Waiting for Data Source</span> (no global-index feed connected)
-            {" · "}📰 News Intelligence: <span className="text-terminal-warn">News Feed Not Connected</span>
-            {" — "}activate by adding an external API; nothing is fabricated meanwhile.
-          </div>
+          {/* Global context — live feed when reachable; honest waiting line otherwise */}
+          <SafeBoundary name="Global Context"><GlobalStrip /></SafeBoundary>
         </>
       )}
 

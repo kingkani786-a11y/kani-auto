@@ -757,6 +757,13 @@ async def data_health():
     return data_quality.report()
 
 
+@router.get("/global")
+async def global_context_feed():
+    """Global market context (Yahoo, unofficial) — context-only per doctrine."""
+    from ..services import global_feed
+    return await global_feed.refresh()
+
+
 @router.get("/verdicts")
 async def gate_verdicts():
     """V40.1/40.2 — blocked-decision verdicts + per-module gate efficiency."""

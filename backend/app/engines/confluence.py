@@ -276,6 +276,18 @@ def run(
     dyn_conf = (0.40 * win + 0.20 * layers["mtf"]["alignment"]
                 + 0.15 * (historical_accuracy if historical_accuracy is not None else 55.0)
                 + 0.10 * dq_score + 0.15 * layers["regime"]["score"])
+    # OWNER-LOCKED: global feed is CONTEXT ONLY — ±3 on confidence, listed as a
+    # component, never a veto, never overrides Trend (docs/PROPOSALS.md)
+    try:
+        from ..services.global_feed import snapshot as _gsnap
+        _g = _gsnap()
+        if _g.get("available") and _g.get("adjust"):
+            dyn_conf += float(_g["adjust"])
+            components["global_context_adj"] = float(_g["adjust"])
+            layers["global_feed"] = {"risk_state": _g["risk_state"],
+                                     "adjust": _g["adjust"], "reasons": _g["reasons"]}
+    except Exception:
+        pass
     dyn_conf = round(max(0.0, min(100.0, dyn_conf)), 1)
 
     # ---- Engine 10: AI Confidence Calibration — a hard FORCE-WAIT gate.
