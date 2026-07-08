@@ -4,6 +4,42 @@
 
 ---
 
+## RC1.9 — 2026-07-08 — 3-Layer Global Clock + Next-Session Prep
+
+### Purpose
+Owner-ordered: use US/global market reaction to prepare the NEXT India
+session (gap risk, overnight-hold risk) — explicitly not an entry engine.
+
+### Added
+- DST-safe US-open clock (America/New_York zoneinfo — corrects the commonly
+  assumed 6:30 PM IST; actual is 19:00 IST under EDT)
+- 3-layer phase detection: Morning (US-close bias) / Afternoon (Europe DAX+FTSE
+  join the feed) / US-Open-Reaction
+- Layer-3 Next-Session Preparation snapshot: tomorrow_bias, gap_likelihood
+  (declared band, not fabricated %), overnight_risk, holding_note
+- Persisted each evening, rehydrated on boot for the next morning
+
+### Doctrine
+Global context remains NEVER a hard gate (RC1.8 lock unchanged). Next-session
+block is preparation only — feeds BTST/overnight-hold judgment, not entries.
+
+---
+
+## RC1.8 — 2026-07-08 — Global Market Context Engine
+
+### Purpose
+Owner-ordered: US/Nasdaq/Crude reaction as context for India entries.
+
+### Added
+- Yahoo chart API feed (unofficial, best-effort): NQ, ES, CL, GC, DXY, VIX, USDINR
+- Transparent vote scoring → ±3 dynamic-confidence adjustment (never a gate)
+- GET /api/global + GlobalStrip.tsx
+
+### Known Limitations
+Unofficial source, no SLA — falls back to "Waiting for Data Source" on failure.
+
+---
+
 ## Release: RC1.0 — 2026-07-08
 
 ### Purpose
