@@ -226,6 +226,7 @@ def analyze(layers: dict[str, Any], lifecycle: dict[str, Any], signal: dict[str,
 
     return {
         "active": active,
+        "direction": direction,      # RC1.5 — the TRADE's direction (P/L sign source)
         "locked_levels": {"entry": entry, "stop": stop,
                           "t1": targets[0] if targets else None,
                           "t2": targets[1] if len(targets) > 1 else None,

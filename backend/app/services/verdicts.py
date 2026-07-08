@@ -134,6 +134,44 @@ def _persist_sync(s: dict[str, Any]) -> None:
         log.debug("verdict persist skipped: %s", e)
 
 
+def rehydrate(limit: int = 1000) -> int:
+    """RC1.5 — evidence continuity: rebuild module_stats from persisted
+    VERDICT rows so restarts never zero the Gate Efficiency ledger.
+    (Open shadows are intentionally NOT restored — levels go stale.)"""
+    try:
+        from .journal import _sb
+        if not _sb:
+            return 0
+        rows = (_sb.table("missed_winners").select("reason,bias,points,ts")
+                .like("reason", "VERDICT:%").order("ts", desc=True).limit(limit)
+                .execute().data or [])
+    except Exception as e:
+        log.warning("verdict rehydrate failed: %s", e)
+        return 0
+    n = 0
+    for r in reversed(rows):
+        try:
+            _, verdict, mods = (r.get("reason") or "").split(":", 2)
+            for b in mods.split(","):
+                b = b.strip()
+                if not b:
+                    continue
+                m = module_stats.setdefault(b, {"blocked": 0, "saved": 0, "missed": 0, "neutral": 0})
+                m["blocked"] += 1
+                m["saved" if verdict == "CAPITAL_SAVED" else
+                  "missed" if verdict == "MISSED_WINNER" else "neutral"] += 1
+            _settled.append({"verdict": verdict, "direction": r.get("bias"),
+                             "points": r.get("points"), "blockers": set(mods.split(",")),
+                             "regime": "REHYDRATED", "confidence": None,
+                             "verdict_reason": "restored from Supabase"})
+            n += 1
+        except Exception:
+            continue
+    if n:
+        log.info("verdict ledger rehydrated: %d settled verdicts restored", n)
+    return n
+
+
 def report() -> dict[str, Any]:
     total = {"settled": len(_settled), "open_shadows": len(_open)}
     rows = []

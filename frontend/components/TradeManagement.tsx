@@ -15,7 +15,9 @@ export function TradeManagement() {
 
   const lv = x.locked_levels || {};
   const ltp = (spot as any)?.ltp;
-  const dir = ((signal as any)?.direction || "").toUpperCase();
+  // RC1.5 fix — P/L sign comes from the TRADE's locked direction, never from
+  // the live signal (which reads NONE/WATCH mid-trade and flipped the sign)
+  const dir = (x.direction || (x.trade_management?.position || "").split(" ")[0] || (signal as any)?.direction || "").toUpperCase();
   const pnl = ltp != null && lv.entry != null
     ? (dir === "BEAR" ? lv.entry - ltp : ltp - lv.entry) : null;
 

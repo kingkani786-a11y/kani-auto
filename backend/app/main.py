@@ -61,10 +61,11 @@ async def lifespan(app: FastAPI):
     # Phase 19 — restore self-learning memory (outcomes, calibration, engine
     # reliability) from Supabase if configured, so learning survives restarts.
     try:
-        from .services import memory, weight_approval, missed_winner
+        from .services import memory, weight_approval, missed_winner, verdicts
         memory.rehydrate()
         weight_approval.rehydrate()   # Phase 22 — restore human-approved weights
         missed_winner.rehydrate()     # V1.0 — restore gate-calibration evidence
+        verdicts.rehydrate()          # RC1.5 — Gate Efficiency survives restarts
     except Exception:
         pass
     # Phase 23 — always-on nightly self-tuning audit (independent of broker).
