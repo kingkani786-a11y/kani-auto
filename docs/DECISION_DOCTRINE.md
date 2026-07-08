@@ -2,6 +2,22 @@
 
 *Locked 2026-07-08. Changes to this document require explicit owner approval.*
 
+## TWO DOCTRINES — kept strictly separate
+
+### 1. PROJECT DOCTRINE (software) — IMMUTABLE
+Evidence decides · No auto weight change · Every decision gets a verdict ·
+Git + Release Notes for every milestone · Documentation first.
+These never change. They are not up for research.
+
+### 2. TRADING DOCTRINE (market) — RESEARCH PARAMETERS
+Entry threshold · Greeks threshold · Liquidity threshold · OI threshold ·
+Confidence threshold · confirmation counts · window lengths.
+These are NOT constitution — they are hypotheses. With repeated evidence
+(Rule 9) they MAY change, but only through the approval pipeline below.
+
+> Software stability and strategy adaptability are protected by never
+> confusing the two lists.
+
 ## The 8 Permanent Engineering Rules
 
 1. **No Feature without Evidence.**

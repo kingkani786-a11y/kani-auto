@@ -31,6 +31,25 @@ counts — some metrics stabilise at 300 samples, some don't at 1000.
 | Historical knowledge run | pending first real run | POST /api/historical-learning/run |
 | Verdict ledger | collecting | /api/verdicts |
 
+## RC1 SUCCESS = these six questions, all "YES"
+
+1. Did the system give every decision a Verdict?
+2. Were verdicts recorded correctly (spot-checked vs charts)?
+3. Do the reports generate automatically?
+4. Can any proposed rule change show its evidence?
+5. Is there a git tag to roll back to?
+6. Can a new developer understand the system from the docs alone?
+
+## Pre-Production Independent Audit ("we verified", not "we believe")
+
+- [ ] Documentation vs code consistency
+- [ ] Metrics correctness (recompute a sample by hand)
+- [ ] API failure handling (broker down / rate-limited / malformed payloads)
+- [ ] Data integrity (Supabase rows vs in-memory state)
+- [ ] Performance under load (full session, no drift/leak)
+- [ ] Recovery after restart (rehydration complete)
+- [ ] Backtest vs live consistency (same inputs → same decisions)
+
 ## Reports & where they live
 
 - 100-Validated report → Report Card page
