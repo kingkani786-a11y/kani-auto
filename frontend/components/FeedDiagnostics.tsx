@@ -5,6 +5,7 @@
 // expands detail when any feed is degraded.
 
 import { useEffect, useState } from "react";
+import { useMarket } from "@/lib/store";
 
 const tone = (s: string) =>
   s === "OK" ? "text-terminal-bull" : s === "N/A" ? "text-terminal-muted"
@@ -12,6 +13,7 @@ const tone = (s: string) =>
 
 export function FeedDiagnostics() {
   const [d, setD] = useState<any>(null);
+  const { status } = useMarket();
 
   useEffect(() => {
     const load = () =>
@@ -25,7 +27,10 @@ export function FeedDiagnostics() {
   if (!d?.checks) return null;
   const entries = Object.entries(d.checks) as [string, any][];
   const failing = entries.filter(([, c]) => !["OK", "N/A"].includes(c.status));
-  const healthy = failing.length === 0;
+  // RC1.4 — the authoritative pipeline quality (kill-switch source) overrides:
+  // never claim "healthy" while the system itself is running on POOR data
+  const pipelinePoor = (status as any)?.data_quality === "POOR";
+  const healthy = failing.length === 0 && !pipelinePoor;
   const comp = d.completeness ?? 0;
   // no option chain for this instrument ⇒ OI/Greeks/Institutional stay neutral
   // and the full entry gate can never arm — that WAIT is structural, not market
@@ -38,7 +43,9 @@ export function FeedDiagnostics() {
           FEED {comp >= 90 ? "🟢" : comp >= 60 ? "🟡" : "🔴"} {comp}%
         </span>
         <span className="text-terminal-muted">
-          {!healthy
+          {pipelinePoor
+            ? <span className="text-terminal-bear">Pipeline data quality POOR (broker cooldown / feed issue) — WAIT is data-driven; kill switch governs.</span>
+            : !healthy
             ? <>Top failing: <span className="text-terminal-bear">{failing[0][0]} ({failing[0][1].status})</span> — WAIT may be data-driven</>
             : noChain
             ? <>Feeds healthy. <span className="text-terminal-warn">No option chain for this instrument — OI / Greeks / Institutional stay neutral, so the full entry gate cannot arm. Scalp Radar is the applicable engine here.</span></>

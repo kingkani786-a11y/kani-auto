@@ -238,6 +238,11 @@ export function ScalpingTool() {
       </div>
 
       {/* V17 — position size, known in advance (from Settings capital + risk%) */}
+      {ps.capital_invalid_reset && (
+        <div className="mt-2 text-[11px] text-terminal-bear">
+          ⚠ Capital setting was implausible — sizing shown with default ₹10,00,000. Fix it in Settings.
+        </div>
+      )}
       {ps.qty > 0 && (
         <div className="mt-2 pt-2 border-t border-terminal-border/50 text-[12px]">
           <span className="stat-label mr-2">Qty</span>

@@ -842,10 +842,18 @@ class MarketService:
             # V17 — sized whenever a strike plan exists (live OR preparing),
             # so the trader knows the quantity before the setup fires
             if _pe and _psl and float(_pe) > float(_psl):
+                # RC1.4 defense-in-depth: an out-of-bounds capital is GARBAGE,
+                # not a big account — fall back to the default and say so
+                # (clamping ₹1e12 to ₹100cr would silently pretend wealth)
+                _cap_raw = float(_cfg.capital or 0)
+                _cap_ok = 10_000 <= _cap_raw <= 1_000_000_000
+                _cap_safe = _cap_raw if _cap_ok else 1_000_000.0
                 ps = portfolio_risk.position_size(
-                    _cfg.capital, _cfg.risk_per_trade_pct, float(_pe), float(_psl), inst.lot_size)
+                    _cap_safe, _cfg.risk_per_trade_pct, float(_pe), float(_psl), inst.lot_size)
+                if not _cap_ok:
+                    ps["capital_invalid_reset"] = True
                 ps.update({
-                    "ready": True, "capital": _cfg.capital,
+                    "ready": True, "capital": _cap_safe,
                     "risk_pct": _cfg.risk_per_trade_pct, "lot_size": inst.lot_size,
                     "per_lot_risk": round(abs(float(_pe) - float(_psl)) * inst.lot_size, 2),
                     "capital_required": round(float(_pe) * (ps.get("qty") or 0), 2),
@@ -870,7 +878,9 @@ class MarketService:
             import datetime as _dt
             _today = _dt.date.today().isoformat()
             from ..config import settings as _cfg2
-            _max_notional = float(_cfg2.capital or 1_000_000) * 10
+            _cap2_raw = float(_cfg2.capital or 0)
+            _cap2 = _cap2_raw if 10_000 <= _cap2_raw <= 1_000_000_000 else 1_000_000.0
+            _max_notional = _cap2 * 10
             _all = paper.list_trades()
             # RC1.2 — implausible legacy rows (notional > 10× capital) are
             # excluded from the Today line and counted as data-suspect
@@ -884,7 +894,7 @@ class MarketService:
             decision["risk_budget"] = {
                 "trades_today": len(_closed) + len(_openn),
                 "realized_pnl": round(_pnl, 2),
-                "realized_pct": round(_pnl / _cfg2.capital * 100, 2) if _cfg2.capital else 0,
+                "realized_pct": round(_pnl / _cap2 * 100, 2),
                 "excluded_suspect": _suspect,
             }
         except Exception:

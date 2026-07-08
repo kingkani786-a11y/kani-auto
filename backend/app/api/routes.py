@@ -699,8 +699,10 @@ async def alerts_test():
 
 # ---------- portfolio risk ----------
 class RiskConfigBody(BaseModel):
-    capital: float = Field(gt=0)
-    risk_per_trade_pct: float = Field(gt=0, le=10)
+    # RC1.4 sanity bounds — a ₹1-lakh-crore capital typo produced an
+    # 82-lakh-lot position size on the dashboard. ₹10k … ₹100 crore.
+    capital: float = Field(gt=9_999, le=1_000_000_000)
+    risk_per_trade_pct: float = Field(gt=0.05, le=5)
 
 
 @router.put("/portfolio/config")
@@ -802,7 +804,11 @@ async def self_check():
                        "status": "OK" if ok else "WAIT" if ok is None else "FAIL",
                        "detail": detail})
 
-    add("Broker", state.connected, "connected" if state.connected else "not connected")
+    from ..broker.dhan import DhanClient
+    _cool = DhanClient.stats().get("cooldown_active", False)
+    add("Broker", state.connected and not _cool,
+        "rate-limit cooldown — data unreliable" if _cool
+        else "connected" if state.connected else "not connected")
     # WS: a spot heartbeat within 15s means the live link is delivering.
     # When the market is closed, missing data is a PAUSE, not a failure.
     _hb = state.heartbeats or {}
