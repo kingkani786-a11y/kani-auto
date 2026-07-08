@@ -18,6 +18,16 @@ def open_trade(
     stop_loss: float | None, target: float | None,
     signal_snapshot: dict[str, Any] | None,
 ) -> dict:
+    # RC1.2 sanity — a paper trade must be financially plausible: notional
+    # capped at 10× configured capital (a 10-billion-qty typo once produced a
+    # ₹2,716-crore "realized P&L" on the dashboard)
+    from ..config import settings as _cfg
+    notional = float(qty) * float(entry or 0)
+    max_notional = float(_cfg.capital or 1_000_000) * 10
+    if notional > max_notional:
+        raise ValueError(
+            f"Paper qty rejected: notional ₹{notional:,.0f} exceeds 10× capital "
+            f"(₹{max_notional:,.0f}). Use a realistic size.")
     trade = {
         "id": str(uuid.uuid4())[:8],
         "symbol": symbol,

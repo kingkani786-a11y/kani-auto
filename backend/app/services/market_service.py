@@ -863,15 +863,23 @@ class MarketService:
         try:
             import datetime as _dt
             _today = _dt.date.today().isoformat()
-            _closed = [t for t in paper.list_trades()
-                       if t.get("status") == "CLOSED" and (t.get("closed_at") or "").startswith(_today)]
-            _openn = [t for t in paper.list_trades() if t.get("status") == "OPEN"]
-            _pnl = sum(t.get("pnl") or 0 for t in _closed)
             from ..config import settings as _cfg2
+            _max_notional = float(_cfg2.capital or 1_000_000) * 10
+            _all = paper.list_trades()
+            # RC1.2 — implausible legacy rows (notional > 10× capital) are
+            # excluded from the Today line and counted as data-suspect
+            _sane = [t for t in _all
+                     if float(t.get("qty") or 0) * float(t.get("entry") or 0) <= _max_notional]
+            _suspect = len(_all) - len(_sane)
+            _closed = [t for t in _sane
+                       if t.get("status") == "CLOSED" and (t.get("closed_at") or "").startswith(_today)]
+            _openn = [t for t in _sane if t.get("status") == "OPEN"]
+            _pnl = sum(t.get("pnl") or 0 for t in _closed)
             decision["risk_budget"] = {
                 "trades_today": len(_closed) + len(_openn),
                 "realized_pnl": round(_pnl, 2),
                 "realized_pct": round(_pnl / _cfg2.capital * 100, 2) if _cfg2.capital else 0,
+                "excluded_suspect": _suspect,
             }
         except Exception:
             log.exception("risk budget failed")

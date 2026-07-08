@@ -862,10 +862,13 @@ async def paper_open(body: PaperOpenBody):
     entry = body.entry or float(state.spot.get("ltp") or 0)
     if entry <= 0:
         raise HTTPException(400, "No live price available for entry")
-    return paper.open_trade(
-        body.symbol.upper(), body.side, body.qty, entry,
-        body.stop_loss, body.target, state.intelligence,
-    )
+    try:
+        return paper.open_trade(
+            body.symbol.upper(), body.side, body.qty, entry,
+            body.stop_loss, body.target, state.intelligence,
+        )
+    except ValueError as e:                 # RC1.2 — qty sanity rejection
+        raise HTTPException(422, str(e))
 
 
 class PaperCloseBody(BaseModel):

@@ -275,6 +275,9 @@ export function ScalpingTool() {
             <span className={`font-mono ${rb.realized_pnl >= 0 ? "text-terminal-bull" : "text-terminal-bear"}`}>
               {rb.realized_pnl >= 0 ? "+" : ""}₹{Number(rb.realized_pnl).toLocaleString("en-IN")} ({rb.realized_pct}%)
             </span>
+            {rb.excluded_suspect > 0 ? (
+              <span className="text-terminal-warn"> · {rb.excluded_suspect} implausible-size trade{rb.excluded_suspect > 1 ? "s" : ""} excluded</span>
+            ) : null}
           </div>
         ) : null;
       })()}
