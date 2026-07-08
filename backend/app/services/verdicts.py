@@ -92,11 +92,27 @@ def _tick(spot: float) -> None:
             s["verdict_reason"] = ("T1 touched before SL" if verdict == "MISSED_WINNER"
                                    else "SL touched before T1")
         _settled.append(dict(s))
+        # RC1.7 Root-Cause Attribution — percentages per verdict would be
+        # invented weights; instead we record the REAL structure:
+        #   solo     = module was the ONLY blocker (pure causal signal)
+        #   primary  = module was the gate's headline blocker
+        #   combined = blocked alongside others
+        _solo = len(s["blockers"]) == 1
         for b in s["blockers"]:
-            m = module_stats.setdefault(b, {"blocked": 0, "saved": 0, "missed": 0, "neutral": 0})
+            m = module_stats.setdefault(b, {"blocked": 0, "saved": 0, "missed": 0, "neutral": 0,
+                                            "solo": 0, "solo_missed": 0, "solo_saved": 0,
+                                            "primary": 0})
             m["blocked"] += 1
             m["saved" if verdict == "CAPITAL_SAVED" else
               "missed" if verdict == "MISSED_WINNER" else "neutral"] += 1
+            if b == s.get("headline"):
+                m["primary"] += 1
+            if _solo:
+                m["solo"] += 1
+                if verdict == "MISSED_WINNER":
+                    m["solo_missed"] += 1
+                elif verdict == "CAPITAL_SAVED":
+                    m["solo_saved"] += 1
             # V40.5 — the same ledger, split by regime (Trend vs Range etc.):
             # the ONLY basis on which a threshold may later become regime-aware
             rg = regime_stats.setdefault(f"{b}|{s.get('regime', 'UNKNOWN')}",
@@ -152,16 +168,23 @@ def rehydrate(limit: int = 1000) -> int:
     for r in reversed(rows):
         try:
             _, verdict, mods = (r.get("reason") or "").split(":", 2)
-            for b in mods.split(","):
-                b = b.strip()
-                if not b:
-                    continue
-                m = module_stats.setdefault(b, {"blocked": 0, "saved": 0, "missed": 0, "neutral": 0})
+            _mods = [b.strip() for b in mods.split(",") if b.strip()]
+            for b in _mods:
+                m = module_stats.setdefault(b, {"blocked": 0, "saved": 0, "missed": 0, "neutral": 0,
+                                                "solo": 0, "solo_missed": 0, "solo_saved": 0,
+                                                "primary": 0})
                 m["blocked"] += 1
                 m["saved" if verdict == "CAPITAL_SAVED" else
                   "missed" if verdict == "MISSED_WINNER" else "neutral"] += 1
+                if len(_mods) == 1:
+                    m["solo"] += 1
+                    if verdict == "MISSED_WINNER":
+                        m["solo_missed"] += 1
+                    elif verdict == "CAPITAL_SAVED":
+                        m["solo_saved"] += 1
             _settled.append({"verdict": verdict, "direction": r.get("bias"),
                              "points": r.get("points"), "blockers": set(mods.split(",")),
+                             "settled_ts": r.get("ts"),
                              "regime": "REHYDRATED", "confidence": None,
                              "verdict_reason": "restored from Supabase"})
             n += 1
@@ -187,14 +210,34 @@ def report() -> dict[str, Any]:
         hw = z * _m.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
         return [round(max(0.0, c - hw) * 100, 1), round(min(1.0, c + hw) * 100, 1)]
 
+    # RC1.7 Effective Sample Size — shadows from the same persisting setup are
+    # autocorrelated; cluster a module's verdicts into episodes (same direction
+    # within 15 min = one episode) and read the CI at the episode count.
+    def _eff_n(mod: str) -> int:
+        pts = sorted((s.get("settled_ts") or 0, s.get("direction"))
+                     for s in _settled if mod in (s.get("blockers") or set()))
+        eps, last_t, last_d = 0, None, None
+        for t, dd in pts:
+            if last_t is None or (t and last_t and t - last_t > 900) or dd != last_d:
+                eps += 1
+            last_t, last_d = t, dd
+        return eps
+
     rows = []
     for mod, m in sorted(module_stats.items(), key=lambda kv: kv[1]["blocked"], reverse=True):
         decided = m["saved"] + m["missed"]
+        eff = _eff_n(mod)
+        eff_decided = max(1, round(decided * eff / m["blocked"])) if m["blocked"] else 0
+        solo_dec = m.get("solo_missed", 0) + m.get("solo_saved", 0)
         rows.append({
             "module": mod, **m,
             "saved_pct": round(m["saved"] / decided * 100, 0) if decided else None,
             "missed_pct": round(m["missed"] / decided * 100, 0) if decided else None,
             "missed_ci95": _wilson95(m["missed"], decided),
+            "effective_samples": eff,
+            "missed_ci95_eff": _wilson95(round(m["missed"] * eff / m["blocked"]) if m["blocked"] else 0,
+                                         eff_decided) if decided else None,
+            "solo_missed_pct": round(m["solo_missed"] / solo_dec * 100, 0) if solo_dec else None,
             "status": "LEARNING" if m["blocked"] < MIN_SAMPLES else "MEASURED",
         })
     by_regime = []
@@ -204,10 +247,37 @@ def report() -> dict[str, Any]:
         by_regime.append({"module": mod, "regime": reg, **m,
                           "saved_pct": round(m["saved"] / decided * 100, 0) if decided else None,
                           "status": "LEARNING" if m["blocked"] < MIN_SAMPLES else "MEASURED"})
+    # RC1.7 — Proposal #001 Readiness Score (one glance: when does it reach review?)
+    _REGIME_BUCKETS = {
+        "TREND_DOWN": lambda s: s.get("regime") in ("TRENDING", "HIGH_MOMENTUM") and s.get("direction") == "BEAR",
+        "TREND_UP":   lambda s: s.get("regime") in ("TRENDING", "HIGH_MOMENTUM") and s.get("direction") == "BULL",
+        "RANGE":      lambda s: s.get("regime") in ("RANGE_BOUND", "LOW_MOMENTUM"),
+        "EXPIRY":     lambda s: s.get("regime") == "EXPIRY_PINNING",
+        "HIGH_VOL":   lambda s: s.get("regime") == "VOLATILE",
+    }
+    _gk = [s for s in _settled if "Greeks" in (s.get("blockers") or set())
+           and s.get("verdict") in ("MISSED_WINNER", "CAPITAL_SAVED")]
+    _covered = {b: sum(1 for s in _gk if f(s)) for b, f in _REGIME_BUCKETS.items()}
+    _regimes_met = sum(1 for v in _covered.values() if v >= 10)
+    _gk_row = next((r for r in rows if r["module"] == "Greeks"), None)
+    _eff_ok = bool(_gk_row and _gk_row["effective_samples"] >= 30)
+    proposal_readiness = {
+        "proposal": "#001 Greeks Gate Softening",
+        "regimes": f"{_regimes_met} / 5",
+        "regime_detail": _covered,
+        "effective_samples": _gk_row["effective_samples"] if _gk_row else 0,
+        "ci": "READY" if _eff_ok else "PENDING (need ≥30 effective samples)",
+        "bias_check": "PENDING (event-day bucket separation in weekly digest)",
+        "status": "COLLECTING DATA",
+        "readiness_pct": round((_regimes_met / 5 * 60) + (30 if _eff_ok else
+                               min(30, (_gk_row["effective_samples"] if _gk_row else 0))) + 0, 0),
+    }
+
     return {
         "ready": True, **total,
         "gate_efficiency": rows,
         "by_regime": by_regime,
+        "proposal_readiness": proposal_readiness,
         "recent": [{"verdict": s["verdict"], "direction": s["direction"],
                     "points": s["points"], "confidence": s.get("confidence"),
                     "reason": s.get("verdict_reason"), "regime": s.get("regime"),
