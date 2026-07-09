@@ -12,6 +12,11 @@ Nothing skips a stage. Owner approval is the only path to DEPLOYED.*
 
 ### Evidence so far
 122 settled verdicts · Greeks blocked 115 · Missed 87% / Saved 13%.
+**Updated 2026-07-10 (Incident #001 investigation, 572 settled):** Greeks
+blocked 283 · saved 44% / missed 56% · **solo-blocker missed 83%** (87/106)
+· effective n=22 · missed CI95(eff) [36.5, 75.5]. The direction of the
+original finding persists at 4.7× the sample. Approval conditions (regime
+spread, by-regime table, event-day separation) still unmet — see INCIDENTS.md.
 
 ### Why NOT approved yet (owner's reasoning — recorded verbatim in spirit)
 Single **High-Momentum Crash Day** dominates the sample → decision-bias risk:
@@ -162,6 +167,22 @@ as RC1.16.1–.3. RC1.17 Performance Audit remains the next fresh-session item
 3. **#1/#6/#9** (display unification — belongs with the display-truth queue)
 4. Weight integration LAST, only via the Phase-22 approval pipeline once the
    ledger shows measured advantage across regimes (Rule 9).
+
+---
+
+## RESEARCH QUESTION #007 — Premium-AVOID regime-conditionality
+
+**Status: 🔬 RESEARCH** *(filed from Incident #001, 2026-07-09)*
+
+The premium forecast is a theta-decay (pinning) model. On the expiry-day
+breakdown it predicted −13%/hour decay while the premium rose +240% — and
+"Premium: AVOID" was the persistent final gate blocker on the day's biggest
+winner. But the ledger says the gate is GOOD overall (81% saved on 420
+blocks). So the question is narrow: **should a confirmed gamma-wall break
+with volume flip the forecast from decay-model to expansion-model?**
+Evidence needed per Rule 9: collect wall-break episodes across multiple
+expiry days; measure decay-model error in break vs pin outcomes. No change
+until then.
 
 ---
 
