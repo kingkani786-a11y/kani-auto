@@ -38,11 +38,27 @@ post-close inversion case now SL ₹18.38 < entry, T3 ₹512.86 ≈ intrinsic;
 7-day normal-regime case unchanged in character. Position sizing inherits the
 fix automatically (same premium fields).
 
+### Hardening (same day, owner-requested non-expiry verification)
+Owner asked for verification at non-expiry times too. The 30-day-tenor test
+caught a second edge: with r=risk_free_rate the BS floor can sit ABOVE the
+live premium (index carry ≠ risk-free assumption), pegging the IV solver and
+re-inverting the SL. Fixed with a fit-check chain: solve at r=rf → verify the
+model reproduces the market entry → else re-solve at r=0 (spot-as-forward) →
+else intrinsic+time-value fallback whose SL==entry degeneracy the sizing
+guard correctly refuses to size. Full grid green: solver round-trip exact
+across 6 tenors (3h→30d) × 4 vols × 3 moneyness × both sides; ordered &
+intrinsic-bounded plans for 1/2/7/30-day CE+PE including carry-mismatch
+quotes; expiry-day cases regression-checked unchanged.
+
 ### Also
 Owner's Fibonacci/data-derived underlying-target idea recorded as
 PROPOSAL #003 (RESEARCH) in PROPOSALS.md — Trading-Doctrine change, needs
-Rule 9 backtest evidence first. Underlying targets today remain
-1.5/2.5/4.0×ATR (`signal_engine.py`).
+Rule 9 backtest evidence first (owner's 10-metric set recorded there).
+Underlying targets today remain 1.5/2.5/4.0×ATR (`signal_engine.py`).
+Owner's six premium-engine enhancement candidates recorded as PROPOSAL #004
+with an honest inventory: Gamma Wall Detector already exists (Gamma Shield);
+Auto Premium Calibration is effectively delivered by this fix (IV re-solved
+from the live premium every option tick).
 
 ---
 

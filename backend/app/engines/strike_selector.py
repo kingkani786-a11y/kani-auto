@@ -63,12 +63,31 @@ def select_top(
         # ₹57.75→₹142.14 (SL above entry on a bought option), and a 62-lot size
         # derived from an ₹8 risk that was really ~₹55. A parabola is only
         # locally valid; a reprice cannot cross intrinsic or invert the P&L sign.
-        _iv_mkt = implied_vol(prem, spot, row["strike"], t, settings.risk_free_rate, is_call) \
-            or (g.iv if g.iv > 0 else 0.10)
+        # Owner-requested non-expiry verification caught a second edge: with
+        # r=risk_free_rate the BS floor can sit ABOVE the live premium on far
+        # expiries (index carry ≠ risk-free assumption), pegging the IV solver
+        # and inverting the P&L sign again. So: solve at r=rf; if the model
+        # can't reproduce the market entry, re-solve at r=0 (spot-as-forward,
+        # matching how index options actually carry); only if both fail
+        # (genuinely garbage quote) fall back to intrinsic + current time
+        # value, whose SL==entry degeneracy the position-sizing entry>SL guard
+        # correctly refuses to size.
+        _k = row["strike"]
 
-        def prem_at(under_px: float, _k=row["strike"], _iv=_iv_mkt, _t=t) -> float:
-            px = bs_price(under_px, _k, _t, settings.risk_free_rate, _iv, is_call)
+        def _fit(r_: float) -> tuple[float, float, bool]:
+            iv_ = implied_vol(prem, spot, _k, t, r_, is_call) or (g.iv if g.iv > 0 else 0.10)
+            ok_ = abs(bs_price(spot, _k, t, r_, iv_, is_call) - prem) <= max(0.5, prem * 0.05)
+            return iv_, r_, ok_
+
+        _iv_mkt, _r_mkt, _ok = _fit(settings.risk_free_rate)
+        if not _ok:
+            _iv_mkt, _r_mkt, _ok = _fit(0.0)
+        _intr_spot = max(0.0, (spot - _k) if is_call else (_k - spot))
+        _tv_now = max(prem - _intr_spot, 0.0)
+
+        def prem_at(under_px: float, _k=_k, _iv=_iv_mkt, _r=_r_mkt, _t=t, _ok=_ok) -> float:
             intrinsic = max(0.0, (under_px - _k) if is_call else (_k - under_px))
+            px = bs_price(under_px, _k, _t, _r, _iv, is_call) if _ok else intrinsic + _tv_now
             return max(round(px, 2), round(intrinsic, 2), 0.05)
 
         out.append({

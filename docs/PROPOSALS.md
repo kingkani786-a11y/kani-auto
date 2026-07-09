@@ -76,13 +76,37 @@ split in two on investigation:
 ### Rule 9 evidence required before any code change
 Backtestable from data we already store (candles + tracked signals):
 for each historical signal, compute (a) current ATR targets, (b) Fib-based
-targets from the active swing. Measure per method: T1-touch rate within the
-tracked window, median MFE capture, SL-first rate. Fib wins only if it
-touch-rates ≥ ATR across ≥3 regimes (trend/range/expiry) with n ≥ 30 each.
+targets from the active swing. Fib wins only if it beats ATR across ≥3
+regimes (trend/range/expiry) with n ≥ 30 each.
+
+**Backtest metric set (owner-specified, 2026-07-09 — all ten required):**
+Target Hit % · Median Holding Time · MFE · MAE · SL-First % · RR Realized ·
+Win Rate · Expectancy · Profit Factor · Average Premium Captured.
+"இவை இல்லாமல் target methodology-ஐ மாற்றக்கூடாது."
 
 ### Approval path
 RESEARCH (this entry) → backtest table presented → owner approval → deploy
 behind the existing target fields (no UI change needed — same T1/T2/T3 slots).
+
+---
+
+## PROPOSAL #004 — Premium-engine enhancement suite (owner list, 2026-07-09)
+
+**Status: 🔬 RESEARCH** — six candidates named after the RC1.16.1 review.
+Honest inventory against existing engines first (no duplicated calculations):
+
+| # | Candidate | Existing coverage | Genuinely new part |
+|---|---|---|---|
+| 1 | Premium Confidence Score | — | New: composite confidence on each premium projection; warn < 70% |
+| 2 | IV Sanity Filter | `data_quality` greeks-stream CORRUPT check; `chain_sane()` parity gate | New: per-strike IV outlier rejection before the solver |
+| 3 | Market Microstructure Adjustment | spread already scored in strike selection | New: order-book imbalance input (needs DOM depth feed — check rate budget) |
+| 4 | Gamma Wall Detector | **Already exists** — Gamma Shield (wall distance, pinning, dealer-hedging warnings) | Possibly: premium-projection coupling only |
+| 5 | Liquidity Impact Factor | spread_pct in selection score; order-flow layer | New: slippage estimate on the plan's own size |
+| 6 | Auto Premium Calibration (30–60s IV recalibration) | **Effectively delivered by RC1.16.1** — implied vol is re-solved from the live premium on every option-loop tick | Nothing left to build |
+
+Next step when taken up: spec #1 (Premium Confidence Score) first — it wraps
+the others as inputs. Each passes the LTS bar only via ↓risk (projection
+honesty), not feature count.
 
 ---
 
