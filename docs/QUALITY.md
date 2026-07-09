@@ -28,6 +28,35 @@ production-ready.
 Verdicts carry their own confidence (touch-based 88–97%; timeout 54%).
 Buckets are labelled **LEARNING** below 30 samples, **MEASURED** after.
 
+## UI Consistency Audit Checklist (owner's standing RC validation criteria)
+
+Applied to every card, on every RC cycle:
+- [ ] **One vocabulary per state** — 🟢 ACTIVE / 🟡 PAUSED / 🔵 WAITING / 🔴 ERROR.
+      No card may use "Idle", "Stopped", "Frozen", "Inactive", "Sleeping" etc.
+      for a state another card already calls PAUSED — unless the underlying
+      state is genuinely different (e.g. Safe Mode / Kill Switch describe a
+      triggered protective event, not a calm expected pause, and keep their
+      own distinct language on purpose).
+- [ ] **Every number carries an explicit scope** — Today / This Week / This
+      Month / All-Time / Rolling-N. A metric with no scope word is not
+      RC-clean, even if the card title implies one.
+- [ ] **Market-Closed UI = calm mode**, **Market-Open UI = live mode** — a
+      closed market must never render as a red/error state.
+- [ ] **No test data reaches the UI** — verification scripts must not persist
+      to production Supabase; if they must, clean up immediately (RC1.11/1.12
+      incident: synthetic verdicts leaked into the evidence ledger).
+- [ ] **No placeholder text in production** — every string a user can see
+      must come from real computed state, not a hardcoded example.
+- [ ] **No contradictory cards** — two cards must never assert different
+      facts about the identical state (RC1.11: Self-Check said paused,
+      Feed Diagnostics said failing, for the same market-closed condition).
+
+Status: **pass 1 done** (RC1.13 — fixed the violations visible in dumps
+reviewed together this session: DailyReview vocabulary + MissedWinners/
+DailyReview/GlobalStrip scope labels). **A full sweep of every remaining
+card is a separate, later RC-cycle item** — not yet done, tracked here so it
+isn't lost.
+
 ## Statistical discipline
 
 Rule 9 applies: proposals need repetition across samples AND regimes.

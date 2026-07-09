@@ -4,6 +4,31 @@
 
 ---
 
+## RC1.13 — 2026-07-09 — UI Consistency Audit (pass 1)
+
+### Purpose
+Owner-ordered standing RC validation checklist (recorded in docs/QUALITY.md):
+one vocabulary per state, explicit scope on every number, calm/live mode,
+no test data or placeholders in production, no contradictory cards.
+
+### Fixed (violations visible in dumps reviewed this session)
+- DailyReview `ai_status`: "Idle — ...sleeping" → "PAUSED — ..." (now matches
+  Self-Check / Feed Diagnostics wording for the identical market-closed state)
+- Scope labels added: MissedWinners (Today ×4), DailyReview (Today ×5),
+  GlobalStrip Tomorrow-Bias Accuracy (rolling, last 30)
+
+### Deliberately left alone
+SafeModeBanner's "FROZEN" and Kill Switch's "ACTIVE/FORCE WAIT" — these
+describe a genuinely different state (a triggered protective event) from a
+calm expected market-closed pause, so unifying the wording would blur a
+distinction RC1.11 exists to preserve.
+
+### Backlog
+Full sweep of every remaining card is a separate future RC-cycle item —
+checklist lives in docs/QUALITY.md so it isn't lost.
+
+---
+
 ## RC1.11 / RC1.12 — 2026-07-09 — Market-Closed Consistency Bug Fixes
 
 ### Purpose
