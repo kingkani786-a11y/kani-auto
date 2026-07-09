@@ -50,7 +50,9 @@ def daily_review() -> dict[str, Any]:
         "worst": week.get("worst"),
         "last_strike": (card.get("strike") or strike.get("strike")),
         "last_strike_type": (card.get("type") or strike.get("type")),
-        "ai_status": "Idle — feeds healthy, scanner sleeping, auto-resume at market open",
+        # RC1.13 — vocabulary standardized to PAUSED, the same word AI
+        # Self-Check and Feed Diagnostics use for this identical market-closed state
+        "ai_status": "PAUSED — feeds healthy, scanner resumes automatically at market open",
         "note": ("Session review." if settled else
                  "No settled trades yet — review populates after live sessions."),
     }

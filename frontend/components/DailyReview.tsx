@@ -36,12 +36,13 @@ export function DailyReview() {
     <div className="space-y-3">
       <section className="panel">
         <div className="panel-title">Daily Review — session summary</div>
+        {/* RC1.13 — every stat carries its own scope word, not just the card title */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-          <Stat label="Signals" value={d.signals ?? 0} />
-          <Stat label="Settled" value={d.settled ?? 0} />
-          <Stat label="Win Rate" value={pct(d.win_rate)} tone={(d.win_rate ?? 0) >= 55 ? "text-terminal-bull" : "text-terminal-warn"} />
-          <Stat label="Net Points" value={d.net_points ?? 0} tone={(d.net_points ?? 0) >= 0 ? "text-terminal-bull" : "text-terminal-bear"} />
-          <Stat label="Avg MFE" value={d.avg_mfe_pts != null ? `${d.avg_mfe_pts} pts` : "—"} tone="text-terminal-bull" />
+          <Stat label="Signals (Today)" value={d.signals ?? 0} />
+          <Stat label="Settled (Today)" value={d.settled ?? 0} />
+          <Stat label="Win Rate (Today)" value={pct(d.win_rate)} tone={(d.win_rate ?? 0) >= 55 ? "text-terminal-bull" : "text-terminal-warn"} />
+          <Stat label="Net Points (Today)" value={d.net_points ?? 0} tone={(d.net_points ?? 0) >= 0 ? "text-terminal-bull" : "text-terminal-bear"} />
+          <Stat label="Avg MFE (Today)" value={d.avg_mfe_pts != null ? `${d.avg_mfe_pts} pts` : "—"} tone="text-terminal-bull" />
           <Stat label="Last Strike" value={d.last_strike ? `${d.last_strike} ${d.last_strike_type ?? ""}` : "—"} />
         </div>
         {(d.best || d.worst) && (

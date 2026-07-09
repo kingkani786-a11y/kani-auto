@@ -87,7 +87,7 @@ export function GlobalStrip() {
 
       {d.prediction_accuracy?.accuracy_pct != null && (
         <div className="mt-2 pt-2 border-t border-terminal-border/50 text-[11px]">
-          <span className="stat-label mr-2">Tomorrow-Bias Accuracy</span>
+          <span className="stat-label mr-2">Tomorrow-Bias Accuracy (rolling, last 30)</span>
           <span className="font-mono font-bold">{d.prediction_accuracy.accuracy_pct}%</span>
           <span className="text-terminal-muted"> ({d.prediction_accuracy.correct}/{d.prediction_accuracy.scored} directional calls)</span>
         </div>
