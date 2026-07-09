@@ -4,6 +4,44 @@
 
 ---
 
+## RC1.16.7 — 2026-07-10 — MODE Phase A: Move Detection + Tiered Alerts
+
+### Purpose
+Owner (PROPOSAL #010, post-Incident-#001): "மார்க்கெட் நகர ஆரம்பித்த முதல்
+10–20 பாயிண்ட்டிலேயே Alert வேண்டும்." Opportunity Layer, strictly separate
+from the Decision Layer.
+
+### Added
+- `services/move_detector.py`: tracks premium per watched strike (strike
+  queue, top 5) against a 10-min rolling low; tiered alerts +10 WATCH /
+  +20 STRONG / +30 MOMENTUM / +50 BREAKOUT / +100 EXPANSION with
+  acceleration flag (last-60s vs prior-60s rise). Alerts go through the
+  existing alert engine (WS + Telegram + email when configured).
+- Guard-rails per the proposal: 5% noise floor (₹10 on a ₹600 premium is
+  not a move), once-per-episode tier dedup (episode closes on give-back or
+  15-min quiet), 4-alerts/min hard cap, every alert ledgered for the
+  Phase-B miss-join. IST-pinned timestamps (single time source).
+- `GET /api/move-alerts` — fired-alert ledger + tier counts.
+- Wired into the option tick beside the accuracy tracker — zero new broker
+  calls.
+
+### Doctrine
+Alert-only: the engine cannot force, soften, or bypass the gate. Alert body
+itself says "the entry gate is unchanged and decides separately."
+
+### Verified
+Owner's own incident series (75→92→108→132→170) fires WATCH→STRONG→
+MOMENTUM→BREAKOUT exactly once each, EXPANSION on crossing +100; no
+duplicate fires on flat re-ticks; +2% move on an expensive premium
+correctly suppressed; endpoint live.
+
+### Also
+Owner's AI Voice Copilot spec recorded as PROPOSAL #011 (voices only what
+the decision source already published — One Source law). Build deferred:
+depends on Phase B.
+
+---
+
 ## RC1.16.6 — 2026-07-10 — Blocker Explainability (Incident #001 follow-up)
 
 ### Purpose

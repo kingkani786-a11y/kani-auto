@@ -254,10 +254,39 @@ broker calls) → Phase B: #2 velocity radar + #5 miss-join → Phase C: #4 voic
 + #8 auto-incident → #3/#6 display consolidation folds into the standing
 display-truth queue.
 
+**Phase A: ✅ DEPLOYED 2026-07-10** (`services/move_detector.py`, wired into
+the option tick on strike-queue strikes, `GET /api/move-alerts`; tiered
+alerts via the existing alert engine → WS + Telegram; acceleration flag;
+5% noise floor; once-per-episode dedup; 4-alerts/min hard cap; every alert
+ledgered for the Phase-B miss-join).
+
 ### Guard-rails
 Alert-only engine; hard cap on alert rate (no siren fatigue); every alert
 logged so the Miss Detector can also measure FALSE alerts (alert fired, move
 fizzled) — both error directions ledgered from day one.
+
+---
+
+## PROPOSAL #011 — AI Voice Copilot Engine (owner spec, 2026-07-10)
+
+**Status: 🔬 RESEARCH** — MODE Phase C's voice item, expanded by the owner
+into a full copilot: live market narration (Tamil + English mix), tiered
+urgency voices, trade-lifecycle commentary (entry/hold/partial/exit), and
+Smart Silence (speak only when something changed — quiet market = quiet AI).
+
+**Owner-locked law (One State → One Source → One Truth → Many Consumers):**
+the Voice Engine NEVER decides anything. It voices exactly what the Decision
+Layer / Opportunity Layer already published — Dashboard, Voice, Mobile,
+Telegram all read the same decision source.
+
+Owner's spec highlights (recorded): modes OFF / ALERTS ONLY / MARKET
+COMMENTARY / FULL COPILOT · speed 0.75–1.5x · language Tamil / English /
+Mixed / Numbers-English · frequency Important-only → Continuous · hotkey M
+mute · Emergency voice for EXPANSION-tier alerts · scheduled narrator
+summaries. Implementation candidates: browser SpeechSynthesis (zero-cost,
+offline, Tamil support device-dependent) vs cloud TTS (better Tamil, cost +
+latency + network dependency) — decide at build time. Depends on: MODE
+Phase A alerts (done), Phase B miss-join (pending).
 
 ---
 

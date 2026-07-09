@@ -369,6 +369,15 @@ class MarketService:
                                 premium_accuracy.note_error()
                             except Exception:
                                 pass
+                        # MODE Phase A — opportunity-layer move detection on
+                        # the watched strikes (alert-only; gate untouched)
+                        try:
+                            from . import move_detector
+                            await move_detector.scan(
+                                inst.symbol, spot, analytics.get("chain"),
+                                (state.decision or {}).get("strike_queue"))
+                        except Exception:
+                            log.exception("move detector failed")
             except MarketClosedError:
                 raise
             except Exception as e:

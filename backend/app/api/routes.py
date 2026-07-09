@@ -779,6 +779,13 @@ async def premium_accuracy_report():
     return premium_accuracy.report()
 
 
+@router.get("/move-alerts")
+async def move_alerts_report():
+    """MODE Phase A — opportunity-layer move-alert ledger (PROPOSAL #010)."""
+    from ..services import move_detector
+    return move_detector.report()
+
+
 @router.get("/historical-learning")
 async def historical_learning_report():
     """V31 MODE-1 — historical KNOWLEDGE snapshot (separate from live validation)."""
