@@ -217,6 +217,50 @@ this adds the five-condition tag so the specific pattern is separable.)
 
 ---
 
+## PROPOSAL #010 — Market Opportunity Detection Engine (MODE)
+
+**Status: 🔬 RESEARCH — owner-authored spec, 2026-07-10** *(owner called it
+"Research Proposal #007"; renumbered — #007–#009 already taken by the
+Incident-#001 research questions)*
+
+### Owner's core requirement (recorded)
+"மார்க்கெட் நகர ஆரம்பித்த முதல் 10–20 பாயிண்ட்டிலேயே Alert வேண்டும் —
+100–300 பாயிண்ட் move முடிந்த பிறகு அல்ல." No system catches every move;
+the goal is fast detection + loud alerting, honestly bounded.
+
+### Architectural law (owner-locked)
+**Two separate layers.** Decision Layer (WAIT/PREPARATION/READY/ENTRY —
+existing gate, unchanged, sole authority on entries) ∥ Opportunity Layer
+(detect · explain · alert — may scream "EXPLODING — WATCH NOW" while the
+Decision Layer still says WAIT). MODE must NEVER force, soften, or bypass
+an entry decision.
+
+### Owner's 8 items — honest inventory
+
+| # | Item | Exists today | New |
+|---|---|---|---|
+| 1 | Move Detection (premium +10/20/30/50/100 pt tiered alerts) ⭐ | alerts service (SETUP/SL types, WS broadcast); strike-watch premium ticks already in memory | **Core new engine** — per-watched-strike premium delta tracking + tiered alerts |
+| 2 | Momentum Radar (premium/delta/gamma/volume velocity) | scalp radar velocity fragments | **New** — velocity series on chain snapshots (no new broker calls — reuse option-tick data) |
+| 3 | Entry Countdown (prob + missing + trigger + ETA) | EXISTS — "AI WILL BUY WHEN +pts", "Missing to arm", readiness %, trigger dist, ETA | Display consolidation only |
+| 4 | Voice alert | WS alert channel exists | **New frontend** — speech/audio on alert tiers |
+| 5 | Miss Detector (auto-ask "did AI alert?") | missed_winner logs every missed move live with blocker attribution | **New** — join: move ≥ threshold AND no MODE alert fired ⇒ auto-flag |
+| 6 | State progress bar | EXISTS (PREPARING→READY→ENTRY→RUNNING→EXIT + maturity stages) | Display only |
+| 7 | Premium Explosion Detector (acceleration) | — | Same engine as #1/#2 (acceleration term) |
+| 8 | Missed-Opportunity Auto Audit (auto Incident #00N) | verdicts + missed_winner data exist; INCIDENTS.md manual | **New** — auto-draft incident entry when move ≥ 100 pts with no alert |
+
+### Build order when approved
+Phase A: #1+#7 (move/explosion detection + tiered alerts — backend, zero new
+broker calls) → Phase B: #2 velocity radar + #5 miss-join → Phase C: #4 voice
++ #8 auto-incident → #3/#6 display consolidation folds into the standing
+display-truth queue.
+
+### Guard-rails
+Alert-only engine; hard cap on alert rate (no siren fatigue); every alert
+logged so the Miss Detector can also measure FALSE alerts (alert fired, move
+fizzled) — both error directions ledgered from day one.
+
+---
+
 ## DOCTRINE ADDITION — Global Context is never a hard gate
 
 **Status: ✅ LOCKED (owner, 2026-07-08)**
