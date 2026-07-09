@@ -58,3 +58,39 @@ counts — some metrics stabilise at 300 samples, some don't at 1000.
 - Calibration report → Report Card / decision matrix calibration block
 - Opportunity Accuracy → `GET /api/opportunities` → `board_quality`
 - Monthly Evolution Report (Phase 4) → Evolution Center (proposals → approval queue)
+
+## Planned — RC1.17 Performance Consistency Audit (owner-scoped 2026-07-09, not started)
+
+Owner-ordered next audit cycle, deliberately scoped for a **fresh session**
+(clean RC history, its own log/report/release-notes entry — not to be
+started mid-session). An investigation only — like RC1.16, no optimization
+is applied until Evidence → Proposal → Approval.
+
+**Phase 1 — Duplicate Broker/API Calls (highest priority).** Map how many
+times each API is actually called per AI cycle — Option Chain, Futures,
+Spot, VIX, OI, Greeks — across Scanner / Strike Selector / Gate /
+Opportunity Engine. Output as a matrix: consumer ✓/✗ per data type, current
+call count vs. required count, duplicate YES/NO.
+
+**Phase 2 — Cache Consistency.** For each data type, is it fetched once and
+shared, or does each module (Scanner → Opportunity → Strike → Dashboard)
+fetch its own copy independently? Target pattern: **One Fetch → Many
+Consumers** (the same Rule 10 shape already applied to Market State/Time in
+RC1.15/RC1.16).
+
+**Phase 3 — WebSocket Payload Audit.** Per broadcast cycle: payload bytes,
+compression, duplicate JSON keys across channels, unused fields the
+frontend never reads.
+
+**Phase 4 — Scanner / Opportunity Overlap.** Does `services/scanner.py`
+L1 and `services/opportunity.py` L2 recompute the same thing on the same
+candidates? If so, share the result instead of recomputing.
+
+**Phase 5 — Hot Path Timing.** Profile one full AI cycle stage-by-stage
+(market fetch → indicators → Greeks → scoring → dashboard broadcast) to find
+the actual bottleneck, not a guessed one.
+
+**Deliverables** (report only, no code changes until approved): Duplicate
+API Matrix · Cache Utilization Report · WebSocket Payload Report · Hot Path
+Timing Report · Reuse Opportunity Report. Then, per standing doctrine:
+Evidence → Proposal → Owner Approval → Optimization.
