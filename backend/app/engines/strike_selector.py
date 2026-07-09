@@ -6,25 +6,11 @@ underlying entry/SL/targets into PREMIUM levels via delta (+half-gamma).
 """
 from __future__ import annotations
 
-import datetime
 from typing import Any
 
 from ..config import settings
-from ..core.clock import IST
+from ..core.clock import years_to_expiry as _years
 from .greeks import compute_greeks
-
-# RC1.16 Time Consistency Audit — was naive datetime.now() (server-OS-timezone
-# dependent); now pulls the app's single time source instead of building its
-# own timezone object.
-
-
-def _years(expiry: str) -> float:
-    try:
-        exp = datetime.datetime.fromisoformat(expiry).replace(
-            hour=15, minute=30, tzinfo=IST)
-        return max((exp - datetime.datetime.now(IST)).total_seconds() / (365 * 86400), 1e-5)
-    except ValueError:
-        return 7 / 365
 
 
 def select_top(

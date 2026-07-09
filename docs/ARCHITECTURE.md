@@ -112,3 +112,18 @@ fixed to share `analytics.py`'s calendar-day definition via
   (RC1.15) with a push-on-change model once Production Optimization begins.
   The current polling interval is sufficient for RC1; do not implement this
   early.
+- **Exchange Calendar (RC1.16 follow-up, owner-raised)**: `is_market_open()`
+  today only knows the daily IST time window (weekday check + hours) — it
+  has no concept of NSE/BSE trading holidays, Muhurat trading, or ad-hoc
+  special/half-day sessions. Needs a holiday-calendar data source (static
+  yearly list at minimum) before this can be built; not started, since no
+  such dataset exists in the codebase yet. Proposed hierarchy for Production:
+  `Trading Clock → Exchange Calendar → Market Open`.
+
+### Resolved by RC1.16 follow-up (same day)
+- **Expiry Time Audit (owner-raised)**: `_years_to_expiry`/`_years` were two
+  independently-duplicated Black-Scholes T functions (Expiry Date + 15:30
+  IST close + current time → years remaining). Centralized into
+  `core.clock.years_to_expiry()` — `index_analytics._years_to_expiry` and
+  `strike_selector._years` are now the literal same function object, not two
+  copies that happen to agree.

@@ -33,3 +33,18 @@ def midnight_today_ts() -> float:
     definition of 'Today' for daily-reset windows (Rule 2: one metric, one
     meaning). Distinct from a rolling 24h window on purpose."""
     return now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+
+def years_to_expiry(expiry: str, close_hour: int = 15, close_minute: int = 30) -> float:
+    """The one Expiry Clock: Expiry Date + exchange close time + current time
+    → years remaining, for every Black-Scholes Greeks/IV calculation.
+
+    Was duplicated near-identically in engines/index_analytics.py and
+    engines/strike_selector.py (RC1.16 follow-up) — same formula, two copies,
+    one already-fixed-for-timezone but still two places to drift apart."""
+    try:
+        exp = datetime.datetime.fromisoformat(expiry).replace(
+            hour=close_hour, minute=close_minute, second=0, microsecond=0, tzinfo=IST)
+        return max((exp - now()).total_seconds() / (365.0 * 86400.0), 1e-5)
+    except ValueError:
+        return 7 / 365
