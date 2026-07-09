@@ -59,12 +59,23 @@ export default function StrategistPage() {
         {s.next_action && (
           <div className="text-sm"><span className="text-terminal-muted">Next: </span>{s.next_action}</div>
         )}
-        {Array.isArray(s.first_cycle_will) && s.first_cycle_will.length > 0 && (
+        {Array.isArray(s.pipeline) && s.pipeline.length > 0 && (
           <div>
-            <div className="stat-label">First AI cycle will</div>
-            <ul className="text-xs text-terminal-muted mt-1 space-y-0.5">
-              {s.first_cycle_will.map((step: string, i: number) => <li key={i}>• {step}</li>)}
+            <div className="stat-label">Pipeline</div>
+            <ul className="text-xs mt-1 space-y-0.5">
+              {s.pipeline.map((p: any, i: number) => (
+                <li key={i} className={
+                  p.state === "done" ? "text-terminal-bull" :
+                  p.state === "loading" ? "text-terminal-warn" : "text-terminal-muted"}>
+                  {p.state === "done" ? "✓" : p.state === "loading" ? "⟳" : "○"} {p.step}
+                </li>
+              ))}
             </ul>
+          </div>
+        )}
+        {Array.isArray(s.waiting_for) && s.waiting_for.length > 0 && (
+          <div className="text-xs text-terminal-muted">
+            <span className="stat-label">Waiting for </span>{s.waiting_for.join(" · ")}
           </div>
         )}
         {s.estimated && (

@@ -112,6 +112,21 @@ honesty), not feature count.
 
 ---
 
+## PROPOSAL #005 — Evidence Panel (per-recommendation explainability)
+
+**Status: 🔬 RESEARCH** *(owner request, 2026-07-10 — "எதிர்காலத்தில்
+சேர்க்க வேண்டிய ஒன்று")*
+
+Every AI recommendation should show which inputs it actually used
+(✓ Spot · ✓ Chain · ✗ Greeks unavailable …) plus a Decision Quality label
+(Complete / Partial). Foundation already exists: RC1.16.5's pipeline block
+derives per-input presence from real state, and `data_quality.report()`
+tracks per-stream health — this proposal is wiring that into every
+recommendation payload + a small UI panel. Display/explainability only;
+no market logic. Take up after the premium-accuracy data-collection phase.
+
+---
+
 ## DOCTRINE ADDITION — Global Context is never a hard gate
 
 **Status: ✅ LOCKED (owner, 2026-07-08)**

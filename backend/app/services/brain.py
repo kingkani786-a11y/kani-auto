@@ -124,23 +124,38 @@ def _status_brief() -> dict[str, Any]:
         why = "Connected and market open — waiting for the first AI cycle to complete."
         nxt = "First cycle is running now."
         eta = f"Within ~{settings.ai_interval}s (one AI cycle)."
+    # RC1.16.5 — pipeline stages from REAL state (owner: no percentages, no
+    # fabricated progress — each stage's status is simply whether that data
+    # actually exists in memory right now).
+    an = state.analytics or {}
+    stages = [
+        ("Broker connected", connected),
+        ("Spot + candles", bool(state.spot)),
+        ("Option chain", bool(an.get("chain"))),
+        ("OI analysis", bool(an.get("call_oi") or an.get("put_oi") or an.get("oi"))),
+        ("Greeks", bool(state.greeks)),
+        ("Confluence + gate", bool((state.intelligence or {}).get("layers"))),
+    ]
+    active = connected and open_
+    first_pending = next((s for s, done in stages if not done), None)
+    pipeline = [{"step": s,
+                 "state": ("done" if done else
+                           "loading" if active and s == first_pending else "pending")}
+                for s, done in stages]
+    waiting_for = [s for s, done in stages if not done]
+
     return {
         "ai_status": {
             "broker": "CONNECTED" if connected else "NOT CONNECTED",
             "market": ms["status"],
             "ist_time": ms["ist_time"],
             "data_quality": state.data_quality,
-            "ai_cycle": "WAITING FOR FIRST CYCLE" if connected and open_ else "PAUSED",
+            "ai_cycle": "WAITING FOR FIRST CYCLE" if active else "PAUSED",
         },
         "reason": why,
         "next_action": nxt,
-        "first_cycle_will": [
-            "Fetch spot + intraday candles",
-            "Download the option chain",
-            "Read futures OI + India VIX",
-            "Compute Greeks + institutional flow",
-            "Run the 12-layer confluence + execution gate",
-        ],
+        "pipeline": pipeline,
+        "waiting_for": waiting_for,
         "estimated": eta,
         "discipline": "No recommendation until real data exists — the gate never fires on assumptions.",
     }
@@ -258,11 +273,13 @@ def answer(question: str) -> dict[str, Any]:
     if not L:
         sb = _status_brief()
         st = sb["ai_status"]
+        _icon = {"done": "✓", "loading": "⟳", "pending": "○"}
         return {"answer": f"No live analysis yet — {sb['reason']}",
                 "points": [
                     f"Broker: {st['broker']} · Market: {st['market']} ({st['ist_time']} IST) · Data: {st['data_quality']}",
                     f"Next: {sb['next_action']}",
-                    f"First cycle will: {', '.join(sb['first_cycle_will'][:3])}…",
+                    "Pipeline: " + " · ".join(f"{_icon[p['state']]} {p['step']}" for p in sb["pipeline"]),
+                    f"Waiting for: {', '.join(sb['waiting_for'])}" if sb["waiting_for"] else "All inputs present",
                     f"ETA: {sb['estimated']}",
                     sb["discipline"],
                 ], "confidence": 0}

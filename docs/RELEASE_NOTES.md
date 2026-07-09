@@ -4,6 +4,27 @@
 
 ---
 
+## RC1.16.5 — 2026-07-10 — Real-State Pipeline + Waiting-For (fallback v2)
+
+### Purpose
+Owner's RC1.16.4 review: show WHICH inputs the AI is waiting for, and a
+pipeline view with real stage states instead of percentages.
+
+### Added (display/honesty only)
+- `_status_brief().pipeline`: six stages (broker → spot → chain → OI →
+  Greeks → confluence), each marked done/loading/pending purely from whether
+  that data actually exists in state right now — no fabricated progress.
+  "loading" only when connected + market open.
+- `waiting_for`: the exact missing mandatory inputs, listed by name.
+- Strategist page renders ✓/⟳/○ pipeline + waiting-for line; chat fallback
+  carries the same in points.
+- Owner's Evidence Panel idea (per-recommendation evidence used + decision
+  quality Complete/Partial) recorded as PROPOSAL #005 — deferred until after
+  the premium-accuracy data-collection phase per the standing no-new-features
+  directive.
+
+---
+
 ## RC1.16.4 — 2026-07-10 — Honest AI-Status Fallback (Brain + Chief Strategist)
 
 ### Purpose
