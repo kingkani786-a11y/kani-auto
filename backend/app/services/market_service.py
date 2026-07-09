@@ -86,6 +86,7 @@ class MarketService:
             self._option_loop(),
             self._ai_loop(),
             self._scanner_loop(),
+            self._status_loop(),
         ]
         state.tasks = [asyncio.create_task(l) for l in loops]
         # background: load the stock universe for search (non-blocking)
@@ -193,6 +194,23 @@ class MarketService:
             except Exception as e:
                 log.warning("scanner pass failed: %s", e)
             await asyncio.sleep(120)   # 2 min — scanner is non-urgent
+
+    async def _status_loop(self) -> None:
+        """RC1.15 — Source-of-Truth fix: state.status() (market_open,
+        market_status, countdown) was previously broadcast only on connect/
+        disconnect/symbol-switch. A tab left open across the 9:15 open/15:30
+        close transition never received a fresh copy — 'Live analysis
+        resumes automatically... no refresh needed' was a false promise.
+        Zero broker calls (pure local computation) — safe at a short interval,
+        runs regardless of market hours so the transition itself self-heals."""
+        while True:
+            await asyncio.sleep(20)
+            try:
+                await manager.broadcast("status", state.status())
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("status broadcast failed")
 
     async def _safe(self, fn) -> None:
         try:
