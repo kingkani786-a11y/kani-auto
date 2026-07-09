@@ -26,7 +26,8 @@ MIN_DATA_COMPLETENESS = 60
 def evaluate(data_quality: str, atr_pct: float, regime_score: float,
              outcomes: deque | list, broker_cooldown: bool,
              calibration_score: float | None = None,
-             data_completeness: float | None = None) -> dict[str, Any]:
+             data_completeness: float | None = None,
+             market_closed: bool = False) -> dict[str, Any]:
     reasons: list[str] = []
     caution: list[str] = []
     recovery: list[str] = []
@@ -58,7 +59,15 @@ def evaluate(data_quality: str, atr_pct: float, regime_score: float,
         caution.append(f"Abnormal volatility ({atr_pct:.2f}% ATR)")
     if regime_score < 35:
         caution.append("Low-confidence regime")
-    if data_quality == "DEGRADED":
+    # RC1.14 — data_quality.report()'s per-stream checks don't know about
+    # market hours: pre/post-market MISSING quotes/candles/chain routinely
+    # land it on "DEGRADED" even though nothing is actually wrong (same root
+    # cause RC1.11 fixed for Self-Check/Feed Diagnostics — those two already
+    # treat this as a calm pause; Kill Switch's soft caution did not, so it
+    # showed "CAUTION — Degraded data" while the header said "Data: GOOD").
+    # Hard veto conditions above (cooldown/POOR/completeness/calibration/
+    # losses) are untouched — this only silences the soft advisory label.
+    if data_quality == "DEGRADED" and not market_closed:
         caution.append("Degraded data")
 
     active = bool(reasons)

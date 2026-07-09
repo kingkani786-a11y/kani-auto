@@ -453,7 +453,8 @@ class MarketService:
                              float((state.intelligence.get("layers", {}).get("regime", {}) or {}).get("score") or 50),
                              memory._outcomes, DhanClient.stats().get("cooldown_active", False),
                              calibration_score=_cal,
-                             data_completeness=_dq_full.get("completeness"))
+                             data_completeness=_dq_full.get("completeness"),
+                             market_closed=not is_market_open(inst.market_type))
         state.kill_switch = ks
 
         packet = confluence.run(
