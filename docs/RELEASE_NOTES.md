@@ -4,6 +4,32 @@
 
 ---
 
+## RC1.16.6 — 2026-07-10 — Blocker Explainability (Incident #001 follow-up)
+
+### Purpose
+Owner's Incident #001 verdict: not a bug, a policy failure — and the
+biggest quality improvement is explainability. WAIT must read as "AI saw
+the setup; this rule refused — and here is that rule's track record", never
+a bare WAIT.
+
+### Added (research display only — gate logic untouched)
+- `verdicts.blocker_research()`: joins each active blocking reason to its
+  own ledger record via the same `_blocker_key` normalization the verdict
+  engine uses — saved% / missed% / solo-missed% / blocks / LEARNING-MEASURED
+  status, each row stamped "Research only — not approved for override."
+- `execution_gate.blocker_research` attached every cycle in market_service;
+  Execution Control Center renders it under "Blocked by" (e.g. "Greeks:
+  saved 44% / missed 56% · solo-missed 83% · 283 blocks · MEASURED ·
+  research only — no override").
+- RQ-008 (Leading Structure Detection) and RQ-009 (Expiry Breakout Regime
+  Detector / Research Override Candidate tag — entry stays blocked, pattern
+  gets measured) filed in PROPOSALS.md per the owner's three-way split.
+
+### Explicitly unchanged
+No gate softening, no adaptive override — owner: changes only after RQ data.
+
+---
+
 ## RC1.16.5 — 2026-07-10 — Real-State Pipeline + Waiting-For (fallback v2)
 
 ### Purpose

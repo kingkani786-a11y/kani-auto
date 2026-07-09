@@ -43,6 +43,26 @@ export function ExecutionControlCenter() {
         <div className="mb-2 text-xs">
           <span className="text-terminal-bear font-semibold">Blocked by:</span>{" "}
           <span className="text-gray-300">{eg.blocking_reasons.join(" · ")}</span>
+          {/* RC1.16.6 — Incident #001 explainability: each blocker's own
+              ledger track record — "AI saw it; the rule refused, and this is
+              that rule's history." Research display only, never an override. */}
+          {Array.isArray(eg.blocker_research) && eg.blocker_research.length > 0 && (
+            <div className="mt-1 space-y-0.5">
+              {eg.blocker_research.map((r: any, i: number) => (
+                <div key={i} className="text-[11px] text-terminal-muted">
+                  ▸ {r.module}:{" "}
+                  {r.status === "NO DATA YET" ? "no settled verdicts yet" : (
+                    <>
+                      saved {r.saved_pct}% / missed {r.missed_pct}%
+                      {r.solo_missed_pct != null && <> · solo-missed {r.solo_missed_pct}%</>}
+                      {" "}· {r.blocked} blocks · {r.status}
+                    </>
+                  )}
+                  <span className="text-terminal-accent"> · research only — no override</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {!eg.gate_passed && eg.blocking_reasons?.length === 0 && eg.waiting_on?.length > 0 && (

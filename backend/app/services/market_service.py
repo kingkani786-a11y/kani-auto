@@ -697,6 +697,11 @@ class MarketService:
             decision["execution_gate"] = execution_gate.evaluate(
                 packet["layers"], packet["signal"], decision, dq, ks,
                 state.safe_mode, state.market_dna)
+            # RC1.16.6 — Incident #001 explainability: each active blocker
+            # carries its own ledger track record (research display only)
+            from . import verdicts as _vd
+            decision["execution_gate"]["blocker_research"] = _vd.blocker_research(
+                decision["execution_gate"].get("blocking_reasons"))
         except Exception:
             log.exception("execution gate failed")
 

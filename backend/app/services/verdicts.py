@@ -63,6 +63,37 @@ def observe(decision: dict[str, Any], signal: dict[str, Any], spot: float,
     }
 
 
+def blocker_research(blocking_reasons: list[str] | None) -> list[dict[str, Any]]:
+    """RC1.16.6 — Incident #001 explainability (owner-ordered): attach each
+    active blocker's OWN ledger history so WAIT reads as 'AI saw the setup;
+    this rule refused, and here is that rule's track record' — instead of a
+    bare WAIT. Research display only; never an override, never a gate input."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for b in blocking_reasons or []:
+        k = _blocker_key(b)
+        if k in seen:
+            continue
+        seen.add(k)
+        m = module_stats.get(k)
+        decided = (m["saved"] + m["missed"]) if m else 0
+        if not m or not decided:
+            out.append({"blocker": b, "module": k, "status": "NO DATA YET",
+                        "note": "No settled verdicts for this blocker yet."})
+            continue
+        solo_dec = m.get("solo_missed", 0) + m.get("solo_saved", 0)
+        out.append({
+            "blocker": b, "module": k,
+            "blocked": m["blocked"],
+            "saved_pct": round(m["saved"] / decided * 100),
+            "missed_pct": round(m["missed"] / decided * 100),
+            "solo_missed_pct": round(m["solo_missed"] / solo_dec * 100) if solo_dec else None,
+            "status": "LEARNING" if m["blocked"] < MIN_SAMPLES else "MEASURED",
+            "note": "Research only — not approved for override.",
+        })
+    return out
+
+
 def _tick(spot: float) -> None:
     now = time.time()
     for k in list(_open):

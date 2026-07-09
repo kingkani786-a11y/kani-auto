@@ -186,6 +186,37 @@ until then.
 
 ---
 
+## RESEARCH QUESTION #008 — Leading Structure Detection
+
+**Status: 🔬 RESEARCH** *(filed from Incident #001 — owner: "Breakdown
+confirm ஆன பிறகல்ல, build ஆகும் நேரத்தில் detect செய்ய முடியுமா?")*
+
+Incident #001: mandatory Structure layer sat at neutral 50 through the
+14:28–14:58 buildup and printed BREAKDOWN 87 only at 15:34 — after the move.
+Question: can structure be detected while forming (e.g. lower-high
+compression + volume + failed-bounce sequence) instead of after confirmation?
+Evidence path: replay stored candles around historical BREAKOUT/BREAKDOWN
+day-types; measure how much earlier a leading detector fires and its
+false-positive cost. Owner's indicator rule applies (measured advantage or
+nothing).
+
+---
+
+## RESEARCH QUESTION #009 — Expiry Breakout Regime Detector (Research Override Candidate)
+
+**Status: 🔬 RESEARCH** *(filed from Incident #001 — owner's design)*
+
+Owner's condition chain: Expiry Day → Gamma-Wall Break → Volume Spike →
+OI Collapse → Premium Expansion. When ALL five fire while a hard blocker
+(e.g. Greeks) is active, the setup is tagged **RESEARCH OVERRIDE CANDIDATE**
+in the verdict ledger — **entry stays blocked**; the tag only measures how
+often this exact pattern would have won. Only after that ledger shows
+repeated advantage across expiry days does an override proposal go to the
+approval pipeline. (The verdict engine already shadows every blocked setup;
+this adds the five-condition tag so the specific pattern is separable.)
+
+---
+
 ## DOCTRINE ADDITION — Global Context is never a hard gate
 
 **Status: ✅ LOCKED (owner, 2026-07-08)**
