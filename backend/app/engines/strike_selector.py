@@ -109,6 +109,7 @@ def select_top(
                 "target2": underlying_levels["target2"],
                 "target3": underlying_levels["target3"],
             },
+            "expiry": expiry,
             "pricing": {
                 "iv_solved": round(_iv_mkt * 100, 2),
                 "iv_chain": round((float(row[f"{side}_iv"] or 0)), 2),

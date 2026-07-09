@@ -364,6 +364,11 @@ class MarketService:
                                                    analytics.get("chain"))
                         except Exception:
                             log.exception("premium accuracy check failed")
+                            try:
+                                from . import premium_accuracy
+                                premium_accuracy.note_error()
+                            except Exception:
+                                pass
             except MarketClosedError:
                 raise
             except Exception as e:
@@ -886,6 +891,11 @@ class MarketService:
                 premium_accuracy.observe(inst.symbol, _st, spot)
             except Exception:
                 log.exception("premium accuracy observe failed")
+                try:
+                    from . import premium_accuracy
+                    premium_accuracy.note_error()
+                except Exception:
+                    pass
             _pe, _psl = _st.get("premium_entry"), _st.get("premium_stop_loss")
             # V17 — sized whenever a strike plan exists (live OR preparing),
             # so the trader knows the quantity before the setup fires

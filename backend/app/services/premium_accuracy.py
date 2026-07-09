@@ -1,4 +1,4 @@
-"""RC1.16.2 — Premium-projection accuracy tracker (measurement only).
+"""RC1.16.2/.3 — Premium-projection accuracy tracker (measurement only).
 
 Owner-ordered live validation of the RC1.16.1 pricing engine: every cycle
 records the active strike plan's projections; when the underlying later
@@ -6,9 +6,10 @@ trades within tolerance of a projected level, the projection is scored
 against the live premium from the option chain. Read-only evidence — it
 never touches trading logic.
 
-Owner's pass criteria (docs/RELEASE_NOTES.md RC1.16.2):
-  entry reproduce error < 1% · T1/SL premium error < 5% ·
-  ordering SL < entry < T1 < T2 < T3 always · logged until n ≥ 20–30.
+Owner's production gate (docs/RC_STATUS.md):
+  ≥50 scored touches · samples on BOTH expiry and non-expiry days ·
+  entry reproduce median ≤ 1% · T1/SL median error ≤ 5% ·
+  ordering violations = 0 · fallback usage < 5% · tracker errors = 0.
 """
 from __future__ import annotations
 
@@ -17,20 +18,44 @@ import logging
 import time
 from typing import Any
 
+from ..core.clock import now as ist_now, today_str
+
 log = logging.getLogger("premium_accuracy")
 
 # active plan per "symbol:strike:type" — one live projection set at a time
 _plans: dict[str, dict[str, Any]] = {}
 # scored level touches (newest last), capped
-_hits: collections.deque = collections.deque(maxlen=200)
+_hits: collections.deque = collections.deque(maxlen=500)
 # rolling entry-reproduce checks (newest last), capped
-_entries: collections.deque = collections.deque(maxlen=200)
+_entries: collections.deque = collections.deque(maxlen=500)
 _ordering_violations: int = 0
 _observed: int = 0
+_errors: int = 0
 
 _LEVELS = ("stop_loss", "target1", "target2", "target3")
 _PREM_KEY = {"stop_loss": "premium_stop_loss", "target1": "premium_target1",
              "target2": "premium_target2", "target3": "premium_target3"}
+
+# Declared bands (not calibrated claims): session by IST hour, IV split at 15.
+_HIGH_IV = 15.0
+
+
+def _session_bucket() -> str:
+    h, m = ist_now().hour, ist_now().minute
+    hm = h * 60 + m
+    if hm < 11 * 60:
+        return "morning"
+    if hm < 14 * 60:
+        return "mid"
+    if hm <= 15 * 60 + 30:
+        return "closing"
+    return "evening"          # MCX evening session
+
+
+def note_error() -> None:
+    """Called by the wiring's exception handlers — production-gate criterion."""
+    global _errors
+    _errors += 1
 
 
 def observe(symbol: str, strike: dict[str, Any] | None, spot: float) -> None:
@@ -69,6 +94,11 @@ def observe(symbol: str, strike: dict[str, Any] | None, spot: float) -> None:
         "entry": e, "entry_spot": spot, "levels": dict(lv),
         "projected": {n: strike.get(_PREM_KEY[n]) for n in _LEVELS},
         "scored": set(), "ts": time.time(),
+        # regime context captured at plan time (owner: regime-wise breakdown)
+        "expiry_day": (strike.get("expiry") or "")[:10] == today_str(),
+        "session": _session_bucket(),
+        "iv_band": ("HIGH_IV" if (pr.get("iv_solved") or 0) >= _HIGH_IV else "LOW_IV"),
+        "fit_mode": pr.get("fit_mode"),
     }
     if len(_plans) > 50:          # symbol switches — drop the oldest
         _plans.pop(next(iter(_plans)))
@@ -105,10 +135,35 @@ def check(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 "rel_err_pct": round(err / actual * 100, 2),
                 "spot": round(spot, 2), "level_px": lvl,
                 "mins_since_plan": round((time.time() - plan["ts"]) / 60, 1),
+                "expiry_day": plan["expiry_day"], "session": plan["session"],
+                "iv_band": plan["iv_band"], "fit_mode": plan.get("fit_mode"),
             })
             log.info("premium projection scored %s %s%s %s: projected ₹%s actual ₹%.2f (%.1f%%)",
                      symbol, plan["strike"], plan["type"], name, proj, actual,
                      err / actual * 100)
+
+
+def _dist(vals: list[float]) -> dict[str, Any] | None:
+    """Owner-ordered: mean alone can mislead — median + p95 + max too."""
+    if not vals:
+        return None
+    import math
+    s = sorted(vals)
+    n = len(s)
+    return {
+        "n": n,
+        "mean": round(sum(s) / n, 2),
+        "median": round(s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2, 2),
+        "p95": round(s[max(0, math.ceil(0.95 * n) - 1)], 2),   # nearest-rank
+        "max": round(s[-1], 2),
+    }
+
+
+def _bucket_errors(hits: list[dict], key: str) -> dict[str, Any]:
+    groups: dict[str, list[float]] = {}
+    for h in hits:
+        groups.setdefault(str(h.get(key)), []).append(h["rel_err_pct"])
+    return {k: _dist(v) for k, v in sorted(groups.items())}
 
 
 def report() -> dict[str, Any]:
@@ -116,31 +171,67 @@ def report() -> dict[str, Any]:
     entries = list(_entries)
     tgt = [h for h in hits if h["level"] != "stop_loss"]
     sls = [h for h in hits if h["level"] == "stop_loss"]
-
-    def _avg(rows, k):
-        return round(sum(r[k] for r in rows) / len(rows), 2) if rows else None
-
     n = len(hits)
+
+    entry_dist = _dist([e["err_pct"] for e in entries])
+    tgt_dist = _dist([h["rel_err_pct"] for h in tgt])
+    sl_dist = _dist([h["rel_err_pct"] for h in sls])
+    fallback_n = sum(1 for e in entries if e.get("fit_mode") != "BS")
+    fallback_pct = round(fallback_n / len(entries) * 100, 1) if entries else 0.0
+    exp_n = sum(1 for h in hits if h["expiry_day"])
+
+    # Owner's production gate — every criterion computed, failures named
+    gate_fails: list[str] = []
+    if n < 50:
+        gate_fails.append(f"touches {n}/50")
+    if not (exp_n and n - exp_n):
+        gate_fails.append("need samples on BOTH expiry and non-expiry days")
+    if entry_dist and entry_dist["median"] > 1.0:
+        gate_fails.append(f"entry median {entry_dist['median']}% > 1%")
+    if tgt_dist and tgt_dist["median"] > 5.0:
+        gate_fails.append(f"target median {tgt_dist['median']}% > 5%")
+    if sl_dist and sl_dist["median"] > 5.0:
+        gate_fails.append(f"SL median {sl_dist['median']}% > 5%")
+    if _ordering_violations:
+        gate_fails.append(f"ordering violations {_ordering_violations}")
+    if fallback_pct >= 5.0:
+        gate_fails.append(f"fallback usage {fallback_pct}% ≥ 5%")
+    if _errors:
+        gate_fails.append(f"tracker errors {_errors}")
+
     return {
         "ready": True,
         "status": "MEASURED" if n >= 20 else "LEARNING",
         "note": ("Owner criteria: entry reproduce < 1% · T1/SL premium error < 5% · "
                  "ordering always SL < entry < T1 < T2 < T3. LEARNING until ≥20 "
-                 "scored touches — synthetic tests are not production evidence."),
+                 "scored touches — synthetic tests are not production evidence. "
+                 "Session/IV buckets are declared bands, not calibrated claims."),
         "plans_observed": _observed,
         "ordering_violations": _ordering_violations,
+        "tracker_errors": _errors,
         "entry_check": {
-            "n": len(entries),
-            "avg_reproduce_err_pct": _avg(entries, "err_pct"),
-            "max_reproduce_err_pct": max((e["err_pct"] for e in entries), default=None),
-            "fallback_cycles": sum(1 for e in entries if e.get("fit_mode") != "BS"),
+            "distribution_pct": entry_dist,
+            "fallback_cycles": fallback_n,
+            "fallback_pct": fallback_pct,
         },
         "level_touches": {
             "n": n,
-            "targets": {"n": len(tgt), "avg_err_pct": _avg(tgt, "rel_err_pct"),
-                        "worst_err_pct": max((h["rel_err_pct"] for h in tgt), default=None)},
-            "stop_loss": {"n": len(sls), "avg_err_pct": _avg(sls, "rel_err_pct"),
-                          "worst_err_pct": max((h["rel_err_pct"] for h in sls), default=None)},
+            "targets_err_pct": tgt_dist,
+            "stop_loss_err_pct": sl_dist,
+        },
+        "by_regime": {
+            "expiry_vs_not": _bucket_errors(hits, "expiry_day"),
+            "session": _bucket_errors(hits, "session"),
+            "iv_band": _bucket_errors(hits, "iv_band"),
+            "fit_mode": _bucket_errors(hits, "fit_mode"),
+        },
+        "production_gate": {
+            "criteria": "≥50 touches · expiry+non-expiry samples · entry median ≤1% · "
+                        "T1/SL median ≤5% · ordering violations 0 · fallback <5% · errors 0",
+            "expiry_samples": exp_n,
+            "non_expiry_samples": n - exp_n,
+            "status": "PASS" if not gate_fails else "NOT YET",
+            "blocking": gate_fails,
         },
         "recent": hits[-20:],
     }

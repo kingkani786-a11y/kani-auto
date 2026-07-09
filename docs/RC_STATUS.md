@@ -40,6 +40,23 @@ counts — some metrics stabilise at 300 samples, some don't at 1000.
 5. Is there a git tag to roll back to?
 6. Can a new developer understand the system from the docs alone?
 
+## Pricing-Engine Production Gate (owner-specified, 2026-07-09)
+
+Auto-evaluated live in `GET /api/premium-accuracy` → `production_gate`
+(status PASS / NOT YET, with every blocking criterion named):
+
+- ≥ **50 scored touches** (projection vs live premium at a reached level)
+- Samples on **BOTH expiry and non-expiry days**
+- Entry reproduce error **median ≤ 1%**
+- T1 / SL premium error **median ≤ 5%**
+- Ordering violations (SL < entry < T1 < T2 < T3) = **0**
+- Fallback pricing usage (non-BS fit mode) **< 5%**
+- Tracker errors = **0**
+
+Error stats are distributions (mean / median / p95 / max — owner: mean alone
+misleads), broken down by regime: expiry-vs-not, session bucket
+(morning/mid/closing/evening), IV band, fit mode.
+
 ## Pre-Production Independent Audit ("we verified", not "we believe")
 
 - [ ] Documentation vs code consistency

@@ -4,6 +4,32 @@
 
 ---
 
+## RC1.16.3 — 2026-07-09 — Accuracy Distributions + Regime Breakdown + Production Gate
+
+### Purpose
+Owner's final RC1.16.2 review: "mean error alone can mislead" — add
+median/p95/max distributions; report accuracy per regime; encode the
+production-promotion gate directly in the report.
+
+### Added (still measurement-only)
+- Error **distributions** (mean/median/p95/max, nearest-rank p95) for entry
+  reproduce, target touches, SL touches.
+- **Regime breakdown**: expiry-vs-not (from the plan's own expiry date),
+  session bucket (morning/mid/closing/evening, IST, declared bands), IV band
+  (HIGH ≥15, declared), fit mode (BS vs fallback).
+- **Production Gate** auto-evaluated in `production_gate`: ≥50 touches ·
+  both day types · entry median ≤1% · T1/SL median ≤5% · ordering
+  violations 0 · fallback <5% · tracker errors 0 — status PASS/NOT YET with
+  every blocking criterion named. Criteria also recorded in RC_STATUS.md.
+- `note_error()` wired into the tracker's exception paths so "critical
+  exceptions = 0" is itself measured, not assumed.
+
+### Fixed during test
+p95 index used truncation and could land below the median on small n —
+switched to nearest-rank (verified n=1/2/100).
+
+---
+
 ## RC1.16.2 — 2026-07-09 — Premium-Accuracy Tracker (live validation machinery)
 
 ### Purpose
