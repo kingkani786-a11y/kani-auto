@@ -4,6 +4,36 @@
 
 ---
 
+## RC1.14 — 2026-07-09 — Kill Switch Pre-Market False-Caution Fix
+
+### Purpose
+Applying the RC1.13 "no contradictory cards" checklist item surfaced a new,
+more subtle case: Kill Switch showed "CAUTION — Degraded data" while the
+header said "Data: GOOD" for the identical pre-market moment.
+
+### Root cause
+Two independent data-quality signals exist: `state.data_quality` (simple
+spot-tick flag, shown in the header) and `data_quality.report()['overall']`
+(rich per-stream engine feeding Self-Check / Feed Diagnostics / Kill Switch).
+The rich engine has no market-hours awareness, so pre/post-market MISSING
+checks routinely compute "DEGRADED". RC1.11 gave Self-Check and Feed
+Diagnostics market-closed awareness; Kill Switch's soft caution never got
+the same treatment.
+
+### Fixed
+`kill_switch.evaluate()` takes `market_closed: bool`; the soft "Degraded
+data" caution is suppressed only when the market is closed. Every hard veto
+(broker cooldown, genuine POOR data, completeness < 60%, calibration < 55,
+3 consecutive losses) is completely unchanged — verified with 4 test cases
+including that hard vetoes still trip even while market_closed=True.
+
+### Doctrine note
+This is capital-protection-adjacent code. Confirmed via explicit tests that
+no real safety trigger was weakened — only a cosmetic advisory label that
+fired on an expected, harmless condition.
+
+---
+
 ## RC1.13 — 2026-07-09 — UI Consistency Audit (pass 1)
 
 ### Purpose
