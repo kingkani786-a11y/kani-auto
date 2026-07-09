@@ -28,6 +28,23 @@ production-ready.
 Verdicts carry their own confidence (touch-based 88–97%; timeout 54%).
 Buckets are labelled **LEARNING** below 30 samples, **MEASURED** after.
 
+## Audit Categories (owner's standing RC validation taxonomy)
+
+1. **Vocabulary Audit** — one word per state, everywhere (RC1.13).
+2. **Scope Audit** — every number states its time window (RC1.13).
+3. **Meaning Audit** — a label must mean what it appears to mean (RC1.12).
+4. **Truth Consistency Audit** — for a given real state, do Header / Self-Check
+   / Feed Diagnostics / Kill Switch / Scanner / Opportunity / Market Banner
+   all agree? (RC1.14 found Kill Switch disagreeing with the header on an
+   identical pre-market moment — root cause was two independent data-quality
+   variables, not a display bug.)
+5. **Source-of-Truth Audit** — for each major state, map Source → Consumers.
+   Do all consumers read the SAME variable, or does each recompute/cache its
+   own copy that can drift? (RC1.15 found `market_open` was broadcast once at
+   connect and never again — every consumer held a stale copy across the
+   9:15/15:30 transition until manual reload, contradicting the banner's own
+   "no refresh needed" promise.)
+
 ## UI Consistency Audit Checklist (owner's standing RC validation criteria)
 
 Applied to every card, on every RC cycle:

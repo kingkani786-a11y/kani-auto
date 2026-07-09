@@ -4,6 +4,33 @@
 
 ---
 
+## RC1.15 — 2026-07-09 — Market-Open Transition Stale-Status Fix
+
+### Purpose
+Owner-reported: dashboard left running across 9:00–9:15 kept showing
+"Market Closed" after the market had actually opened.
+
+### Root cause (Source-of-Truth Audit — new category, see QUALITY.md)
+`state.status()` (market_open, market_status, countdown) was broadcast over
+WebSocket only on connect / disconnect / symbol-switch — never periodically.
+The backend always computed `is_market_open()` fresh; the frontend's copy,
+once received, was frozen until one of those rare events fired again. The
+banner's own text — "resumes automatically... no refresh needed" — was
+false.
+
+### Fixed
+New `_status_loop`: broadcasts `state.status()` every 20s, unconditionally.
+Zero broker calls (pure local time computation) — safe at this interval
+regardless of market hours or connection state. The open/close transition
+now self-corrects within one tick instead of requiring a reload.
+
+### Doctrine additions (owner-ordered)
+- **Rule 10: One State → One Truth** (docs/DECISION_DOCTRINE.md)
+- Two new audit categories: **Truth Consistency Audit** (RC1.14) and
+  **Source-of-Truth Audit** (RC1.15) — added to the standing RC checklist.
+
+---
+
 ## RC1.14 — 2026-07-09 — Kill Switch Pre-Market False-Caution Fix
 
 ### Purpose

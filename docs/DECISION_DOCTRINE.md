@@ -30,6 +30,22 @@ These are NOT constitution — they are hypotheses. With repeated evidence
    by validated live outcomes.
 8. **Evidence decides the next version; we don't.**
 
+## Rule 10 — One State → One Truth
+
+> When the system is in ONE real state (e.g. Market Closed), every component
+> that displays that state must show the SAME reality — Paused / Expected —
+> at the same moment. No card may independently declare Failure for a state
+> every other card correctly shows as calm.
+
+Corollary consistency rules (docs/QUALITY.md "Consistency Rules"):
+1. **One State → One Truth** — see above.
+2. **One Metric → One Definition** — a number's scope (Today/Week/Rolling-N)
+   must be fixed and labeled, not implied differently by different cards.
+3. **One Event → One Vocabulary** — a given real-world condition is described
+   with the same word everywhere it appears, unless the underlying state is
+   genuinely different (a triggered safety event vs. a calm expected pause
+   are allowed different words — see RC1.13's SafeMode/KillSwitch exception).
+
 ## Rule 9 — Repeated Evidence
 
 > **Correlation is not enough; changes require repeated evidence.**
