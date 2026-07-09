@@ -127,6 +127,44 @@ no market logic. Take up after the premium-accuracy data-collection phase.
 
 ---
 
+## PROPOSAL #006 — Entry Decision Engine Refinement (owner's RC1.19)
+
+**Status: 🔬 RESEARCH** *(owner proposal, 2026-07-10 — 10-part spec; own
+sequencing: RC1.17 audit → RC1.18 pricing fix → RC1.19 this)*
+
+**Owner's governing rule (recorded verbatim in spirit):** a new indicator
+enters production weights only with measured advantage — "இந்த indicator
+False Signal-ஐ 12% குறைத்தது" போன்ற evidence வந்த பிறகே. Not "this
+indicator is good."
+
+**Sequencing note:** owner's RC1.18 (premium-projection fix) already shipped
+as RC1.16.1–.3. RC1.17 Performance Audit remains the next fresh-session item
+(plan in RC_STATUS.md).
+
+### Honest inventory (no duplicate engines — most of the 10 parts exist)
+
+| # | Owner item | Existing coverage | Genuinely new |
+|---|---|---|---|
+| 1 | 4-state WAIT→PREPARATION→READY→ENTRY with reasons | Signal maturity stages (PREPARING/ARMED/READY/FIRE NOW), "WHY NO TRADE" reasons, "AI WILL BUY WHEN +pts", "Missing to arm" | **Unified vocabulary across cards** (ties into the standing display-truth queue) |
+| 2 | Candle-pattern scoring (Marubozu/Engulfing/PinBar/InsideBar/NR7/ORB) | ORB exists (market_context); swing structure exists | **Named-pattern detector + per-pattern score** — needs evidence per rule above |
+| 3 | MTF agreement score | EXISTS — MTF alignment (1m–60m shown on dashboard) | — |
+| 4 | Option-chain confirmation in entry score | EXISTS — OI/PCR/IV/Greeks layers in the 11-layer checklist | — |
+| 5 | Pattern→result reliability DB (research only, no live weight change) | Engine-reliability tracker, DNA, signal outcomes exist | **Per-pattern outcome ledger** (measurement — could precede #2's scoring) |
+| 6 | Entry Quality Meter with per-component breakdown | EXISTS — Trade Quality /1000, fire score, decision-matrix per-layer scores | Possibly one consolidated display |
+| 7 | False-entry protection (ADX<15, IV crash, low liquidity, news) | EXISTS — trend/capital-protection/liquidity/kill-switch gates; news feed = Not Connected (documented limitation) | — |
+| 8 | Global context ±3, never a gate | EXISTS — RC1.8, exactly this design, locked | — |
+| 9 | Dashboard output block | EXISTS across cards | Consolidation only |
+| 10 | Evidence-first doctrine | EXISTS — Rules 1–10 | — |
+
+### Actionable core when taken up (in order)
+1. **#5 first** (pattern outcome ledger — pure measurement, feeds evidence)
+2. **#2 second** (pattern detector, research-report scores only)
+3. **#1/#6/#9** (display unification — belongs with the display-truth queue)
+4. Weight integration LAST, only via the Phase-22 approval pipeline once the
+   ledger shows measured advantage across regimes (Rule 9).
+
+---
+
 ## DOCTRINE ADDITION — Global Context is never a hard gate
 
 **Status: ✅ LOCKED (owner, 2026-07-08)**
