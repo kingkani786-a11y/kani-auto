@@ -46,6 +46,11 @@ export function DailyReview() {
         </div>
         {(d.best || d.worst) && (
           <div className="text-xs mt-3 space-y-1">
+            {/* RC1.11 fix: these are the WEEK's best/worst (backend pulls
+                week aggregate so the card isn't blank on a zero-trade day) —
+                label it, so it never reads as contradicting "no trades yet"
+                for TODAY right above. */}
+            <div className="text-terminal-muted text-[10px]">This week:</div>
             {d.best && <div className="text-terminal-bull">Best: {d.best.signal ?? "—"} · R {d.best.r_multiple ?? "—"} · {d.best.result}</div>}
             {d.worst && <div className="text-terminal-bear">Worst: {d.worst.signal ?? "—"} · R {d.worst.r_multiple ?? "—"} · {d.worst.result}</div>}
           </div>
