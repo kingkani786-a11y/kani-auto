@@ -288,6 +288,23 @@ offline, Tamil support device-dependent) vs cloud TTS (better Tamil, cost +
 latency + network dependency) — decide at build time. Depends on: MODE
 Phase A alerts (done), Phase B miss-join (pending).
 
+**Owner guard-rails #3–#5 (2026-07-10 review, voice-layer rules):**
+- **#3 Priority queue**: Emergency > Entry > Exit > Momentum > Commentary;
+  higher priority interrupts, lower never interrupts higher.
+- **#4 Silent hours**: e.g. 09:15–09:20 commentary OFF / emergency ON;
+  no continuous commentary 15:25–15:30. Configurable windows.
+- **#5 Voice memory**: never repeat the same message until the underlying
+  state changes ("last spoken → suppress until state delta").
+- **Modes v2**: Quiet (entry/exit only) / Alerts / Copilot / **Training
+  Mode** (explains every decision: "WAIT because delta weak, OI weak, need
+  2 more confirmations").
+- **"Why am I waiting?" hotkey** (Space or ?): voice reads the live gate
+  state — existing blocker_research + waiting_for data, spoken. No new
+  computation.
+- **Consumer-only law (owner architecture)**: Decision Engine → Opportunity
+  Engine → Event Bus → {Voice, Telegram, Dashboard, Mobile}. The Voice
+  engine computes NOTHING — it is a pure consumer of published events.
+
 ---
 
 ## DOCTRINE ADDITION — Global Context is never a hard gate

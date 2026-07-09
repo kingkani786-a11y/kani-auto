@@ -4,6 +4,33 @@
 
 ---
 
+## RC1.16.8 — 2026-07-10 — MODE guard-rails #1 + #2 (owner review, pre-validation)
+
+### Purpose
+Owner's 5-guard-rail review of Phase A. #1 and #2 change what Phase A alerts
+on, so they land BEFORE the 1–2 week live validation window — the
+validation must measure the final design. #3/#4/#5 are voice-layer rules →
+appended to PROPOSAL #011.
+
+### Changed
+- **Dynamic threshold (#1)**: fixed +10/20/… replaced by
+  `base = max(8 pts, 8% of rolling low, 3× premium ATR)`, tiers =
+  base × 1/2/3/5/10. Premium ATR uses 1-MINUTE buckets, not raw ticks —
+  tick-to-tick diffs would make the threshold depend on the polling
+  interval (caught in test: non-deterministic).
+- **Multi-factor confirmation (#2)**: WATCH/STRONG fire only with premium +
+  ≥1 more factor (volume spike: last-60s > 1.5× prior-60s; or OI shift ≥1%
+  in window). MOMENTUM+ fire regardless — a big move is its own evidence.
+  Per-strike delta velocity is NOT in the visible chain → documented, not
+  faked. Alerts carry their confirmation list ("confirmed by premium+volume").
+
+### Verified
+Incident series with confirmations → all five tiers once each at 8/16/24/
+40/80; +16 pts premium-only correctly silent, +70 fires MOMENTUM/BREAKOUT;
+₹600 premium +14 pts silent (base 48); ₹40 premium +9 pts fires (floor 8).
+
+---
+
 ## RC1.16.7 — 2026-07-10 — MODE Phase A: Move Detection + Tiered Alerts
 
 ### Purpose
