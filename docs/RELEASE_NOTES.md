@@ -4,6 +4,33 @@
 
 ---
 
+## RC1.16.2 — 2026-07-09 — Premium-Accuracy Tracker (live validation machinery)
+
+### Purpose
+Owner-ordered after the RC1.16.1 review: "synthetic tests மட்டும் போதாது —
+live market data-வுடன் cross-check செய்யுங்கள்"; capture per-setup projected
+vs actual premiums until 20–30 samples exist.
+
+### Added (measurement only — zero broker calls, zero trading-logic changes)
+- `strike_selector` output now carries `pricing` metadata (solver IV vs chain
+  IV, r used, fit mode BS/INTRINSIC_TV, entry-reproduce error %) and the
+  underlying levels each projection was computed at.
+- New `services/premium_accuracy.py`: every AI cycle records the active
+  plan's projections (`observe`) with an ordering check
+  (SL < entry < T1 < T2 < T3 — violations counted and logged); every option
+  tick scores stored projections against the live chain premium when spot
+  reaches a projected level within tolerance (`check`, deduped per plan).
+- `GET /api/premium-accuracy` — owner's pass criteria in the report: entry
+  reproduce < 1% · T1/SL premium error < 5% · ordering violations = 0 ·
+  LEARNING label until ≥ 20 scored touches.
+
+### Verified
+Unit tests: selector metadata flows; ordering violation detected and counted;
+T1 touch scored once per plan (deduped) against live ltp; endpoint live and
+honestly empty after restart.
+
+---
+
 ## RC1.16.1 — 2026-07-09 — Premium-Projection Fix (Black-Scholes reprice)
 
 ### Purpose

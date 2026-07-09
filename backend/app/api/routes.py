@@ -771,6 +771,14 @@ async def gate_verdicts():
     return verdicts.report()
 
 
+@router.get("/premium-accuracy")
+async def premium_accuracy_report():
+    """RC1.16.2 — live projected-vs-actual premium accuracy (owner criteria:
+    entry reproduce < 1%, T1/SL error < 5%, ordering violations = 0)."""
+    from ..services import premium_accuracy
+    return premium_accuracy.report()
+
+
 @router.get("/historical-learning")
 async def historical_learning_report():
     """V31 MODE-1 — historical KNOWLEDGE snapshot (separate from live validation)."""

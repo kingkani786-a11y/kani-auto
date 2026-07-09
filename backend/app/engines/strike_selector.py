@@ -90,6 +90,11 @@ def select_top(
             px = bs_price(under_px, _k, _t, _r, _iv, is_call) if _ok else intrinsic + _tv_now
             return max(round(px, 2), round(intrinsic, 2), 0.05)
 
+        # RC1.16.2 — pricing metadata + the underlying levels travel WITH the
+        # projections so the accuracy tracker can score them against live
+        # premiums later (owner-ordered live validation of RC1.16.1).
+        _entry_model = (bs_price(spot, _k, t, _r_mkt, _iv_mkt, is_call)
+                        if _ok else _intr_spot + _tv_now)
         out.append({
             "strike": row["strike"],
             "type": "CE" if is_call else "PE",
@@ -98,6 +103,20 @@ def select_top(
             "premium_target1": prem_at(underlying_levels["target1"]),
             "premium_target2": prem_at(underlying_levels["target2"]),
             "premium_target3": prem_at(underlying_levels["target3"]),
+            "level_underlying": {
+                "stop_loss": underlying_levels["stop_loss"],
+                "target1": underlying_levels["target1"],
+                "target2": underlying_levels["target2"],
+                "target3": underlying_levels["target3"],
+            },
+            "pricing": {
+                "iv_solved": round(_iv_mkt * 100, 2),
+                "iv_chain": round((float(row[f"{side}_iv"] or 0)), 2),
+                "r_used": _r_mkt,
+                "fit_mode": "BS" if _ok else "INTRINSIC_TV",
+                "entry_reproduce_err_pct": round(
+                    abs(_entry_model - prem) / prem * 100, 3) if prem else None,
+            },
             "delta": round(delta, 3),
             "gamma": round(gamma, 5),
             "iv": round(g.iv * 100, 1),

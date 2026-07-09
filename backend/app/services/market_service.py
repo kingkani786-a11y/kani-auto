@@ -355,6 +355,15 @@ class MarketService:
                                               "atm": analytics.get("atm_strike")}
                         flow = smart_money.analyze_option_flow(analytics)
                         use_chain = True
+                        # RC1.16.2 — score stored premium projections against
+                        # the live chain whenever spot reaches a projected
+                        # level (measurement only, zero extra broker calls)
+                        try:
+                            from . import premium_accuracy
+                            premium_accuracy.check(inst.symbol, spot,
+                                                   analytics.get("chain"))
+                        except Exception:
+                            log.exception("premium accuracy check failed")
             except MarketClosedError:
                 raise
             except Exception as e:
@@ -870,6 +879,13 @@ class MarketService:
             from ..config import settings as _cfg
             from ..engines import portfolio_risk
             _st = packet.get("strike") or {}
+            # RC1.16.2 — record this cycle's projections for live accuracy
+            # scoring (ordering check + entry-reproduce error + level touches)
+            try:
+                from . import premium_accuracy
+                premium_accuracy.observe(inst.symbol, _st, spot)
+            except Exception:
+                log.exception("premium accuracy observe failed")
             _pe, _psl = _st.get("premium_entry"), _st.get("premium_stop_loss")
             # V17 — sized whenever a strike plan exists (live OR preparing),
             # so the trader knows the quantity before the setup fires

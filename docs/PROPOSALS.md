@@ -79,9 +79,11 @@ for each historical signal, compute (a) current ATR targets, (b) Fib-based
 targets from the active swing. Fib wins only if it beats ATR across ≥3
 regimes (trend/range/expiry) with n ≥ 30 each.
 
-**Backtest metric set (owner-specified, 2026-07-09 — all ten required):**
+**Backtest metric set (owner-specified, 2026-07-09 — all twelve required):**
 Target Hit % · Median Holding Time · MFE · MAE · SL-First % · RR Realized ·
-Win Rate · Expectancy · Profit Factor · Average Premium Captured.
+Win Rate · Expectancy · Profit Factor · Average Premium Captured ·
+Calibration Error (projected target distance vs actual move) ·
+Time-to-Target Distribution (time taken to reach T1/T2/T3).
 "இவை இல்லாமல் target methodology-ஐ மாற்றக்கூடாது."
 
 ### Approval path
