@@ -12,6 +12,7 @@ import time
 from typing import Any
 
 from . import analytics, memory
+from ..core.clock import today_str
 from ..core.state import state
 
 # Phase 23 — last nightly audit kept in memory so Evolution Center / Chief
@@ -29,7 +30,7 @@ def _by_day(outcomes: list[dict]) -> dict[str, dict]:
         ts = o.get("closed")
         if not ts:
             continue
-        d = time.strftime("%Y-%m-%d", time.localtime(ts))
+        d = today_str(ts)
         days.setdefault(d, []).append(o)
     return {d: {"n": len(v), "pnl": round(sum(x.get("pnl", 0) for x in v), 1),
                 "win_rate": round(sum(x["win"] for x in v) / len(v) * 100, 0)}

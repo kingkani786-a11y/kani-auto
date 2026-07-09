@@ -75,9 +75,11 @@ class AppState:
 
 def is_market_open(market_type: str) -> bool:
     """IST market hours. Index: 09:15–15:30 Mon–Fri. MCX: 09:00–23:30."""
-    import datetime, zoneinfo
+    import datetime
 
-    now = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata"))
+    from .clock import now as clock_now
+
+    now = clock_now()
     if now.weekday() >= 5:
         return False
     t = now.time()
@@ -89,10 +91,11 @@ def is_market_open(market_type: str) -> bool:
 def market_status(market_type: str) -> dict[str, Any]:
     """OPEN / CLOSED status + the next open time and a countdown (seconds).
     Used so the UI can show a calm 🟡 MARKET CLOSED with a timer, not an error."""
-    import datetime, zoneinfo
+    import datetime
 
-    tz = zoneinfo.ZoneInfo("Asia/Kolkata")
-    now = datetime.datetime.now(tz)
+    from .clock import now as clock_now
+
+    now = clock_now()
     open_t = datetime.time(9, 0) if market_type == "COMMODITY" else datetime.time(9, 15)
     is_open = is_market_open(market_type)
 

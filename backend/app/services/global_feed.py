@@ -86,9 +86,11 @@ def _clock() -> dict[str, Any]:
     8:00 PM IST during EST (Nov–Mar). This function computes 19:00 IST for
     today (EDT), matching the reference exactly. The commonly repeated
     "6:30 PM IST" figure for summer is the inaccurate one — do NOT hardcode it."""
-    import datetime, zoneinfo
-    ist = datetime.datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata"))
-    ny = ist.astimezone(zoneinfo.ZoneInfo("America/New_York"))
+    import datetime
+
+    from ..core.clock import IST, NY
+    ist = datetime.datetime.now(IST)
+    ny = ist.astimezone(NY)
     us_open = datetime.time(9, 30) <= ny.time() <= datetime.time(16, 0) and ny.weekday() < 5
     mins_since_us_open = ((ny.hour - 9) * 60 + ny.minute - 30) if us_open else None
     t = ist.time()
@@ -102,7 +104,7 @@ def _clock() -> dict[str, Any]:
         phase = "OFF-HOURS"
     return {"phase": phase, "us_open": us_open,
             "us_open_ist": ny.replace(hour=9, minute=30, second=0).astimezone(
-                zoneinfo.ZoneInfo("Asia/Kolkata")).strftime("%H:%M IST"),
+                IST).strftime("%H:%M IST"),
             "mins_since_us_open": mins_since_us_open, "ist": ist.strftime("%H:%M")}
 
 

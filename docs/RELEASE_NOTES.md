@@ -4,6 +4,76 @@
 
 ---
 
+## RC1.16 — 2026-07-09 — Time Consistency Audit + Single Time Service
+
+### Purpose
+Owner-ordered follow-on to RC1.15: audit every clock in the system (Market
+Countdown, Session Clock, US Open Timer, Europe Session, Daily Reset, Weekly
+Reset, Validation Window, Kill Switch Timer, Global Context Capture) against
+Rule 10 — one source, one truth. "Do they all come from a Single Time
+Source, or from scattered `datetime.now()` / `zoneinfo()` calls that can
+drift?"
+
+### Findings
+1. **Naive-datetime bug (real, numerically meaningful)**: `engines/
+   index_analytics.py` and `engines/strike_selector.py` computed Black-Scholes
+   time-to-expiry with a bare, timezone-less `datetime.datetime.now()` —
+   silently wrong on any host not OS-configured to IST (would misprice every
+   Greek/IV by the host's UTC offset). Every other clock in the codebase
+   pinned Asia/Kolkata explicitly; these two didn't.
+2. **Structural gap**: 12 separate files each independently constructed their
+   own `zoneinfo.ZoneInfo("Asia/Kolkata")`. All 12 happened to agree — nothing
+   guaranteed they would keep agreeing.
+3. **Daily Reset mismatch (Vocabulary/Scope Audit)**: `services/
+   missed_winner.py`'s `summary()` computed "today" as a rolling 24-hour
+   window, while the RC1.13 UI label reads "(Today)" and `services/
+   analytics.py`'s own "today" is calendar-day-since-midnight-IST — same
+   word, two different meanings across two modules feeding the same screen.
+4. `services/analytics.py`'s `_midnight_today()` used `time.localtime()` /
+   `time.mktime()` — host-OS-local-time, not explicitly IST (same latent
+   class of bug as #1, just not yet numerically wrong on this host).
+
+### Fixed
+- New `app/core/clock.py` — the single Time Service. `IST`, `NY` (US-session
+  only), `now()`, `today_str()`, `midnight_today_ts()`. Every one of the 12
+  files now imports from here; zero independent `zoneinfo.ZoneInfo(...)`
+  construction remains outside this module.
+- `missed_winner.summary()`'s "today" now uses `midnight_today_ts()` —
+  calendar-day, matching its own UI label and `analytics.py`'s convention.
+  "Week" (rolling 7 days) was already consistent between the two modules —
+  left unchanged.
+- `analytics._midnight_today()`, `market_dna._date()`,
+  `evolution._by_day()` — all now route through `core.clock` instead of
+  host-local `time.localtime()`.
+
+### Verified
+- Full import + call-graph smoke test across every touched function
+  (`is_market_open`, `market_status`, `now_phase`, `session_now`, `_clock`,
+  `_midnight_today`, `missed_winner.summary`, `_date`) — all return correct,
+  numerically-unchanged-on-this-host values.
+- Zero naive `datetime.now()`/`datetime.datetime.now()` calls remain
+  anywhere in `app/` (grep-verified).
+- Backend restarted clean; `/api/self-check`, `/api/missed-winners` both
+  200; `missed_today` now reflects the corrected calendar-day window live.
+
+### Exit criteria (owner-specified) — all met
+Naive datetime = 0 · Single Time Service = `app/core/clock.py` · Single
+Timezone Policy = IST (+ NY for the US-session clock only) · Daily semantics
+verified & aligned · Weekly semantics verified & aligned · UI labels match
+backend semantics · Greeks expiry clock centralized.
+
+### Doctrine
+- **Rule 10 refined**: "One State → One Truth" → **"One State → One Source →
+  One Truth → Many Consumers"** (docs/DECISION_DOCTRINE.md).
+- New corollary **"One Time → One Clock"** added.
+- Market State & Time Source Map documented in docs/ARCHITECTURE.md.
+- **Deferred to RC2/Production (owner-ordered, not built now)**: replacing
+  the RC1.15 20s polling `_status_loop` with an event-driven broadcast.
+  Logged as an explicit backlog item in docs/ARCHITECTURE.md so it isn't
+  lost — current polling is sufficient for RC1.
+
+---
+
 ## RC1.15 — 2026-07-09 — Market-Open Transition Stale-Status Fix
 
 ### Purpose

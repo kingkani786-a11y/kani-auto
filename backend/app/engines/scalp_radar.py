@@ -14,13 +14,11 @@ Fires only when the dominant side's score >= 70.
 from __future__ import annotations
 
 import datetime
-import zoneinfo
 from typing import Any
 
+from ..core.clock import IST
 from .mtf import resample
 from .technicals import atr as atr_fn, vwap as vwap_fn
-
-IST = zoneinfo.ZoneInfo("Asia/Kolkata")
 
 
 def _structure_dir(candles: list[dict]) -> int:

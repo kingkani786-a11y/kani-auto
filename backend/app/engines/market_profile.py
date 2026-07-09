@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import datetime
-import zoneinfo
 from typing import Any
 
-IST = zoneinfo.ZoneInfo("Asia/Kolkata")
+from ..core.clock import IST
 
 
 def analyze(candles_1m: list[dict], vp: dict[str, Any]) -> dict[str, Any]:

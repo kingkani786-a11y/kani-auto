@@ -44,6 +44,15 @@ Buckets are labelled **LEARNING** below 30 samples, **MEASURED** after.
    connect and never again — every consumer held a stale copy across the
    9:15/15:30 transition until manual reload, contradicting the banner's own
    "no refresh needed" promise.)
+6. **Time Consistency Audit** — does every clock (market countdown, session
+   phase, US-open timer, Greeks expiry, daily/weekly reset, kill-switch
+   timer) come from one Single Time Service, or do scattered
+   `datetime.now()` / `zoneinfo()` calls risk drift? (RC1.16 found 12 files
+   each independently building an IST timezone object — including 2 genuinely
+   naive, timezone-less `datetime.now()` calls in the Greeks time-to-expiry
+   path — and a "Today" scope label on Missed Winners that didn't match its
+   own backend's rolling-24h computation. See docs/ARCHITECTURE.md "Market
+   State & Time Source Map".)
 
 ## UI Consistency Audit Checklist (owner's standing RC validation criteria)
 

@@ -15,6 +15,8 @@ import time
 from collections import deque
 from typing import Any
 
+from ..core.clock import midnight_today_ts
+
 _TIERS = [20, 40, 80, 120]
 _obs: dict[str, Any] | None = None          # current open no-trade observation
 _log: deque[dict] = deque(maxlen=500)       # finalised missed winners
@@ -124,7 +126,11 @@ def _blocker_key(reason: str) -> str:
 
 def summary() -> dict[str, Any]:
     now = time.time()
-    today = [m for m in _log if m.get("closed", 0) >= now - 86400]
+    # RC1.16 Time Consistency Audit — "today" was a rolling 24h window, which
+    # silently disagreed with the "(Today)" UI label (RC1.13) and with
+    # analytics.performance()'s own "today" (calendar-day-since-midnight-IST).
+    # Same word, same UI, must mean the same thing (Rule 2 / Vocabulary Audit).
+    today = [m for m in _log if m.get("closed", 0) >= midnight_today_ts()]
     week = [m for m in _log if m.get("closed", 0) >= now - 7 * 86400]
     # collapse to one record per observation (highest tier reached)
     by_reason: dict[str, int] = {}

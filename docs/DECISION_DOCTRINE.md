@@ -30,21 +30,32 @@ These are NOT constitution — they are hypotheses. With repeated evidence
    by validated live outcomes.
 8. **Evidence decides the next version; we don't.**
 
-## Rule 10 — One State → One Truth
+## Rule 10 — One State → One Source → One Truth → Many Consumers
 
-> When the system is in ONE real state (e.g. Market Closed), every component
-> that displays that state must show the SAME reality — Paused / Expected —
-> at the same moment. No card may independently declare Failure for a state
-> every other card correctly shows as calm.
+> Every real system state (Market Open/Closed, a metric's time window, a
+> Greeks clock) is computed in exactly ONE place. Every UI component or
+> backend module that needs it is a CONSUMER that reads that single source
+> fresh — never recomputes it, never caches an independent copy that can
+> drift. One State → One Source guarantees One Truth for however Many
+> Consumers display it. No card may independently declare Failure for a
+> state every other card correctly shows as calm, and no two consumers may
+> silently disagree on what "today" or "now" means.
 
 Corollary consistency rules (docs/QUALITY.md "Consistency Rules"):
-1. **One State → One Truth** — see above.
+1. **One State → One Source → One Truth → Many Consumers** — see above.
 2. **One Metric → One Definition** — a number's scope (Today/Week/Rolling-N)
-   must be fixed and labeled, not implied differently by different cards.
+   must be fixed and labeled, not implied differently by different cards
+   (RC1.16 found `missed_winner.summary()`'s "today" was a rolling 24h
+   window while the UI labeled it "Today" and `analytics.performance()`'s
+   own "today" was calendar-day — same word, two meanings; fixed by routing
+   both through the same `core.clock.midnight_today_ts()`).
 3. **One Event → One Vocabulary** — a given real-world condition is described
    with the same word everywhere it appears, unless the underlying state is
    genuinely different (a triggered safety event vs. a calm expected pause
    are allowed different words — see RC1.13's SafeMode/KillSwitch exception).
+4. **One Time → One Clock** — every wall-clock read funnels through
+   `app/core/clock.py` (RC1.16); no module builds its own timezone object.
+   See docs/ARCHITECTURE.md "Market State & Time Source Map".
 
 ## Rule 9 — Repeated Evidence
 

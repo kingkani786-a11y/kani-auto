@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-import zoneinfo
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -15,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.routes import auth_router, router
 from .config import settings
+from .core.clock import IST as ist
 from .core.state import state
 from .services.market_service import service
 from .ws.manager import manager
@@ -27,7 +27,6 @@ async def _nightly_audit_loop():
     """Phase 23 — run the self-tuning audit every day at 23:59 IST. Reads stored
     outcomes only (no broker), archives the report, caches it. Recommendations
     only — never auto-applies anything to the live trading gate."""
-    ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     while True:
         now = datetime.datetime.now(ist)
         target = now.replace(hour=23, minute=59, second=0, microsecond=0)

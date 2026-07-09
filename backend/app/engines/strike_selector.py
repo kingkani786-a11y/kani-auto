@@ -10,13 +10,19 @@ import datetime
 from typing import Any
 
 from ..config import settings
+from ..core.clock import IST
 from .greeks import compute_greeks
+
+# RC1.16 Time Consistency Audit — was naive datetime.now() (server-OS-timezone
+# dependent); now pulls the app's single time source instead of building its
+# own timezone object.
 
 
 def _years(expiry: str) -> float:
     try:
-        exp = datetime.datetime.fromisoformat(expiry).replace(hour=15, minute=30)
-        return max((exp - datetime.datetime.now()).total_seconds() / (365 * 86400), 1e-5)
+        exp = datetime.datetime.fromisoformat(expiry).replace(
+            hour=15, minute=30, tzinfo=IST)
+        return max((exp - datetime.datetime.now(IST)).total_seconds() / (365 * 86400), 1e-5)
     except ValueError:
         return 7 / 365
 

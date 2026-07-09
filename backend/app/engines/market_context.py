@@ -9,10 +9,9 @@ the dependent engines fall back to neutral rather than inventing numbers.
 from __future__ import annotations
 
 import datetime
-import zoneinfo
 from typing import Any
 
-IST = zoneinfo.ZoneInfo("Asia/Kolkata")
+from ..core.clock import IST
 
 
 def session_now(market_type: str = "INDEX", is_expiry: bool = False) -> dict[str, Any]:

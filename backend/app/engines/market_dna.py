@@ -13,6 +13,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from ..core.clock import today_str
+
 MIN_SAMPLES = 10
 MATCH_THRESHOLD = 55          # a stored session counts as "similar" at/above this
 
@@ -182,4 +184,4 @@ def analyze(current: dict[str, Any], outcomes: list[dict]) -> dict[str, Any]:
 
 def _date(o: dict) -> str:
     ts = o.get("closed") or o.get("opened")
-    return time.strftime("%Y-%m-%d", time.localtime(ts)) if ts else "—"
+    return today_str(ts) if ts else "—"

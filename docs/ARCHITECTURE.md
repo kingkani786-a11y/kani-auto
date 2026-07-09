@@ -44,3 +44,71 @@ Market → Opportunity → Strike → Gate → Decision → (Execution by human)
 - **Trading** — decision-first stack (Mission/Command → Opportunity → Index →
   Strike/Plan/Qty → Point Capture → shields → diagnostics)
 - **Research** — all analytics, learning, memory, evolution, audit
+
+## Market State & Time Source Map (RC1.16, Rule 10)
+
+**Market-open truth — one computational source, no cache:**
+
+```
+is_market_open() / market_status()  (app/core/state.py, pure functions,
+                                      recompute fresh on every call)
+        │
+        ▼
+AppState.status()  (aggregates market_open + market_status + data_quality +
+                     kill_switch + safe_mode + server_time)
+        │
+        ├── HTTP: every route that reads `state.status()` (self-check, etc.)
+        │         — backend consumers always get a fresh call, never stale.
+        │
+        └── WebSocket "status" channel — broadcast by MarketService's
+            `_status_loop` every 20s (RC1.15), plus on connect/disconnect/
+            symbol-switch. This is the ONLY hop where staleness could occur
+            (a frontend copy between ticks) — bounded to ≤20s by design.
+                │
+                ▼
+        Frontend consumers (all read the SAME `status` object from
+        lib/store.tsx, none recompute independently):
+        MarketStatusBanner · StatusBar/Header · FeedDiagnostics ·
+        DailyReview · Scanner gating · Opportunity board gating ·
+        Kill Switch card (market_closed-aware, RC1.14) · AI Self-Check
+```
+
+No component computes market-open state independently — every consumer above
+is a reader of the one chain shown, per Rule 10.
+
+**Time source — one clock, no independent timezone objects (RC1.16):**
+
+```
+app/core/clock.py — the only place a zoneinfo.ZoneInfo is constructed
+  IST = Asia/Kolkata           NY = America/New_York (US-session clock only)
+  now() / today_str() / midnight_today_ts()
+        │
+        ├── Market Countdown / Session Clock → core/state.py, engines/market_context.py
+        ├── US Open Timer / Europe Session   → services/global_feed.py `_clock()`
+        ├── Greeks Expiry Clock (Black-Scholes T) → engines/index_analytics.py,
+        │                                            engines/strike_selector.py
+        ├── Daily Reset ("Today" scope)       → services/analytics.py `_midnight_today()`,
+        │                                        services/missed_winner.py `summary()`
+        ├── Weekly Reset ("This week" scope)  → rolling 7 days, both of the above —
+        │                                        consistent with each other by convention
+        ├── Global Context Capture            → services/global_feed.py (same `_clock`)
+        └── Kill Switch Timer / Validation Window → services/kill_switch.py,
+             services/verdicts.py — duration-only (`time.time()` deltas), never a
+             wall-clock day boundary, so timezone-agnostic by construction; no fix needed.
+```
+
+Before RC1.16, 12 files each independently built `zoneinfo.ZoneInfo("Asia/
+Kolkata")`; two of them (`index_analytics.py`, `strike_selector.py`) actually
+used a naive, timezone-less `datetime.now()` for Greeks time-to-expiry —
+silently wrong on any host not OS-configured to IST. All 12 now import from
+`core/clock.py`. Separately, `missed_winner.summary()`'s "today" was a
+rolling-24h window while its own UI label said "Today" (calendar day) —
+fixed to share `analytics.py`'s calendar-day definition via
+`midnight_today_ts()`.
+
+## Backlog — deferred to RC2 / Production (owner-ordered, not to be built in RC1)
+
+- **Event-driven state broadcast**: replace the 20s `_status_loop` poll
+  (RC1.15) with a push-on-change model once Production Optimization begins.
+  The current polling interval is sufficient for RC1; do not implement this
+  early.

@@ -11,6 +11,7 @@ import time
 from typing import Any
 
 from ..config import settings
+from ..core.clock import midnight_today_ts
 from . import memory
 
 
@@ -19,8 +20,9 @@ def _since(seconds: float) -> float:
 
 
 def _midnight_today() -> float:
-    lt = time.localtime()
-    return time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    # RC1.16 — was time.localtime()/mktime() (host-OS-timezone-dependent);
+    # now pinned to the app's single IST time source, same as everywhere else.
+    return midnight_today_ts()
 
 
 def _acc(outcomes: list[dict]) -> float | None:

@@ -5,12 +5,19 @@ import datetime
 from typing import Any
 
 from ..config import settings
+from ..core.clock import IST
 from .greeks import compute_greeks
+
+# RC1.16 Time Consistency Audit — this feeds Black-Scholes time-to-expiry for
+# every Greeks/IV calc. Was naive datetime.now() (server-OS-timezone-dependent
+# — silently wrong on any host not set to IST); now pulls the app's single
+# time source instead of building its own timezone object.
 
 
 def _years_to_expiry(expiry: str) -> float:
-    exp = datetime.datetime.fromisoformat(expiry).replace(hour=15, minute=30)
-    delta = exp - datetime.datetime.now()
+    exp = datetime.datetime.fromisoformat(expiry).replace(
+        hour=15, minute=30, tzinfo=IST)
+    delta = exp - datetime.datetime.now(IST)
     return max(delta.total_seconds() / (365.0 * 86400.0), 1e-5)
 
 

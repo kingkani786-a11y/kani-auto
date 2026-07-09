@@ -8,8 +8,9 @@ behaviour to expect and which window is active.
 from __future__ import annotations
 
 import datetime
-import zoneinfo
 from typing import Any
+
+from ..core.clock import IST
 
 # (start "HH:MM", phase, expected behaviour) for INDEX (09:15–15:30 IST)
 _PHASES = [
@@ -30,8 +31,7 @@ def _to_min(hhmm: str) -> int:
 
 
 def now_phase(market_type: str = "INDEX") -> dict[str, Any]:
-    tz = zoneinfo.ZoneInfo("Asia/Kolkata")
-    now = datetime.datetime.now(tz)
+    now = datetime.datetime.now(IST)
     cur = now.hour * 60 + now.minute
     open_m, close_m = _to_min("09:15"), _to_min("15:30")
     if market_type == "COMMODITY":
