@@ -40,12 +40,42 @@ export default function StrategistPage() {
 
   if (err) return <div className="panel text-terminal-bear text-sm max-w-3xl mx-auto">Strategist unavailable ({err})</div>;
   if (!s) return <div className="panel text-terminal-muted text-sm max-w-3xl mx-auto">Loading Chief Strategist…</div>;
-  if (!s.ready)
+  if (!s.ready) {
+    // RC1.16.4 — honest AI STATUS block instead of a dead-end one-liner:
+    // why there is no analysis, what the first cycle will do, and when.
+    const st = s.ai_status || {};
     return (
-      <div className="panel text-terminal-muted text-sm max-w-3xl mx-auto">
-        {s.reason || "No live analysis yet — connect and let the first AI cycle run."}
+      <div className="panel max-w-3xl mx-auto space-y-3">
+        <div className="panel-title">AI STATUS</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+          <div><div className="stat-label">Broker</div>
+            <div className={st.broker === "CONNECTED" ? "text-terminal-bull" : "text-terminal-warn"}>{st.broker ?? "—"}</div></div>
+          <div><div className="stat-label">Market</div>
+            <div className={st.market === "OPEN" ? "text-terminal-bull" : "text-terminal-warn"}>{st.market ?? "—"}{st.ist_time ? ` · ${st.ist_time} IST` : ""}</div></div>
+          <div><div className="stat-label">Data</div><div>{st.data_quality ?? "—"}</div></div>
+          <div><div className="stat-label">AI Cycle</div><div>{st.ai_cycle ?? "—"}</div></div>
+        </div>
+        <div className="text-sm">{s.reason}</div>
+        {s.next_action && (
+          <div className="text-sm"><span className="text-terminal-muted">Next: </span>{s.next_action}</div>
+        )}
+        {Array.isArray(s.first_cycle_will) && s.first_cycle_will.length > 0 && (
+          <div>
+            <div className="stat-label">First AI cycle will</div>
+            <ul className="text-xs text-terminal-muted mt-1 space-y-0.5">
+              {s.first_cycle_will.map((step: string, i: number) => <li key={i}>• {step}</li>)}
+            </ul>
+          </div>
+        )}
+        {s.estimated && (
+          <div className="text-xs text-terminal-muted">{s.estimated}</div>
+        )}
+        {s.discipline && (
+          <div className="text-xs text-terminal-accent">{s.discipline}</div>
+        )}
       </div>
     );
+  }
 
   const bt = s.best_trade || {};
   const pe = s.premium_expansion || {};

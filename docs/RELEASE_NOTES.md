@@ -4,6 +4,36 @@
 
 ---
 
+## RC1.16.4 — 2026-07-10 — Honest AI-Status Fallback (Brain + Chief Strategist)
+
+### Purpose
+Owner: the bare "I don't have live analysis yet — connect and let the first
+AI cycle run" fallback reads like a broken feature, not an AI analyst. Say
+WHY there is no answer, what happens next, and when analysis arrives.
+
+### Added (display/honesty only — no market logic, no new engines)
+- `brain._status_brief()`: structured AI STATUS built entirely from real
+  state (broker connected?, market open + IST clock + next-open countdown
+  from the single time source, data quality, configured AI-cycle interval).
+  Three honest branches: not-connected / market-closed / first-cycle-running.
+  Nothing fabricated — no invented health %, no fake progress bars.
+- Chief Strategist not-ready response now carries the block; the strategist
+  page renders it (status grid, reason, next action, first-cycle pipeline,
+  ETA, discipline line). AI Brain chat fallback answers with the same facts
+  as points.
+
+### Explicitly NOT built (freeze honored)
+Owner's 9-module wishlist audit: all nine already exist as live engines
+(Market Regime = regime engine · Institution Footprint = futures build-up +
+institutional activity · Premium Projection = RC1.16.1 · Trap Detector =
+trap engine · Entry Optimizer = entry probability + fire score · Exit
+Optimizer = exit intelligence · Runner Predictor = expansion runner prob ·
+Confidence Engine = dynamic confidence + calibration · Narrative Generator =
+AI Market Narrator). No duplicates created; the fix was surfacing, not
+rebuilding.
+
+---
+
 ## RC1.16.3 — 2026-07-09 — Accuracy Distributions + Regime Breakdown + Production Gate
 
 ### Purpose

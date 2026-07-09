@@ -100,13 +100,58 @@ def _evolution_summary() -> dict[str, Any]:
             "note": nl.get("note")}
 
 
+def _status_brief() -> dict[str, Any]:
+    """RC1.16.4 — honest AI-status block for when no live analysis exists yet.
+    Owner: the bare 'no live data' fallback reads like a broken feature; say
+    WHY there is no answer, what the first cycle will do, and when reliable
+    analysis arrives. Every field comes from real state — nothing fabricated,
+    no invented percentages or ETAs."""
+    from ..config import settings
+    from ..core.state import is_market_open, market_status
+
+    connected = state.connected
+    ms = market_status(state.market_type)
+    open_ = ms["is_open"]
+    if not connected:
+        why = "Broker not connected — no market data has been received."
+        nxt = "Enter Client ID + Access Token on Settings and connect; the first AI cycle starts automatically."
+        eta = "First analysis lands within one AI cycle of connecting (market hours)."
+    elif not open_:
+        why = "Market closed — scanner paused. Calm expected state, not a fault."
+        nxt = f"Analysis resumes automatically at open ({ms.get('next_open_ist') or 'next session'} IST)."
+        eta = f"~{ms.get('seconds_to_open', 0) // 3600}h {(ms.get('seconds_to_open', 0) % 3600) // 60}m to open — no refresh needed."
+    else:
+        why = "Connected and market open — waiting for the first AI cycle to complete."
+        nxt = "First cycle is running now."
+        eta = f"Within ~{settings.ai_interval}s (one AI cycle)."
+    return {
+        "ai_status": {
+            "broker": "CONNECTED" if connected else "NOT CONNECTED",
+            "market": ms["status"],
+            "ist_time": ms["ist_time"],
+            "data_quality": state.data_quality,
+            "ai_cycle": "WAITING FOR FIRST CYCLE" if connected and open_ else "PAUSED",
+        },
+        "reason": why,
+        "next_action": nxt,
+        "first_cycle_will": [
+            "Fetch spot + intraday candles",
+            "Download the option chain",
+            "Read futures OI + India VIX",
+            "Compute Greeks + institutional flow",
+            "Run the 12-layer confluence + execution gate",
+        ],
+        "estimated": eta,
+        "discipline": "No recommendation until real data exists — the gate never fires on assumptions.",
+    }
+
+
 def chief_strategist() -> dict[str, Any]:
     """Phase 25 — single structured decision card built entirely from the
     intelligence the platform already computed. Probabilities, never certainty."""
     L = _layers()
     if not L:
-        return {"ready": False,
-                "reason": "No live analysis yet — connect and let the first AI cycle run."}
+        return {"ready": False, **_status_brief()}
     sig = state.signal or {}
     dec = state.decision or {}
     intel = L.get("intelligence") or {}
@@ -211,8 +256,16 @@ def answer(question: str) -> dict[str, Any]:
                 "confidence": 65}
 
     if not L:
-        return {"answer": "I don't have live analysis yet — connect and let the first "
-                          "AI cycle run, then ask again.", "points": [], "confidence": 0}
+        sb = _status_brief()
+        st = sb["ai_status"]
+        return {"answer": f"No live analysis yet — {sb['reason']}",
+                "points": [
+                    f"Broker: {st['broker']} · Market: {st['market']} ({st['ist_time']} IST) · Data: {st['data_quality']}",
+                    f"Next: {sb['next_action']}",
+                    f"First cycle will: {', '.join(sb['first_cycle_will'][:3])}…",
+                    f"ETA: {sb['estimated']}",
+                    sb["discipline"],
+                ], "confidence": 0}
 
     points: list[str] = []
     level = _num(q)
