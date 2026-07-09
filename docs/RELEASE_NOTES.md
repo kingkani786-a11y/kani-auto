@@ -4,6 +4,36 @@
 
 ---
 
+## RC1.11 / RC1.12 — 2026-07-09 — Market-Closed Consistency Bug Fixes
+
+### Purpose
+Owner reported a page-crash and a confusing pre-market dashboard state.
+Investigation found: (1) test scripts had leaked synthetic data into the real
+Supabase evidence tables — cleaned up (7 rows deleted: 2 fake missed_winners,
+5 fake evolution_reports; the "historical learning" data reported earlier that
+day was actually FakeClient random-walk output, not real Dhan history — this
+has since been correctly re-run for real); (2) two real, separate UI bugs.
+
+### Fixed
+- **FeedDiagnostics (RC1.11)**: showed a red "FEED 🔴 0% — Top failing: quotes
+  (MISSING)" alarm every time the market was closed, even though AI Self-Check
+  correctly treated the same missing feeds as a calm paused state. Now reads
+  `status.market_open` and shows "FEED 🟡 PAUSED — Market closed, feeds resume
+  automatically at open" instead. Live-market failure detection unchanged.
+- **DailyReview (RC1.12)**: showed a specific Best/Worst trade result directly
+  below "No settled trades yet" — contradictory-looking, though not fabricated
+  (backend intentionally shows the WEEK's best/worst on a zero-trade day).
+  Added a "This week:" label so the two facts no longer read as conflicting.
+
+### Process note
+Root-caused the original page-crash report to (a) evidence-ledger
+contamination from my own test scripts hitting production Supabase, now fixed
+with a policy change (mock/clean up after any test that touches persistence),
+and (b) transient ECONNREFUSED during today's ~10 backend restarts, which the
+error boundary correctly contained.
+
+---
+
 ## RC1.10 — 2026-07-08 — US-Open Verification + Layer-4 Prediction Accuracy
 
 ### Purpose
