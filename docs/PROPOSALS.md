@@ -54,6 +54,38 @@ until the numbers exist.
 
 ---
 
+## PROPOSAL #003 — Fibonacci / data-derived underlying targets
+
+**Status: 🔬 RESEARCH** *(owner request, 2026-07-09 — "நம்முடைய டேட்டா
+அடிப்படையிலும், Fibonacci அடிப்படையிலும் அந்த target-ஐ fix பண்ணி…")*
+
+### Context that triggered it
+The Scalping Tool's T1/T2/T3 looked "always too high / confusing." Root cause
+split in two on investigation:
+1. The **premium** T1/T2/T3 numbers were a genuine bug — the delta+half-gamma
+   Taylor projection exploded on expiry-day gamma (fixed same day: full
+   Black-Scholes reprice at market-implied vol, intrinsic-bounded; see
+   RELEASE_NOTES RC1.16.1). This fix alone removes most of the "too high".
+2. The **underlying** T1/T2/T3 are currently fixed ATR multiples
+   (`signal_engine.py`: SL = 1.2×ATR, targets = 1.5 / 2.5 / 4.0 ×ATR).
+   This proposal is about #2: replace/augment fixed ATR multiples with
+   structure-aware levels — Fibonacci retracements/extensions of the day's
+   measured swing, prior-day H/L, VWAP bands — so targets land on levels the
+   market actually respects.
+
+### Rule 9 evidence required before any code change
+Backtestable from data we already store (candles + tracked signals):
+for each historical signal, compute (a) current ATR targets, (b) Fib-based
+targets from the active swing. Measure per method: T1-touch rate within the
+tracked window, median MFE capture, SL-first rate. Fib wins only if it
+touch-rates ≥ ATR across ≥3 regimes (trend/range/expiry) with n ≥ 30 each.
+
+### Approval path
+RESEARCH (this entry) → backtest table presented → owner approval → deploy
+behind the existing target fields (no UI change needed — same T1/T2/T3 slots).
+
+---
+
 ## DOCTRINE ADDITION — Global Context is never a hard gate
 
 **Status: ✅ LOCKED (owner, 2026-07-08)**

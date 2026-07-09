@@ -10,7 +10,7 @@ from typing import Any
 
 from ..config import settings
 from ..core.clock import years_to_expiry as _years
-from .greeks import compute_greeks
+from .greeks import bs_price, compute_greeks, implied_vol
 
 
 def select_top(
@@ -54,10 +54,22 @@ def select_top(
     for score, row, prem, g, spread_pct in scored[:n]:
         delta, gamma = abs(g.delta), g.gamma
 
-        def prem_at(under_px: float, _p=prem, _d=delta, _g=gamma) -> float:
-            move = (under_px - spot) if is_call else (spot - under_px)
-            # first-order delta + half-gamma convexity, floored near zero
-            return max(round(_p + _d * move + 0.5 * _g * move * move, 2), 0.05)
+        # RC1.17-hotfix — premium at an underlying level is a full Black-Scholes
+        # reprice at the vol implied by the LIVE premium (exact at entry by
+        # construction, intrinsic-bounded at every level). The previous
+        # delta+half-gamma Taylor extrapolation exploded on expiry-day gamma:
+        # 2026-07-09 live evidence — T1 claimed ₹381.94 where the exchange
+        # printed ~₹230 (intrinsic ceiling), an SL "loss" projected as
+        # ₹57.75→₹142.14 (SL above entry on a bought option), and a 62-lot size
+        # derived from an ₹8 risk that was really ~₹55. A parabola is only
+        # locally valid; a reprice cannot cross intrinsic or invert the P&L sign.
+        _iv_mkt = implied_vol(prem, spot, row["strike"], t, settings.risk_free_rate, is_call) \
+            or (g.iv if g.iv > 0 else 0.10)
+
+        def prem_at(under_px: float, _k=row["strike"], _iv=_iv_mkt, _t=t) -> float:
+            px = bs_price(under_px, _k, _t, settings.risk_free_rate, _iv, is_call)
+            intrinsic = max(0.0, (under_px - _k) if is_call else (_k - under_px))
+            return max(round(px, 2), round(intrinsic, 2), 0.05)
 
         out.append({
             "strike": row["strike"],

@@ -4,6 +4,48 @@
 
 ---
 
+## RC1.16.1 — 2026-07-09 — Premium-Projection Fix (Black-Scholes reprice)
+
+### Purpose
+Owner-reported: Scalping Tool premium T1/T2/T3 "always too high, everything
+confusing." Investigation across four live dumps found a real math bug with
+same-day exchange confirmation.
+
+### Root cause
+`strike_selector.prem_at` projected premium at SL/target levels with a Taylor
+parabola (`premium + delta·move + ½·gamma·move²`). Valid for small moves and
+small gamma; on expiry-day ATM gamma it fabricated numbers in both directions:
+- **14:58** — 77000 PE T1 claimed ₹381.94; the exchange later printed ₹257.70
+  at an even deeper level (intrinsic ceiling ~₹230 at T1). SL risk shown as
+  ₹8/unit (real ~₹55) → position sizing suggested **62 lots at "1% risk"**
+  that was really ~7% of capital.
+- **15:34** — SL projected ABOVE entry (₹57.75 → "SL" ₹142.14) because the
+  always-positive gamma term exceeded the delta loss; T3 ₹2,871 vs intrinsic
+  ceiling ₹513. The `entry > SL` sizing guard silently suppressed the qty line
+  but still displayed the nonsense plan.
+
+### Fixed
+`prem_at` now does a full Black-Scholes reprice at each underlying level, at
+the vol implied by the live premium (exact at entry by construction), floored
+at intrinsic. One source (`greeks.bs_price` / `implied_vol` — already
+existed), consumed by Scalping Tool, Strike Queue, Strike Engine and
+Opportunity board alike.
+
+### Verified
+Three cases from today's real market: power-hour case now gives T1 ₹240.43
+(exchange-confirmed ceiling ~₹230–258), SL ₹32.01 (real loss, sane sizing);
+post-close inversion case now SL ₹18.38 < entry, T3 ₹512.86 ≈ intrinsic;
+7-day normal-regime case unchanged in character. Position sizing inherits the
+fix automatically (same premium fields).
+
+### Also
+Owner's Fibonacci/data-derived underlying-target idea recorded as
+PROPOSAL #003 (RESEARCH) in PROPOSALS.md — Trading-Doctrine change, needs
+Rule 9 backtest evidence first. Underlying targets today remain
+1.5/2.5/4.0×ATR (`signal_engine.py`).
+
+---
+
 ## RC1.16 — 2026-07-09 — Time Consistency Audit + Single Time Service
 
 ### Purpose
