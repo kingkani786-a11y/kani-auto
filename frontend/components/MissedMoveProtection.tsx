@@ -57,6 +57,8 @@ export function MissedMoveProtection() {
           </div>
           <div className="flex flex-wrap gap-x-4 text-[11px] text-terminal-muted mt-0.5">
             <span>Velocity {e.velocity_pts_min} pts/min{e.accelerating ? " · ACCELERATING" : ""}</span>
+            {e.volume_x != null && <span>Vol {e.volume_x}×</span>}
+            {e.oi_change_pct != null && <span>OI {e.oi_change_pct > 0 ? "+" : ""}{e.oi_change_pct}%</span>}
             {e.next_tier && <span>Next: {e.next_tier.name} at ₹{e.next_tier.at_premium}</span>}
             <span>Episode {e.episode_started ?? "—"} · {e.elapsed_min}m elapsed
               {e.avg_episode_min != null ? ` · avg ${e.avg_episode_min}m` : " · avg — (learning)"}</span>

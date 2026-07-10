@@ -200,6 +200,13 @@ def active_episodes() -> list[dict[str, Any]]:
         nxt = next(((round(base * m, 1), n) for m, n in _TIER_LADDER
                     if n not in t["fired"] and rise < base * m), None)
         vel = _window_rise(t["series"], now - 60, now)          # pts/last-min
+        # owner spec: Volume × and OI Δ% belong in Layer-1 facts
+        v_now = _window_delta(t["series"], 2, now - 60, now)
+        v_prev = _window_delta(t["series"], 2, now - 120, now - 60)
+        vol_x = round(v_now / v_prev, 1) if v_prev > 0 else (None if v_now <= 0 else 1.0)
+        _oi_now = t["series"][-1][3]
+        _oi_start = next((o for _ts, _p, _v2, o in t["series"] if o > 0), 0)
+        oi_pct = round((_oi_now - _oi_start) / _oi_start * 100, 1) if _oi_start else None
         stars = max((_TIER_STARS[n] for n in t["fired"]), default=0)
         elapsed = now - t["episode_start"] if t["episode_start"] else 0.0
         done = [d for d in _episode_durations if d > 0]
@@ -210,6 +217,8 @@ def active_episodes() -> list[dict[str, Any]]:
             "rise_pts": round(rise, 1), "rise_pct": round(rise_pct, 1),
             "velocity_pts_min": round(vel, 1),
             "accelerating": vel >= base,           # last-min rise ≥ one full base
+            "volume_x": vol_x,                     # last-min vol vs prior-min (None = no data)
+            "oi_change_pct": oi_pct,
             "tiers_fired": sorted(t["fired"], key=lambda n: _TIER_STARS[n]),
             "move_strength": stars,                # 1–5 stars (declared tier map)
             "next_tier": ({"name": nxt[1], "at_rise_pts": nxt[0],
