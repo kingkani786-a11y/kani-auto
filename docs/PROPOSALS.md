@@ -402,6 +402,37 @@ timestamped; the recorder is a persistence + re-speak layer over them.
 **Queue position unchanged (owner's own sequencing):** builds AFTER the
 MODE 1–2-week live validation — "voice reads verified events only".
 
+### v3.0 — AI Trading Radio (owner, 2026-07-11 night) — delta vs deployed v0.x
+
+Already live (v0–v0.4 series): briefing rundown · confidence-delta
+commentary · MOVE Tanglish · READY/WAIT transitions · narrator commentary ·
+no-repeat memory · priority (speak vs speakSoft) · Tanglish standard.
+
+**Genuinely new, planned as Voice v0.5 (next deploy window — Saturday,
+market closed, zero restart risk):**
+1. **Layer-flip narration** — each checklist layer spoken ONLY on status
+   change ("Trend confirmed." when WAITING→PASS; "Liquidity weakened."
+   on PASS→WAITING). Frontend tracks previous statuses. The owner's
+   no-repeat rule at per-layer granularity.
+2. **Periodic mini-update** (FULL mode, ~20–30s, Smart-Silence aware):
+   time + spot + fire score + top missing factor — CHANGED values only,
+   full silence when nothing changed.
+3. **Cycle roll-call** (FULL mode): when a fresh AI cycle lands, narrate
+   the real results sequence — "Layer check. Structure PASS. Trend
+   waiting…" **Honesty rule: results of COMPLETED checks are narrated;
+   no fake real-time 'Checking…' theatre with artificial delays** — true
+   per-stage live narration needs the backend Event-Bus stage emitter
+   (recorded; benefits Telegram too).
+4. Bulls/Bears probability delta line ("Bears probability 43 → 51").
+5. Fetch-retry resilience in lib/api req() (2–3 backoff retries) so
+   backend restart windows never trip the page error boundary — first
+   item of the same deploy window.
+
+5-stream naming (owner): Market/AI-Thinking/Trading/Momentum/Learning
+Radio — maps to existing streams + #011 deferred items (Learning Radio
+still gated on the daily-review aggregation fix; AI-Thinking Radio full
+version gated on the Event-Bus emitter).
+
 ### v2 spec additions (owner, 2026-07-11 — "Core Operating Layer" framing)
 
 **The architecturally significant piece — EVENT BUS formalization:**
