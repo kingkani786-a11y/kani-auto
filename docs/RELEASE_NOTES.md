@@ -4,6 +4,33 @@
 
 ---
 
+## RC1.16.13 — 2026-07-11 — Voice v0.2: Live Market Narrator (owner v2.0 spec)
+
+### Purpose
+Owner's v2.0 spec: "Dashboard Thinks → Voice Speaks." Key realization: the
+AI Market Narrator engine ALREADY generates the dashboard's own Tamil+
+English tape commentary every AI cycle — the narrator stream is those
+existing lines spoken aloud. No second brain.
+
+### Added (frontend only)
+- **4 modes**: 🔇 Silent (mic Q&A only) → 🔔 Alerts+Decisions → 🗣 +Market
+  Commentary → 🎧 Full Copilot.
+- **Decision-transition narration**: speaks only on gate STATE CHANGE —
+  "Setup ready. [strike] Premium X. Stop loss Y. Target one Z." /
+  "Setup no longer ready." (owner's no-repeat rule; snapshot polling stays
+  silent).
+- **Market commentary stream**: reads the existing AI Market Narrator lines,
+  one per 15s max, each line once, via `speakSoft()` which NEVER interrupts
+  — the priority ladder in code: alerts/decisions/Q&A use `speak()` (cancel
+  + replace), commentary skips its turn if anything is speaking.
+- Training-mode ("Checking Futures… Checking PCR…") deferred — needs
+  per-stage pipeline events from the backend (Event-Bus emitter task).
+
+### Verified
+tsc + build, frontend restarted 200 OK.
+
+---
+
 ## RC1.16.12 — 2026-07-11 — Voice Copilot v0: push-to-talk Q&A + alert narration
 
 ### Purpose
