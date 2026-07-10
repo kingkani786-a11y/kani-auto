@@ -233,6 +233,13 @@ async def ai_market_brain(body: BrainBody):
     return brain.answer(body.question)
 
 
+@router.get("/briefing")
+async def market_briefing():
+    """RC1.16.17 — AI Chief Market Analyst full radio briefing (live state)."""
+    from ..services import brain
+    return brain.briefing()
+
+
 @router.get("/brain/auto")
 async def ai_brain_auto():
     """S14 — auto-answered key questions (the AI answers before you ask)."""

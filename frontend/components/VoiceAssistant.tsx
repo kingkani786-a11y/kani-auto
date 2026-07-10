@@ -65,6 +65,16 @@ export function VoiceAssistant() {
   const spokenIds = useRef<Set<string>>(new Set());
   const spokenLines = useRef<Set<string>>(new Set());
   const prevGate = useRef<string>("");
+  const prevConfWhy = useRef<string>("");
+
+  async function speakBriefing() {
+    try {
+      const b = await api.briefing();
+      // briefing is Tanglish by design — spoken with the Tamil voice
+      speak((b.lines || []).join(" "), "ta-IN", rate);
+      setLast({ q: "briefing", a: `${(b.lines || []).length} lines` });
+    } catch { speak("Backend not reachable.", lang, rate); }
+  }
 
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -116,6 +126,18 @@ export function VoiceAssistant() {
     prevGate.current = state;
   }, [decision, mode, lang, rate]);
 
+  // Stream: analyst delta commentary — the confidence-evolution engine
+  // already computes change + responsible layer ("Futures weakened (-20)
+  // to 50"); voice simply reads it when it changes. COMMENTARY/FULL modes.
+  useEffect(() => {
+    if (mode !== "COMMENTARY" && mode !== "FULL") return;
+    const why = (decision as any)?.confidence_evolution?.why;
+    if (why && why !== prevConfWhy.current) {
+      if (prevConfWhy.current) speakSoft(why, lang, rate);
+      prevConfWhy.current = why;
+    }
+  }, [decision, mode, lang, rate]);
+
   // Stream: market commentary — COMMENTARY/FULL modes. Reads the EXISTING
   // AI Market Narrator lines (the dashboard's own tape explanation); each
   // line spoken once, checked every 15s, never interrupts higher priority.
@@ -147,6 +169,10 @@ export function VoiceAssistant() {
       const q = ev.results?.[0]?.[0]?.transcript || "";
       if (!q) return;
       if (/stop talking|be quiet|mute/i.test(q)) { window.speechSynthesis?.cancel(); return; }
+      // Full Analyst briefing on request
+      if (/briefing|market update|full update|rundown|என்ன நடக்குது|நிலவரம்/i.test(q)) {
+        speakBriefing(); return;
+      }
       // Voice Memory (Radio spec): "what happened…" → replay the timestamped
       // alert timeline — the system's own recorded history, nothing invented
       if (/what happened|timeline|replay|என்ன நடந்தது/i.test(q)) {
@@ -224,6 +250,10 @@ export function VoiceAssistant() {
                  onChange={(e) => setEmergencyOverride(e.target.checked)} />
           🚨 Emergency override
         </label>
+        <button onClick={() => { setUnlocked(true); speakBriefing(); }}
+                className="px-2 py-1 rounded border border-terminal-accent/60 text-terminal-accent text-xs">
+          📻 BRIEFING
+        </button>
         <button onClick={() => window.speechSynthesis?.cancel()}
                 className="text-terminal-muted hover:text-terminal-bear">⏹ stop</button>
         <span className="text-[10px] text-terminal-muted">

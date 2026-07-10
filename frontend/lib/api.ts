@@ -66,6 +66,7 @@ export const api = {
   lifecycle: () => req<any>("/api/lifecycle"),
   systemHealth: () => req<any>("/api/health/system"),
   moveAlerts: () => req<any>("/api/move-alerts"),
+  briefing: () => req<any>("/api/briefing"),
   // auth
   authCheck: () => req<any>("/api/auth/check"),
   login: (password: string) =>

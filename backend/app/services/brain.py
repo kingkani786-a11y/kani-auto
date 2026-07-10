@@ -161,6 +161,82 @@ def _status_brief() -> dict[str, Any]:
     }
 
 
+def briefing() -> dict[str, Any]:
+    """RC1.16.17 — AI Chief Market Analyst briefing (owner Radio script).
+    Composes the full spoken market rundown ENTIRELY from live state —
+    Tanglish standard (Tamil narration · English technical terms · English
+    digits). Sections with no data are skipped, never padded. Consumer-only:
+    this reads state; it computes nothing new."""
+    L = _layers()
+    sig = state.signal or {}
+    dec = state.decision or {}
+    lines: list[str] = ["Cloud AI Trading Radio. Current market update."]
+
+    spot = (state.spot or {}).get("ltp")
+    if spot:
+        lines.append(f"{state.symbol} தற்போது {spot:g}.")
+    from ..core.state import market_status
+    lines.append("Market open." if market_status(state.market_type)["is_open"] else "Market closed.")
+
+    reg = (L.get("regime") or {})
+    if reg.get("regime"):
+        lines.append(f"Current regime {str(reg['regime']).replace('_', ' ').title()}.")
+
+    ec = dec.get("entry_checklist") or {}
+    rows = ec.get("checklist") or []
+    if rows:
+        done = [r["item"] for r in rows if r["status"] == "PASS"]
+        waiting = [r["item"] for r in rows if r["status"] != "PASS"]
+        lines.append(f"AI தற்போது {len(rows)} execution layers analyse பண்ணிக்கொண்டிருக்கிறது.")
+        for n in done[:6]:
+            lines.append(f"{n} confirmed.")
+        for n in waiting[:6]:
+            lines.append(f"{n} waiting.")
+        lines.append("Current decision.")
+        lines.append((dec.get("action") or sig.get("signal") or "WAIT") + ".")
+        if waiting:
+            lines.append(f"Reason. {len(done)} out of {len(rows)} layers மட்டும் confirmed.")
+        if ec.get("fire_score") is not None:
+            lines.append(f"Fire score {ec['fire_score']}.")
+    di = (dec.get("intelligence_synthesis") or {})
+    tq = (di.get("trade_quality") or {}).get("score")
+    if tq is not None:
+        lines.append(f"Trade quality {tq} out of 1000.")
+    conf = sig.get("dynamic_confidence") or sig.get("confidence")
+    if conf:
+        lines.append(f"Current confidence {round(float(conf))} percent.")
+
+    opp = state.opportunities or {}
+    best = opp.get("best_ce") or opp.get("best_pe") or {}
+    if best.get("symbol"):
+        lines.append(f"Current best opportunity. {best['symbol']}"
+                     + (f" {best.get('strike'):g} {best.get('type', '')}." if best.get("strike") else "."))
+        if best.get("premium"):
+            lines.append(f"Premium {best['premium']}.")
+        if best.get("status"):
+            lines.append(f"Status {best['status']}.")
+    if opp.get("best_ce") and not opp.get("best_pe"):
+        lines.append("No bearish opportunity.")
+    elif opp.get("best_pe") and not opp.get("best_ce"):
+        lines.append("No bullish opportunity.")
+
+    sc = state.scalp or {}
+    if sc.get("state") or sc.get("signal"):
+        lines.append(f"Scalping engine {str(sc.get('state') or sc.get('signal')).lower()}.")
+
+    ladder = dec.get("probability_ladder") or {}
+    for row in (ladder.get("rows") or ladder.get("ladder") or [])[:3]:
+        pts, prob = row.get("points") or row.get("type"), row.get("prob") or row.get("probability")
+        if pts and prob:
+            lines.append(f"{pts} point capture {prob} percent.")
+
+    if not dec.get("is_trade"):
+        lines.append("No trade recommended.")
+    return {"ready": bool(L), "lines": lines if L else
+            ["No live analysis yet."] + [_status_brief()["reason"]],
+            "note": "Composed from live state only — the analyst explains; the gate decides."}
+
+
 def chief_strategist() -> dict[str, Any]:
     """Phase 25 — single structured decision card built entirely from the
     intelligence the platform already computed. Probabilities, never certainty."""
@@ -286,6 +362,32 @@ def answer(question: str) -> dict[str, Any]:
 
     points: list[str] = []
     level = _num(q)
+
+    # ---- RC1.16.17 intent: layer-score conversation ("trend ஏன்?",
+    # "liquidity எப்படி?") — answers with the checklist's OWN score + gap ----
+    _LAYERS_Q = ("trend", "structure", "greeks", "oi", "mtf", "smart money",
+                 "volume", "futures", "institutional", "liquidity", "risk")
+    hit = next((n for n in _LAYERS_Q if n in q), None)
+    if hit and any(w in q for w in ("why", "how", "score", "ஏன்", "எப்படி", "confirm", "status")):
+        rows = ((dec.get("entry_checklist") or {}).get("checklist") or [])
+        row = next((r for r in rows if hit in str(r.get("item", "")).lower()), None)
+        if row:
+            ans = f"{row['item']} score {row['score']:.0f}. Status {row['status']}."
+            pts_l = [f"Confirm level 55"]
+            if row.get("remaining"):
+                ans += f" Need plus {row['remaining']:.0f} points."
+            return {"answer": ans, "points": pts_l, "confidence": 70}
+
+    # ---- RC1.16.17 intent: "how long?" — honest readiness, no invented ETA ----
+    if any(w in q for w in ("how long", "எவ்வளவு நேரம்", "eta", "when ready", "எப்போ")):
+        sm = dec.get("signal_maturity") or {}
+        if sm.get("maturity_score") is not None:
+            return {"answer": f"Maturity {sm['maturity_score']:.0f} out of 100. "
+                              f"Threshold {sm.get('threshold', 61)}. "
+                              f"Confirmations {sm.get('confirmation_count', '—')} of {sm.get('confirmation_total', '—')}.",
+                    "points": ["Honest answer: no calibrated time-to-ready model exists — "
+                               "readiness is measured, minutes are not predicted."],
+                    "confidence": 60}
 
     # ---- intent: break / cross / reach a level ----
     if level and any(w in q for w in ("break", "cross", "above", "below", "reach", "hit", "touch")):
