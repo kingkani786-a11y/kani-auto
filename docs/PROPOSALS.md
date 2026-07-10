@@ -365,6 +365,43 @@ Phase A alerts (done), Phase B miss-join (pending).
   Engine → Event Bus → {Voice, Telegram, Dashboard, Mobile}. The Voice
   engine computes NOTHING — it is a pure consumer of published events.
 
+### Voice Copilot v1.0 — owner's production prompt (2026-07-11, recorded)
+
+**ROLE (verbatim-spirit):** "You NEVER make trading decisions / calculate
+signals / predict anything. You ONLY narrate verified events already
+published by the Decision Engine. Dashboard is the brain. Voice is only the
+speaker." Allowed sources whitelist: Market Status · Opportunity Card ·
+Decision Engine · MODE premium movement · Kill Switch · Safe Mode · Entry ·
+Exit · Global Context · Position Monitor · Risk Manager. "Never invent
+data. Never estimate missing values."
+
+**Style:** natural Tamil + English trading terms, sentences ≤ 8–10s.
+**Priority:** Emergency > Kill Switch > Exit > Entry > Opportunity >
+Momentum > Commentary (lower never interrupts higher).
+**Modes:** Silent (emergency only) / Professional (critical only) /
+Commentary (30–60s configurable) / Training (explains every reason).
+**Memory:** never repeat until state changes.
+**FINAL LAW:** Voice never creates decisions, never overrides the gate,
+only narrates verified state.
+
+**10 features + build-time notes (existing foundations mapped honestly):**
+1–5 (commentary/opportunity/entry/exit/emergency voices): event sources all
+exist today (alert feed kinds MOVE/ENTRY/TARGET/SL/SYSTEM, gate state,
+kill-switch/safe-mode broadcasts). 6 mute · 7 silent hours · 9 professional
+mode: frontend settings. 8 Training-mode answers + 10 spoken questions
+("Why waiting?" etc.): **reuse `brain.answer()` — it already answers exactly
+these from live state**; voice Q&A = STT → brain.answer → TTS, zero new
+decision logic. STT/TTS choice (browser SpeechSynthesis/Recognition vs
+cloud; Tamil quality device-dependent) decided at build time.
+
+**Voice Timeline Recorder (new sub-feature):** timestamped log of every
+announcement (09:18 Market Open → 09:37 ENTRY READY → 09:49 T1) with
+replay. Foundation exists: the alert feed + MODE ledger are already
+timestamped; the recorder is a persistence + re-speak layer over them.
+
+**Queue position unchanged (owner's own sequencing):** builds AFTER the
+MODE 1–2-week live validation — "voice reads verified events only".
+
 ---
 
 ## PROPOSAL #012 — Institutional Price Action & Market Mapping Engine (IPMME)
