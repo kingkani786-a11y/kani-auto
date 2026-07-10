@@ -10,21 +10,24 @@ import { api } from "@/lib/api";
 
 type Mode = "SILENT" | "ALERTS" | "COMMENTARY" | "FULL";
 const SPEAK_KINDS = new Set(["MOVE", "ENTRY", "TARGET", "SL", "ARMED"]);
+// Radio spec: these interrupt EVERYTHING and speak even in Silent mode
+// (when Emergency Override is on) — kill switch / broker / SL class events
+const EMERGENCY_KINDS = new Set(["SL", "SYSTEM"]);
 
 // priority speech: interrupts anything (alerts, decisions, Q&A answers)
-function speak(text: string, lang: string) {
+function speak(text: string, lang: string, rate = 0.95) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang; u.rate = 0.95;
+  u.lang = lang; u.rate = rate;
   window.speechSynthesis.speak(u);
 }
 // commentary speech: NEVER interrupts — skips its turn if anything is speaking
-function speakSoft(text: string, lang: string): boolean {
+function speakSoft(text: string, lang: string, rate = 0.95): boolean {
   if (typeof window === "undefined" || !window.speechSynthesis) return false;
   if (window.speechSynthesis.speaking) return false;
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang; u.rate = 0.95;
+  u.lang = lang; u.rate = rate;
   window.speechSynthesis.speak(u);
   return true;
 }
@@ -35,6 +38,8 @@ export function VoiceAssistant() {
   const [listening, setListening] = useState(false);
   const [mode, setMode] = useState<Mode>("SILENT");
   const [lang, setLang] = useState<"en-IN" | "ta-IN">("en-IN");
+  const [rate, setRate] = useState(1.0);
+  const [emergencyOverride, setEmergencyOverride] = useState(true);
   const [last, setLast] = useState<{ q: string; a: string } | null>(null);
   const recRef = useRef<any>(null);
   const spokenIds = useRef<Set<string>>(new Set());
@@ -46,14 +51,22 @@ export function VoiceAssistant() {
     setSupported(!!SR && !!window.speechSynthesis);
   }, []);
 
-  // Stream: alert narration (priority) — ALERTS mode and above
+  // Stream: alert narration (priority) — ALERTS mode and above.
+  // Radio spec: EMERGENCY class (kill switch / broker / SL) speaks even in
+  // Silent mode when Emergency Override is on — nothing else does.
   useEffect(() => {
-    if (mode === "SILENT" || !alerts?.length) return;
+    if (!alerts?.length) return;
     const a = alerts[0];
-    if (!a?.id || spokenIds.current.has(a.id) || !SPEAK_KINDS.has(a.kind)) return;
+    if (!a?.id || spokenIds.current.has(a.id)) return;
+    const isEmergency = EMERGENCY_KINDS.has(a.kind);
+    const allowed = isEmergency
+      ? (mode !== "SILENT" || emergencyOverride)
+      : (mode !== "SILENT" && SPEAK_KINDS.has(a.kind));
+    if (!allowed) return;
     spokenIds.current.add(a.id);
-    speak(`${a.title}. ${String(a.body || "").split("·")[0]}`, lang);
-  }, [alerts, mode, lang]);
+    speak(`${isEmergency ? "Attention. " : ""}${a.title}. ${String(a.body || "").split("·")[0]}`,
+          lang, rate);
+  }, [alerts, mode, lang, rate, emergencyOverride]);
 
   // Stream: decision transitions (priority) — ALERTS mode and above.
   // Owner's no-repeat rule: speak only when the gate STATE changes.
@@ -68,13 +81,13 @@ export function VoiceAssistant() {
         speak(`Setup ready. ${st.strike ?? ""} ${st.type ?? ""}. ` +
               (st.premium_entry != null
                 ? `Premium ${st.premium_entry}. Stop loss ${st.premium_stop_loss}. Target one ${st.premium_target1}.`
-                : ""), lang);
+                : ""), lang, rate);
       } else if (prevGate.current === "READY") {
-        speak("Setup no longer ready. Back to waiting.", lang);
+        speak("Setup no longer ready. Back to waiting.", lang, rate);
       }
     }
     prevGate.current = state;
-  }, [decision, mode, lang]);
+  }, [decision, mode, lang, rate]);
 
   // Stream: market commentary — COMMENTARY/FULL modes. Reads the EXISTING
   // AI Market Narrator lines (the dashboard's own tape explanation); each
@@ -83,13 +96,13 @@ export function VoiceAssistant() {
     if (mode !== "COMMENTARY" && mode !== "FULL") return;
     const t = setInterval(() => {
       const fresh = (narrative || []).find((l: string) => l && !spokenLines.current.has(l));
-      if (fresh && speakSoft(fresh, lang)) {
+      if (fresh && speakSoft(fresh, lang, rate)) {
         spokenLines.current.add(fresh);
         if (spokenLines.current.size > 200) spokenLines.current.clear();
       }
     }, 15000);
     return () => clearInterval(t);
-  }, [mode, lang, narrative]);
+  }, [mode, lang, rate, narrative]);
 
   function listen() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -107,13 +120,27 @@ export function VoiceAssistant() {
       const q = ev.results?.[0]?.[0]?.transcript || "";
       if (!q) return;
       if (/stop talking|be quiet|mute/i.test(q)) { window.speechSynthesis?.cancel(); return; }
+      // Voice Memory (Radio spec): "what happened…" → replay the timestamped
+      // alert timeline — the system's own recorded history, nothing invented
+      if (/what happened|timeline|replay|என்ன நடந்தது/i.test(q)) {
+        try {
+          const feed = await api.alerts();
+          const recent = (feed || []).slice(0, 8).reverse();
+          if (!recent.length) { speak("No events recorded yet this session.", lang, rate); return; }
+          const lines = recent.map((a: any) =>
+            `${(a.ts || "").split(" ")[1] || ""}. ${a.title}.`).join(" ");
+          setLast({ q, a: `${recent.length} events replayed` });
+          speak(`Timeline. ${lines}`, lang, rate);
+        } catch { speak("Backend not reachable.", lang, rate); }
+        return;
+      }
       try {
         const r = await api.brain(q);
         const answer = [r.answer, ...(r.points || []).slice(0, 3)].join(". ");
         setLast({ q, a: r.answer });
-        speak(answer, lang);
+        speak(answer, lang, rate);
       } catch {
-        speak("Backend not reachable.", lang);
+        speak("Backend not reachable.", lang, rate);
       }
     };
     rec.start();
@@ -143,6 +170,15 @@ export function VoiceAssistant() {
           <option value="en-IN">English (IN)</option>
           <option value="ta-IN">தமிழ்</option>
         </select>
+        <select value={rate} onChange={(e) => setRate(parseFloat(e.target.value))}
+                className="bg-transparent border border-terminal-border rounded px-1 py-0.5 text-xs">
+          {[0.75, 1.0, 1.25, 1.5, 2.0].map((r) => <option key={r} value={r}>{r}×</option>)}
+        </select>
+        <label className="flex items-center gap-1 text-terminal-muted cursor-pointer text-[10px]">
+          <input type="checkbox" checked={emergencyOverride}
+                 onChange={(e) => setEmergencyOverride(e.target.checked)} />
+          🚨 Emergency override
+        </label>
         <button onClick={() => window.speechSynthesis?.cancel()}
                 className="text-terminal-muted hover:text-terminal-bear">⏹ stop</button>
         <span className="text-[10px] text-terminal-muted">

@@ -4,6 +4,31 @@
 
 ---
 
+## RC1.16.14 — 2026-07-11 — Voice v0.3: Trading Radio deltas
+
+### Purpose
+Owner's "AI Trading Radio" spec. Channel mapping against what exists:
+Ch1 Market Radio = narrator stream (live since v0.2) · Ch3 Trading Radio =
+alerts + decision transitions (live) · Ch2 AI-Brain Radio ("Checking
+PCR…") = needs backend pipeline-stage events, deferred with the Event-Bus
+emitter · Ch4 Learning Radio = night review, deferred on the daily-review
+aggregation fix. Smart Silence already emergent (narrator lines change only
+when state changes; nothing new ⇒ nothing spoken).
+
+### Added (the three buildable deltas)
+- **Playback speed** 0.75×/1×/1.25×/1.5×/2× — wired into every speech path.
+- **🚨 Emergency Override** (default ON): SL/SYSTEM-class alerts speak with
+  "Attention." prefix even in Silent mode — nothing else ever does.
+- **Voice Memory slice**: spoken "what happened / timeline / replay /
+  என்ன நடந்தது" → replays the timestamped alert feed aloud (the system's
+  own recorded history — nothing invented). Full Timeline Recorder (time-
+  range queries, prior days) still queued.
+
+### Verified
+tsc + build, frontend restarted 200 OK.
+
+---
+
 ## RC1.16.13 — 2026-07-11 — Voice v0.2: Live Market Narrator (owner v2.0 spec)
 
 ### Purpose
