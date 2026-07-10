@@ -536,3 +536,20 @@ Demand Success 81%"-grade numbers first).
 If/when external global feeds (US futures, DXY, yields…) are connected:
 Global Context may only ever be **context** — e.g. Risk-ON +3 / Risk-OFF −3
 score adjustment. It must never hard-block and never override Trend.
+
+---
+
+## PROPOSAL #013 — AI OS / LLM Intelligence Layer (owner architecture, 2026-07-11)
+
+**Status: RECORDED — blocked on Anthropic API key + validation queue.**
+
+Owner's 10-engine "AI Operating System for Financial Markets" vision
+(Reasoning / Research / Memory / Learning / Strategy Lab / Analyst / Planner /
+Developer / Commander + multi-agent layer). Full honest inventory, locked
+laws, cost-safe 3-tier design and Phase A–D build plan recorded in
+**docs/AI_OS_VISION.md**.
+
+Core rulings (owner-locked): AI never auto-changes trading rules (Phase-22
+pipeline is the only path); decision loop stays deterministic/LLM-free
+(Tier 1); LLM is a language + research layer on top (Tiers 2–3); includes
+the earlier "Design Studio" request as Engine 9 / Phase C.
