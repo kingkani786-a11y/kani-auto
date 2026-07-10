@@ -41,6 +41,9 @@ export function VoiceAssistant() {
   const [rate, setRate] = useState(1.0);
   const [emergencyOverride, setEmergencyOverride] = useState(true);
   const [last, setLast] = useState<{ q: string; a: string } | null>(null);
+  // Safari/Chrome autoplay policy: TTS is silent until a user gesture has
+  // triggered speech at least once. Track it and prompt the user honestly.
+  const [unlocked, setUnlocked] = useState(false);
   const recRef = useRef<any>(null);
   const spokenIds = useRef<Set<string>>(new Set());
   const spokenLines = useRef<Set<string>>(new Set());
@@ -152,7 +155,25 @@ export function VoiceAssistant() {
     <div className="panel py-2">
       <div className="flex flex-wrap items-center gap-3 text-xs">
         <span className="panel-title">🎙 VOICE NARRATOR</span>
-        <select value={mode} onChange={(e) => { setMode(e.target.value as Mode); window.speechSynthesis?.cancel(); }}
+        {!unlocked && (
+          <button onClick={() => {
+              // user gesture → speaking here unlocks TTS for the whole page
+              window.speechSynthesis?.getVoices();
+              speak(lang === "ta-IN" ? "குரல் இயங்குகிறது. Narrator online."
+                                     : "Voice check. Narrator online.", lang, rate);
+              setUnlocked(true);
+            }}
+            className="px-3 py-1 rounded border border-terminal-bull text-terminal-bull text-xs font-bold animate-pulse">
+            🔊 ENABLE SOUND (tap once)
+          </button>
+        )}
+        <select value={mode} onChange={(e) => {
+            const m = e.target.value as Mode;
+            setMode(m);
+            window.speechSynthesis?.cancel();
+            // mode change is a gesture — confirm aloud (also primes TTS)
+            if (m !== "SILENT") { speak(`Voice mode ${m.toLowerCase().replace("_", " ")}.`, lang, rate); setUnlocked(true); }
+          }}
                 className="bg-transparent border border-terminal-border rounded px-1 py-0.5 text-xs">
           <option value="SILENT">🔇 Silent</option>
           <option value="ALERTS">🔔 Alerts + Decisions</option>
@@ -182,7 +203,8 @@ export function VoiceAssistant() {
         <button onClick={() => window.speechSynthesis?.cancel()}
                 className="text-terminal-muted hover:text-terminal-bear">⏹ stop</button>
         <span className="text-[10px] text-terminal-muted">
-          Dashboard thinks → voice speaks. Never decides.
+          {unlocked ? "Dashboard thinks → voice speaks. Never decides."
+                    : "⚠ Browser blocks sound until one tap — hit ENABLE SOUND first."}
         </span>
       </div>
       {last && (
