@@ -81,7 +81,11 @@ def report_card() -> dict[str, Any]:
             "premium_capture_pct": eq.get("capture_efficiency_pct"),
             "point_capture_avg_pts": eq.get("avg_mfe_pts"),
             "avg_adverse_pts": eq.get("avg_mae_pts"),
-            "false_signal_rate": (round(100 - win, 1) if acc_known else None),
+            # RC1.16.10 fix #4: this is literally 100 − win_rate (loss rate of
+            # TAKEN signals). The old name "false_signal_rate" collided with
+            # signal_maturity's genuinely different predictive false-signal
+            # probability. One meaning per name.
+            "loss_rate": (round(100 - win, 1) if acc_known else None),
             "avg_entry_delay_sec": None,        # honest: needs ideal-vs-actual tracking
             "calibration_grade": cal.get("calibration_score"),
             "brier": brier.get("brier"),

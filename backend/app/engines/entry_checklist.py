@@ -44,6 +44,15 @@ def build(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, An
     fire_score = int(round((passed / total) * 70 + (pass_quality / 100) * 30)) if total else 0
     fire_band = ("BUY NOW" if fire_score >= 90 else "ARMED" if fire_score >= 80
                  else "PREPARE" if fire_score >= 61 else "WAIT")
+    # RC1.16.10 fix #7: the checklist headline read "BUY NOW · 92/100" while
+    # the Kill Switch was ACTIVE and the gate BLOCKED — the words override
+    # the gate in the reader's mind even though the code never does. When a
+    # protection override is active, the headline states confluence without
+    # commanding action. Scores/logic unchanged.
+    if fire_band in ("BUY NOW", "ARMED") and (
+            (kill_switch and kill_switch.get("active"))
+            or (safe_mode and safe_mode.get("active"))):
+        fire_band = "CONFIRMED — GATE BLOCKED"
 
     # Phase 8 — WHY-NOT (reasons a trade is held), with overrides first
     is_trade = bool(decision.get("is_trade"))

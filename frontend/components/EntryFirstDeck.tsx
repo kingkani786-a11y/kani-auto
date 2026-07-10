@@ -318,7 +318,11 @@ export function EntryFirstDeck() {
             const lateRisk = (isTrade && trigDist != null && trigDist > 0) || ageMin > 8;
             return (
               <div className="mt-2 pt-2 border-t border-terminal-border/50 text-[11px] flex gap-4">
-                <span><span className="text-terminal-muted">Signal age </span><span className="font-mono">{ageMin < 1 ? "<1m" : `${ageMin.toFixed(0)}m`} · {fresh}</span></span>
+                {/* RC1.16.10 — this measures time since the lifecycle tracker
+                    last updated, NOT setup age (that lives on Signal Maturity's
+                    AGE). Two different quantities had one label and diverged
+                    the moment bias flipped (26m vs 224m on one screen). */}
+                <span><span className="text-terminal-muted">Setup updated </span><span className="font-mono">{ageMin < 1 ? "<1m ago" : `${ageMin.toFixed(0)}m ago`} · {fresh}</span></span>
                 <span><span className="text-terminal-muted">Late-entry risk </span>
                   <span className={lateRisk ? "text-terminal-warn font-bold" : "text-terminal-bull"}>{lateRisk ? "Elevated" : "Low"}</span></span>
               </div>

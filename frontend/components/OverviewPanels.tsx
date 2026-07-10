@@ -46,7 +46,10 @@ export function MarketOverview() {
         <Stat label="Momentum" value={tech ? `${fmt(tech.momentum, 2)}%` : "—"} tone={tech && tech.momentum >= 0 ? "bull" : "bear"} />
         <Stat label="Volatility (ATR)" value={fmt(tech?.atr)} />
         <Stat label="Strength (ADX)" value={fmt(tech?.adx, 1)} />
-        <Stat label="Confidence" value={signal ? `${signal.confidence}%` : "—"} />
+        {/* RC1.16.10 — was raw signal.confidence while every other display
+            shows dynamic_confidence: two different numbers under one bare
+            "Confidence" label on the same page. Same source as everywhere now. */}
+        <Stat label="Confidence" value={signal ? `${signal.dynamic_confidence ?? signal.confidence}%` : "—"} />
         <Stat label="VWAP" value={fmt(tech?.vwap)} />
         <Stat label="Max Pain" value={fmt(analytics.max_pain, 0)} />
         <Stat label="Data Quality" value={risk?.data_quality ?? status?.data_quality ?? "—"} tone={risk?.data_quality !== "GOOD" ? "warn" : undefined} />

@@ -8,7 +8,9 @@ import { useMarket } from "@/lib/store";
 const stTone = (s: string) =>
   s === "PASS" ? "text-terminal-bull" : s === "FAIL" ? "text-terminal-bear" : "text-terminal-warn";
 const bandTone = (b?: string) =>
-  b === "BUY NOW" ? "text-terminal-bull" : b === "ARMED" || b === "PREPARE" ? "text-terminal-warn" : "text-terminal-muted";
+  b === "BUY NOW" ? "text-terminal-bull" :
+  b === "ARMED" || b === "PREPARE" || b === "CONFIRMED — GATE BLOCKED" ? "text-terminal-warn" :
+  "text-terminal-muted";
 
 export function EntryChecklist() {
   const { decision } = useMarket();

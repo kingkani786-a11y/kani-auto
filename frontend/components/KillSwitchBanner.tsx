@@ -37,6 +37,11 @@ export function KillSwitchBanner() {
           </li>
         ))}
       </ul>
+      {killSwitch.market_closed_note && (
+        <div className="text-[11px] text-terminal-warn/90 mt-1">
+          🟡 {killSwitch.market_closed_note}
+        </div>
+      )}
       {active && killSwitch.recovery_condition && killSwitch.recovery_condition !== "—" && (
         <div className="text-[11px] text-terminal-muted mt-1.5 pt-1.5 border-t border-terminal-border/40">
           <span className="stat-label">Recovery:</span> {killSwitch.recovery_condition}

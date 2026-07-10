@@ -79,7 +79,9 @@ export function DecisionView() {
       {(L?.global_context || L?.market_strength) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="panel py-3">
-            <div className="stat-label">GLOBAL CONTEXT</div>
+            {/* RC1.16.10 — this tile is the INTERNAL India engine (VIX/GIFT/
+                regime), not the 🌐 external global feed; one label per source */}
+            <div className="stat-label">INDIA RISK CONTEXT (VIX · REGIME)</div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-bold ${biasTone(L?.global_context?.bias)}`}>{L?.global_context?.bias ?? "—"}</span>
               <span className={`text-sm font-mono ${biasTone(L?.global_context?.condition)}`}>{L?.global_context?.condition ?? ""}</span>

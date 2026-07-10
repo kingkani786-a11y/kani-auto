@@ -57,7 +57,9 @@ export default function ReportCardPage() {
           <Stat label="Premium Capture" value={pct(sc.premium_capture_pct)} />
           <Stat label="Point Capture (MFE)" value={sc.point_capture_avg_pts != null ? `${sc.point_capture_avg_pts} pts` : "—"} tone="text-terminal-bull" />
           <Stat label="Avg Adverse (MAE)" value={sc.avg_adverse_pts != null ? `${sc.avg_adverse_pts} pts` : "—"} tone="text-terminal-bear" />
-          <Stat label="False Signal Rate" value={pct(sc.false_signal_rate)} tone="text-terminal-warn" />
+          {/* RC1.16.10 — renamed: this is 100−win-rate of TAKEN signals; the
+              real predictive false-signal metric lives on the Trading card */}
+          <Stat label="Loss Rate (taken)" value={pct(sc.loss_rate)} tone="text-terminal-warn" />
           <Stat label="Calibration" value={sc.calibration_grade != null ? `${sc.calibration_grade}/100` : "—"} />
           <Stat label="Brier" value={sc.brier ?? "—"} />
           <Stat label="Avg Entry Delay" value={sc.avg_entry_delay_sec != null ? `${sc.avg_entry_delay_sec}s` : "building"} tone="text-terminal-muted" />

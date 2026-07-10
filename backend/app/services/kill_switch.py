@@ -72,6 +72,14 @@ def evaluate(data_quality: str, atr_pct: float, regime_score: float,
 
     active = bool(reasons)
     level = "DANGER" if active else "CAUTION" if caution else "SAFE"
+    # RC1.16.10 fix #6b — post-close context NOTE only (owner precedence
+    # spec). When the market is closed, data-quality vetoes are expected
+    # (feeds idle) and there is nothing to veto anyway; every hard trigger
+    # above stays exactly as-is — this adds words, never removes a veto.
+    note = ("Market closed — data feeds are idle, so data-quality triggers "
+            "are expected and clear automatically at open. No fault."
+            if market_closed and active and data_quality in ("POOR", "DEGRADED")
+            else None)
     return {
         "active": active,
         "level": level,
@@ -80,4 +88,5 @@ def evaluate(data_quality: str, atr_pct: float, regime_score: float,
         "recovery": recovery,
         "recovery_condition": "; ".join(recovery) if recovery else "—",
         "force_wait": active,
+        "market_closed_note": note,
     }

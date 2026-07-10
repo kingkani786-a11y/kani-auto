@@ -45,6 +45,13 @@ def _friendly_error(e: Exception) -> dict:
         kind, text = "WAITING", "Waiting for live market data…"
     else:
         kind, text = "BROKER", "Broker issue — retrying automatically"
+    # RC1.16.10 fix #6 (owner state-precedence spec): Market Closed →
+    # quote failures are EXPECTED → never claim a broker fault while the
+    # broker is fine and the market is simply shut. "Retrying" implies a
+    # failure that does not exist.
+    if kind in ("BROKER", "NETWORK", "WAITING") and not is_market_open(state.market_type):
+        kind, text = "MARKET_CLOSED", ("Awaiting market open — broker connection "
+                                       "healthy, quote polling paused")
     return {"message": text, "kind": kind, "raw": str(e)[:200]}
 
 
@@ -546,10 +553,16 @@ class MarketService:
         if emerged:
             await alerts.send("SETUP", f"{inst.symbol} — phase change",
                               ", ".join(p.replace("_", " ").title() for p in emerged), inst.symbol)
+        # RC1.16.10 display-truth fix #1: this is the INTERNAL India-context
+        # engine (VIX/GIFT/regime — engines/global_context.py), NOT the
+        # external Global Market Context feed (services/global_feed.py).
+        # The old wording "Global context turned RISKY" collided with the
+        # 🌐 GLOBAL CONTEXT card and misattributed the cause.
         gc_now = packet["layers"].get("global_context", {}).get("condition")
         if gc_now == "RISKY" and prev_layers.get("global_context", {}).get("condition") != "RISKY":
             await alerts.send("SL", f"{inst.symbol} — risk elevated",
-                              "Global context turned RISKY — protect capital", inst.symbol)
+                              "India risk context turned RISKY (VIX/regime) — protect capital",
+                              inst.symbol)
 
         # V10 decision synthesis: collapse everything into the 3-second view
         lc_snap = self.lifecycle.snapshot()

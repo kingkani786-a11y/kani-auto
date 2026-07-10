@@ -135,7 +135,12 @@ def evaluate(symbol: str, layers: dict[str, Any], signal: dict[str, Any],
     return {
         "ready": True,
         "maturity_score": maturity,
-        "stage": _stage(maturity),
+        # RC1.16.10 display-truth fix #3: an Expired setup can never reach
+        # READY regardless of maturity (see buy_allowed) — showing the plain
+        # maturity band ("Preparing"/"Armed") implied maturity was the only
+        # missing thing. Display honesty only; gating logic unchanged.
+        "stage": (f"STALE — setup outlived its window (was {_stage(maturity)})"
+                  if decay == "Expired" else _stage(maturity)),
         "threshold": threshold,
         "buy_allowed": maturity >= threshold and is_dir and decay not in ("Weakening", "Expired"),
         "signal_age_sec": int(age),
