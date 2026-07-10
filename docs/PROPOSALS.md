@@ -307,6 +307,39 @@ Phase A alerts (done), Phase B miss-join (pending).
 
 ---
 
+## PROPOSAL #012 — Institutional Price Action & Market Mapping Engine (IPMME)
+
+**Status: 🔬 RESEARCH** *(owner spec, 2026-07-10 — 9 sub-engines, owner's own
+phasing: Phase 1 measurement only → Phase 2 validation 300–500 trades by
+regime with CIs → Phase 3 weights via Rule 9 approval only)*
+
+### Honest inventory
+
+| # | Sub-engine | Existing coverage | Genuinely new |
+|---|---|---|---|
+| 1 | Price Action detector (BOS/CHOCH/named candles/fake breakout) | HH-HL-LH-LL structure engine, ORB | **Named-pattern + BOS/CHOCH detectors, score-only** — subsumes PROPOSAL #006 item #2 |
+| 2 | Market Mapping (supply/demand/fresh/tested zones, breaker & mitigation blocks, liquidity pools, equal H/L) | Volume-profile value areas; S/R levels in Market Path | **Core new engine** — SMC-style zone taxonomy + zone drawing |
+| 3 | Breakout Quality (VALID/FALSE composite) | Trap detection, breakout prob, volume/OI/delta layers | Composite verdict packaging over existing layers |
+| 4 | Gap Risk (gap class → SL-reliability) | Next-session gap-likelihood bands (global_feed) | **SL-reliability metric vs gap class** |
+| 5 | Automation Risk | Safe Mode + data_quality per-stream + kill switch + feed latency | Clock drift, CPU/memory probes only |
+| 6 | Execution Quality (requested/filled/slippage) | — | **⚠ Doctrine conflict flagged**: system NEVER places orders, so broker fill slippage does not exist. Honest scope: paper-trade fills + signal-time vs actionable-price delay (Report Card's `avg_entry_delay_sec` placeholder). Anything more requires manual fill logging by the owner |
+| 7 | Supply/Demand outcome ledger | verdict/outcome machinery patterns | New (depends on #2) |
+| 8 | Price-action outcome ledger | — | = PROPOSAL #006 item #5 (consolidated here) |
+| 9 | Operational Risk monitor | Self-Check panel (broker/WS/quotes/DB/latency/infra) | Clock-drift check (natural RC1.16 follow-on) |
+
+### Consolidation
+PROPOSAL #006's candle-pattern detector + pattern outcome ledger fold into
+IPMME #1/#8 — one engine, not two overlapping ones.
+
+### Sequencing (doctrine)
+Measurement-first (owner's Phase 1: detectors + ledgers, zero decision-path
+impact) — but AFTER the current active commitments: MODE 1–2-week live
+validation, RC1.17 Performance Audit, premium-accuracy production gate.
+Weights only via Phase-22 approval with by-regime evidence (owner: "Fresh
+Demand Success 81%"-grade numbers first).
+
+---
+
 ## DOCTRINE ADDITION — Global Context is never a hard gate
 
 **Status: ✅ LOCKED (owner, 2026-07-08)**
