@@ -4,6 +4,35 @@
 
 ---
 
+## RC1.16.12 — 2026-07-11 — Voice Copilot v0: push-to-talk Q&A + alert narration
+
+### Purpose
+Owner order ("Please add the voice recognition") — the first #011 slice,
+strictly inside the FINAL LAW: voice never calculates or decides.
+
+### Added (frontend only — zero backend changes)
+- `VoiceAssistant` on the dashboard: push-to-talk mic (browser
+  SpeechRecognition; no always-on listening) → the spoken question goes to
+  the EXISTING `brain.answer()` (same engine as the chat page) → the answer
+  is spoken back (SpeechSynthesis) and shown as text. "Stop talking / mute"
+  spoken commands cancel speech.
+- Optional "Speak alerts" toggle (default OFF): narrates incoming
+  MOVE/ENTRY/TARGET/SL/ARMED alerts from the existing feed, each at most
+  once (owner's no-repeat rule); a new event replaces current speech.
+- Language selector en-IN / ta-IN (recognition + speech quality is
+  device-dependent — documented, not promised).
+- Hidden entirely on browsers without Web Speech support — no fake mic.
+
+### Deferred (per #011 queue)
+Priority ladder, silent hours, market-pulse commentary, transition-event
+announcements (needs the Event-Bus transition emitter), Timeline Recorder.
+
+### Verified
+tsc + build, frontend restarted, live Q&A path test ("why are we waiting?"
+→ gate's real WAIT answer), 200 OK.
+
+---
+
 ## RC1.16.11 — 2026-07-10 — MODE Phase B.1: Move Intelligence Panel
 
 ### Purpose

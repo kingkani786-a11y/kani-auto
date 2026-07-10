@@ -29,6 +29,7 @@ import { MarketPathPanel } from "@/components/MarketPathPanel";
 import { FinalDecisionHeader } from "@/components/FinalDecisionHeader";
 import { MissedWinners } from "@/components/MissedWinners";
 import { MissedMoveProtection } from "@/components/MissedMoveProtection";
+import { VoiceAssistant } from "@/components/VoiceAssistant";
 import { LiveCandleCommand } from "@/components/LiveCandleCommand";
 import { SmartAlertBar } from "@/components/SmartAlertBar";
 import { GammaShield } from "@/components/GammaShield";
@@ -197,6 +198,9 @@ export default function Dashboard() {
       </SafeBoundary>
       <SafeBoundary name="Missed Move Protection">
         <MissedMoveProtection />
+      </SafeBoundary>
+      <SafeBoundary name="Voice Assistant">
+        <VoiceAssistant />
       </SafeBoundary>
 
       {/* V1.0 P3 — Final Signal banner removed: the Hero Decision header is the
