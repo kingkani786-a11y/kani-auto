@@ -4,6 +4,51 @@
 
 ---
 
+## RC1.16.11 — 2026-07-10 — MODE Phase B.1: Move Intelligence Panel
+
+### Purpose
+Owner-approved design after MODE's first live day (10 alerts): "Incident
+#001's real failure was not 'no entry' — it was the system not TELLING me a
+big move had started." Two brains, one card, never mixed.
+
+### Added
+- `move_detector.active_episodes()`: live open-episode view — premium path
+  (from-low → now), velocity pts/min, acceleration, tiers fired, Move
+  Strength ★1–5 (declared tier map), next tier (name + the premium it fires
+  at), episode start/elapsed, and average episode duration measured from
+  REAL completed episodes only ("— (learning)" until ≥5 exist — the mock's
+  "11 min" is not fabricated).
+- Move Intelligence Panel (evolves the Missed Move Protection card):
+  Layer 1 Market Observer (facts) ∥ Layer 2 Decision Engine (🟢 READY +
+  entry/SL/T1 from the strike plan, or 🟡 WAIT + missing factors). Border
+  turns green when the gate opens. Pure consumer of both sources.
+- Owner's "IF YOU ENTER NOW → Expected Win %" block replaced with the
+  honest equivalent: the top blocker's REAL ledger record ("Entering against
+  'Premium: AVOID' historically: saved 81% / missed 19% — research only,
+  not an approval") — no invented conditional win rates.
+- Voice announcements deferred to #011 per the queue.
+
+### Verified
+Episode lifecycle unit tests (fire → strength/next-tier math → give-back
+close → duration recorded → honest avg=None), tsc + build, both services
+restarted, endpoint live.
+
+---
+
+## RC1.16.10 — 2026-07-10 — Display-Truth Queue: 7 verified fixes
+
+Seven display-only fixes from live-dump auditing (no gate/veto/scoring
+change): ① GLOBAL CONTEXT label collision → internal engine now "INDIA RISK
+CONTEXT (VIX·REGIME)" + honest alert text ② OverviewPanels Confidence →
+dynamic_confidence (one truth) ③ Expired setups → "STALE — setup outlived
+its window" ④ "False Signal Rate" → "Loss Rate (taken)" ⑤ "Signal age" →
+"Setup updated Xm ago" ⑥ owner's market-closed precedence: "Broker issue —
+retrying" → "Awaiting market open…" (both branches verified) + Kill Switch
+market-closed context note (all hard vetoes regression-tested unchanged)
+⑦ "BUY NOW · 92" under an active override → "CONFIRMED — GATE BLOCKED".
+
+---
+
 ## RC1.16.9 — 2026-07-10 — MISSED MOVE PROTECTION panel + Entry Command Center spec
 
 ### Added

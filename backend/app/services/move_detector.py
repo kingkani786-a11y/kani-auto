@@ -43,6 +43,12 @@ _tracks: dict[str, dict[str, Any]] = {}
 # fired-alert ledger (Phase B miss-join consumes this)
 _alerts: collections.deque = collections.deque(maxlen=300)
 _recent_fire_ts: collections.deque = collections.deque(maxlen=32)
+# completed-episode durations (secs) — feeds the honest "average duration";
+# stays "—" until enough real episodes exist (never a fabricated 11 min)
+_episode_durations: collections.deque = collections.deque(maxlen=100)
+
+# Move Strength stars — declared mapping of the tier ladder (not a claim)
+_TIER_STARS = {"WATCH": 1, "STRONG": 2, "MOMENTUM": 3, "BREAKOUT": 4, "EXPANSION": 5}
 
 
 def _rate_ok() -> bool:
@@ -76,7 +82,8 @@ async def scan(symbol: str, spot: float, chain: list[dict] | None,
 
         key = f"{symbol}:{strike}:{typ}"
         t = _tracks.setdefault(key, {"series": collections.deque(maxlen=400),
-                                     "fired": set(), "last_fire": 0.0})
+                                     "fired": set(), "last_fire": 0.0,
+                                     "episode_start": 0.0})
         t["series"].append((now, prem, vol, oi))
         while t["series"] and now - t["series"][0][0] > _LOOKBACK_SEC:
             t["series"].popleft()
@@ -87,7 +94,10 @@ async def scan(symbol: str, spot: float, chain: list[dict] | None,
 
         # episode close: premium gave the move back, or long quiet
         if t["fired"] and (rise < _BASE_MIN_PTS / 2 or now - t["last_fire"] > _EPISODE_QUIET):
+            _episode_durations.append(t["last_fire"] - t["episode_start"]
+                                      if t["episode_start"] else 0.0)
             t["fired"] = set()
+            t["episode_start"] = 0.0
 
         # guard-rail #1 — dynamic base threshold. Premium ATR is computed on
         # 1-MINUTE buckets, not raw ticks — tick-to-tick diffs would make the
@@ -127,6 +137,8 @@ async def scan(symbol: str, spot: float, chain: list[dict] | None,
                 continue          # not fired — may fire later when a factor aligns
             t["fired"].add(name)
             t["last_fire"] = now
+            if not t["episode_start"]:
+                t["episode_start"] = now
             mins = round((now - t["series"][0][0]) / 60, 1)
             rec = {"ts": now, "symbol": symbol, "strike": strike, "type": typ,
                    "tier": name, "tier_pts": need,
@@ -162,6 +174,55 @@ def _window_delta(series, idx: int, t0: float, t1: float) -> float:
     return (win[-1] - win[0]) if len(win) >= 2 else 0.0
 
 
+def active_episodes() -> list[dict[str, Any]]:
+    """MODE Phase B.1 — live view for the Move Intelligence Panel (owner
+    design: 'Market Observer brain' facts only; the Entry-status half of the
+    panel reads the Decision Layer separately). One entry per strike with an
+    OPEN episode (a tier fired and the move hasn't been given back)."""
+    now = time.time()
+    out: list[dict[str, Any]] = []
+    for key, t in _tracks.items():
+        if not t["fired"] or not t["series"]:
+            continue
+        symbol, strike_s, typ = key.rsplit(":", 2)
+        _, prem, _v, _o = t["series"][-1]
+        low = min(p for _, p, _v2, _o2 in t["series"])
+        rise = prem - low
+        rise_pct = rise / low * 100 if low else 0.0
+        # same dynamic base the alert path uses (minute-bucket ATR)
+        buckets: dict[int, float] = {}
+        for ts_, p_, _v2, _o2 in t["series"]:
+            buckets[int(ts_ // 60)] = p_
+        closes = [buckets[k] for k in sorted(buckets)]
+        mdiffs = [abs(b - a) for a, b in zip(closes, closes[1:])]
+        prem_atr = (sum(mdiffs) / len(mdiffs)) if mdiffs else 0.0
+        base = max(_BASE_MIN_PTS, _BASE_PCT * low, _BASE_ATR_MULT * prem_atr)
+        nxt = next(((round(base * m, 1), n) for m, n in _TIER_LADDER
+                    if n not in t["fired"] and rise < base * m), None)
+        vel = _window_rise(t["series"], now - 60, now)          # pts/last-min
+        stars = max((_TIER_STARS[n] for n in t["fired"]), default=0)
+        elapsed = now - t["episode_start"] if t["episode_start"] else 0.0
+        done = [d for d in _episode_durations if d > 0]
+        avg_dur = round(sum(done) / len(done) / 60, 1) if len(done) >= 5 else None
+        out.append({
+            "symbol": symbol, "strike": float(strike_s), "type": typ,
+            "premium": round(prem, 2), "from_low": round(low, 2),
+            "rise_pts": round(rise, 1), "rise_pct": round(rise_pct, 1),
+            "velocity_pts_min": round(vel, 1),
+            "accelerating": vel >= base,           # last-min rise ≥ one full base
+            "tiers_fired": sorted(t["fired"], key=lambda n: _TIER_STARS[n]),
+            "move_strength": stars,                # 1–5 stars (declared tier map)
+            "next_tier": ({"name": nxt[1], "at_rise_pts": nxt[0],
+                           "at_premium": round(low + nxt[0], 2)} if nxt else None),
+            "episode_started": datetime.datetime.fromtimestamp(
+                t["episode_start"], IST).strftime("%H:%M:%S") if t["episode_start"] else None,
+            "elapsed_min": round(elapsed / 60, 1),
+            "avg_episode_min": avg_dur,            # None until ≥5 real episodes
+        })
+    out.sort(key=lambda e: (-e["move_strength"], -e["rise_pct"]))
+    return out
+
+
 def report() -> dict[str, Any]:
     al = list(_alerts)
     by_tier: dict[str, int] = {}
@@ -175,6 +236,7 @@ def report() -> dict[str, Any]:
         "alerts_fired": len(al),
         "by_tier": by_tier,
         "tracked_strikes": len(_tracks),
+        "active_episodes": active_episodes(),
         "recent": [dict(a, ts=datetime.datetime.fromtimestamp(a["ts"], IST).strftime("%H:%M:%S"))
                    for a in al[-20:]],
     }
