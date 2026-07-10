@@ -14,6 +14,23 @@ const SPEAK_KINDS = new Set(["MOVE", "ENTRY", "TARGET", "SL", "ARMED"]);
 // (when Emergency Override is on) — kill switch / broker / SL class events
 const EMERGENCY_KINDS = new Set(["SL", "SYSTEM"]);
 
+// Tanglish Professional Radio (owner production standard): Tamil narration +
+// English technical terms + English digits, calm RJ tone. Composed from the
+// alert's STRUCTURED data — never parsed from display strings, never invented.
+function tanglishMove(a: any): string | null {
+  const d = a.data;
+  if (!d) return null;
+  const parts = [
+    `Attention. ${a.symbol} ${d.strike} ${d.type} premium ${d.from_low}-லிருந்து ${d.premium} வரை move ஆகியிருக்கிறது.`,
+  ];
+  if (d.confirmations?.includes("volume")) parts.push("Volume confirmation இருக்கிறது.");
+  if (d.confirmations?.includes("oi")) parts.push("OI shift உறுதி ஆகியிருக்கிறது.");
+  if (d.stars) parts.push(`Move strength ${d.stars} stars.`);
+  if (d.accelerating) parts.push("Acceleration அதிகரிக்கிறது.");
+  parts.push("Decision engine தனியாக முடிவு செய்யும்.");
+  return parts.join(" ");
+}
+
 // priority speech: interrupts anything (alerts, decisions, Q&A answers)
 function speak(text: string, lang: string, rate = 0.95) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
@@ -67,7 +84,10 @@ export function VoiceAssistant() {
       : (mode !== "SILENT" && SPEAK_KINDS.has(a.kind));
     if (!allowed) return;
     spokenIds.current.add(a.id);
-    speak(`${isEmergency ? "Attention. " : ""}${a.title}. ${String(a.body || "").split("·")[0]}`,
+    // Tanglish mode: compose from structured data (owner language rule —
+    // Tamil narration, English technical words, English digits)
+    const tang = lang === "ta-IN" && a.kind === "MOVE" ? tanglishMove(a) : null;
+    speak(tang ?? `${isEmergency ? "Attention. " : ""}${a.title}. ${String(a.body || "").split("·")[0]}`,
           lang, rate);
   }, [alerts, mode, lang, rate, emergencyOverride]);
 
@@ -81,12 +101,16 @@ export function VoiceAssistant() {
     if (prevGate.current && state !== prevGate.current) {
       if (eg.gate_passed) {
         const st = (decision as any)?.strike || {};
-        speak(`Setup ready. ${st.strike ?? ""} ${st.type ?? ""}. ` +
-              (st.premium_entry != null
-                ? `Premium ${st.premium_entry}. Stop loss ${st.premium_stop_loss}. Target one ${st.premium_target1}.`
-                : ""), lang, rate);
+        const plan = st.premium_entry != null
+          ? `Entry ${st.premium_entry}. Stop loss ${st.premium_stop_loss}. Target one ${st.premium_target1}.`
+          : "";
+        speak(lang === "ta-IN"
+          ? `Attention. Setup ready ஆகிவிட்டது. Strike ${st.strike ?? ""} ${st.type ?? ""}. ${plan}`
+          : `Attention. Setup ready. ${st.strike ?? ""} ${st.type ?? ""}. ${plan}`, lang, rate);
       } else if (prevGate.current === "READY") {
-        speak("Setup no longer ready. Back to waiting.", lang, rate);
+        speak(lang === "ta-IN"
+          ? "Setup இப்போது ready இல்லை. மீண்டும் waiting."
+          : "Setup no longer ready. Back to waiting.", lang, rate);
       }
     }
     prevGate.current = state;
@@ -189,7 +213,7 @@ export function VoiceAssistant() {
         <select value={lang} onChange={(e) => setLang(e.target.value as any)}
                 className="bg-transparent border border-terminal-border rounded px-1 py-0.5 text-xs">
           <option value="en-IN">English (IN)</option>
-          <option value="ta-IN">தமிழ்</option>
+          <option value="ta-IN">தமிழ் + English (Tanglish)</option>
         </select>
         <select value={rate} onChange={(e) => setRate(parseFloat(e.target.value))}
                 className="bg-transparent border border-terminal-border rounded px-1 py-0.5 text-xs">

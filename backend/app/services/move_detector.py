@@ -156,7 +156,8 @@ async def scan(symbol: str, spot: float, chain: list[dict] | None,
                         + (" · ACCELERATING" if accelerating else "")
                         + " · Opportunity layer — the entry gate is unchanged and decides separately.")
                 try:
-                    await alerts.send("MOVE", title, body, symbol)
+                    await alerts.send("MOVE", title, body, symbol,
+                                      data=dict(rec, stars=_TIER_STARS.get(name, 1)))
                 except Exception:
                     log.exception("move alert send failed")
             else:

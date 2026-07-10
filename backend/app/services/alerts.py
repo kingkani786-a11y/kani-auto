@@ -31,14 +31,19 @@ def feed(limit: int = 100) -> list[dict]:
     return list(reversed(_feed[-limit:]))
 
 
-async def send(kind: str, title: str, body: str, symbol: str = "") -> dict:
+async def send(kind: str, title: str, body: str, symbol: str = "",
+               data: dict | None = None) -> dict:
     alert = {
         "id": str(uuid.uuid4())[:8],
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "kind": kind,            # ENTRY | TARGET | SL | ARMED | SETUP | SCANNER | SYSTEM
+        "kind": kind,            # ENTRY | TARGET | SL | ARMED | SETUP | SCANNER | SYSTEM | MOVE
         "symbol": symbol,
         "title": title,
         "body": body,
+        # RC1.16.16 — optional structured payload so consumers (Voice Tanglish
+        # composer, future Telegram templates) format from real fields instead
+        # of parsing display strings. Additive; existing consumers unaffected.
+        "data": data or None,
     }
     _feed.append(alert)
     del _feed[:-300]
