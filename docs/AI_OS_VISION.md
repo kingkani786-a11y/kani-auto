@@ -62,3 +62,47 @@ the LLM upgrades the *language*, never the *decision*.
 - **Phase C** — Developer assistant (Engine 9 / Design Studio) + Strategy Lab
   chat + morning Planner.
 - **Phase D** — Research Engine depth: only after historical data exists.
+
+---
+
+## vNext refinement (owner, 2026-07-11) — FAIOS + AI Council
+
+**Target name: Cloud AI Trader Explorer → Financial AI Operating System (FAIOS).**
+
+Owner's architecture correction, now LOCKED as the #013 core law:
+
+> Explorer must NOT "become ChatGPT". It becomes an **AI Operating System
+> that USES an LLM**. Trading decisions (BUY/WAIT/NO TRADE, Entry/Exit/SL)
+> come only from the deterministic Decision Brain. The LLM only:
+> Explain · Research · Compare · Teach · Review · Summarize · Q&A · Reports.
+
+### 10-Layer map (owner) → implementation
+
+| Layer | Owner name | Maps to |
+|---|---|---|
+| 1 | Market Intelligence | existing data layer (news feed pending) |
+| 2 | Decision Brain | existing engines + gate — **LLM-free forever (Tier 1)** |
+| 3 | LLM Intelligence | Phase A/B `ai_layer.py` (Claude API) |
+| 4 | AI Radio | existing Voice; cadence engine-driven, LLM polishes language only |
+| 5 | AI Research Lab | Tier 2 Q&A; historical-depth questions ("2023-ல் எப்படி?") need historical data first (Phase D) |
+| 6 | AI Developer | Phase C (Design Studio / Engine 9) |
+| 7 | AI Teacher | **new module** — Training-mode Q&A ("ஏன் WAIT? Gamma எப்படி?"); natural fit on top of existing professor endpoint; Tier 2 |
+| 8 | AI Memory | existing ledgers/module_stats + conversational recall (Tier 2) |
+| 9 | AI Planner | Tier 3 scheduled: Morning Brief, EOD Review, Weekly Improvement, Monthly AI Performance Audit |
+| 10 | AI Operating System | orchestration: Live Data → Decision Engine → Memory → LLM → Radio → Dashboard |
+
+### AI Council (new module, owner)
+
+Market/Options/Liquidity/Risk/News/Strategy/Developer/Voice AIs each report;
+**Chief AI reads all and gives a Final SUMMARY — never a Final Decision.**
+Rulings:
+- Council members = existing deterministic modules' outputs, narrated by the
+  LLM per domain. The numbers come from the engine; the LLM writes the words.
+- Chief AI output is Tier 2/3 (on-demand "council meeting" button + the
+  scheduled Planner reports) — never per-tick, never in the decision path.
+- If Council summary and execution gate ever disagree, the gate wins and the
+  disagreement is displayed honestly (same MODE Two-Layer law).
+
+### Planner cadence (Layer 9, locked)
+Morning Brief (pre-open) · EOD Review (post-close) · Weekly Improvement
+Report · Monthly AI Performance Audit — 2 LLM calls/day + 1/week + 1/month.
