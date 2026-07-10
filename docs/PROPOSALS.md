@@ -402,6 +402,42 @@ timestamped; the recorder is a persistence + re-speak layer over them.
 **Queue position unchanged (owner's own sequencing):** builds AFTER the
 MODE 1–2-week live validation — "voice reads verified events only".
 
+### v2 spec additions (owner, 2026-07-11 — "Core Operating Layer" framing)
+
+**The architecturally significant piece — EVENT BUS formalization:**
+```
+Decision Engine → Event Bus (single source) → Dashboard · Telegram · Voice · Timeline
+```
+Honest inventory: `alerts.send()` already IS the embryonic bus (one call →
+WS broadcast + Telegram + email + timestamped feed ledger). What's genuinely
+missing: **state-TRANSITION events**. Today the gate/confidence/blockers are
+broadcast as snapshots; nobody emits "WAIT→READY", "confidence 71→89",
+"Liquidity confirmed, only Smart Money pending" as events. That transition
+emitter is the real Phase-C-precursor backend task — and it pays off before
+voice exists (Telegram would carry ENTRY-READY/blocker-change alerts too).
+
+**Five voice streams** (commentary/opportunity/decision/risk/learning) —
+all consumer-only. Stream 5 (Learning: "this pattern has 78% historical
+success") carries an honesty rule: spoken ONLY from ledgers at MEASURED
+status; at LEARNING status the voice must say "insufficient history", never
+a number.
+
+**Owner's 8 additions mapped:** ① Market Pulse (30–60s) = commentary cadence
+② Premium Speed = MODE velocity (exists) ③ Time Alerts = single time source
+(exists) ④ Emotion Guard = consecutive-loss tracking (exists in kill switch;
+voice wording new) ⑤ Confidence-change + ⑥ Blocker-change alerts = the
+transition emitter above ⑦ Watchlist-only filter = per-symbol event filter
+⑧ **Silent Night Review** (2–3 min post-close spoken summary: opportunities
+/ entries / blocked / biggest miss) — depends on the daily-review
+missed-opportunity aggregation gap fix (closed-snapshot audit item #2);
+build that report field first, then voice reads it.
+
+**Expanded controls recorded:** ON/OFF/Mute · Commentary-only /
+Decision-only / Emergency-only · Training · Replay · speed · volume ·
+language · voice gender. Hot commands list (11) — all answerable via
+existing `brain.answer()` + gate state; "Stop talking / Resume" are
+client-side.
+
 ---
 
 ## PROPOSAL #012 — Institutional Price Action & Market Mapping Engine (IPMME)
