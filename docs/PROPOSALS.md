@@ -331,6 +331,31 @@ regime with CIs → Phase 3 weights via Rule 9 approval only)*
 PROPOSAL #006's candle-pattern detector + pattern outcome ledger fold into
 IPMME #1/#8 — one engine, not two overlapping ones.
 
+### Sub-modules (owner extension, 2026-07-10)
+
+| # | Module | Existing coverage | New core |
+|---|---|---|---|
+| 012.1 | Institutional Liquidity (buy/sell-side pools, sweep, stop hunt, FVG/imbalance, repricing) | Liquidity-sweep score in scalp radar; order-flow layer | Pool mapping + FVG detection + "next liquidity target" output |
+| 012.2 | Order Flow Confirmation (OI velocity, volume acceleration, delta change, premium expansion speed) | Volume/OI layers; MODE Phase A velocity fragments | Composite institutional-activity % (bid/ask imbalance only if broker DOM depth allows — verify rate budget first) |
+| 012.3 | Market Structure map (range/trend/compression/expansion/accumulation/distribution) | Regime engine (TRENDING/RANGE/VOLATILE/EXPIRY…) | Wyckoff-style accumulation/distribution classification |
+| 012.4 | Multi-TF structure compare + alignment | EXISTS — MTF alignment score, 1m–60m per-TF direction on dashboard | Little new; possibly per-TF structure (not just direction) |
+| 012.5 | Zone Strength scoring (fresh/tested/failed/broken/mitigated, 0–100) | — | New (depends on 012 core mapping) |
+| 012.6 | False Breakout Classifier (breakout→retest→acceptance→continuation vs trap) | Trap engine; RQ-008 leading-structure | New sequential classifier — also the Incident-#001 missed-move analysis tool |
+| 012.7 | Market Replay Ledger (daily snapshot → replay → learn) | Replay page exists; Market DNA stores day snapshots | Zone/pattern-level snapshot granularity |
+| 012.8 | Regime Memory (pattern × regime success table) | historical_learning regime splits; DNA analogues | Pattern-conditional-on-regime ledger — this is where weights would eventually come from |
+
+### Owner-locked laws (recorded verbatim in spirit)
+1. **No pattern gets a weight at birth**: Detect → Measure → Ledger →
+   Evidence → Weight. No exceptions.
+2. **IPMME progression**: Observer first → Research Engine → only then
+   Decision Contributor. It must never directly influence the Decision
+   Engine before Phase 3 approval.
+
+### Queue (owner-confirmed order)
+1. RC1.17 Performance Audit → 2. MODE validation → 3. Premium-accuracy
+validation → 4. Voice (#011) → 5. IPMME Phase 1 (measurement) →
+6. IPMME Phase 2 (validation) → 7. IPMME Phase 3 (weight approval).
+
 ### Sequencing (doctrine)
 Measurement-first (owner's Phase 1: detectors + ledgers, zero decision-path
 impact) — but AFTER the current active commitments: MODE 1–2-week live
