@@ -4,6 +4,38 @@
 RESEARCH → COLLECTING DATA → READY FOR REVIEW → APPROVED → DEPLOYED → MONITORING.
 Nothing skips a stage. Owner approval is the only path to DEPLOYED.*
 
+## 📋 PROPOSAL DASHBOARD (owner-ordered, 2026-07-10 — anti-inflation governance)
+
+| # | Title | Status | Next action | Depends on |
+|---|---|---|---|---|
+| #001 | Greeks Gate Softening | COLLECTING DATA (572 verdicts; solo-missed 83%) | by-regime table across ≥5 regimes | verdict ledger growth |
+| #002 | V28 Quality Bar levels | RESEARCH | validated-trade outcomes | live validation |
+| #003 | Fibonacci targets | QUEUED | 12-metric backtest | RC1.17 done |
+| #004 | Premium-engine suite | PARTIAL (2/6 already exist/delivered) | spec #1 Confidence Score | premium-accuracy gate |
+| #005 | Evidence Panel | QUEUED | wire pipeline+data_quality into recommendations | data-collection phase done |
+| #006 | Entry Decision Engine | **MERGED → #012** | — | — |
+| #007 | Premium decay→expansion switch | COLLECTING | wall-break episodes across expiries | live expiry days |
+| #008 | Leading Structure Detection | RESEARCH | design leading (not lagging) breakdown detector | #012 Phase 1 |
+| #009 | Expiry Breakout Regime Detector | RESEARCH | wall-break vs pin episode ledger | #007 data |
+| #010 | MODE (opportunity alerts) | **Phase A DEPLOYED → VALIDATION (1–2 wks)** | measure false alerts + missed moves | live sessions |
+| #011 | Voice Copilot | QUEUED | — | #010 Phase B |
+| #012 | IPMME (+ 012.1–.8) | MEASUREMENT design | Phase 1 detectors + ledgers | queue items 1–5 |
+
+**Owner declaration (2026-07-10): no new proposals until validation data
+arrives. The pipeline is designed; the next value is 9:15 market data.**
+
+## IPMME ACCEPTANCE GATE (owner-locked — applies to EVERY #012 sub-module)
+
+A sub-module is "Done" only when ALL five gates pass:
+1. **Detection Accuracy** — manual review of detections ≥ 95% correct.
+2. **Outcome Ledger** — ≥ 300–500 observations OR coverage of 5 regimes.
+3. **Statistical Edge** — beats baseline with adequate CI + sample size
+   (e.g. Supply bounce 68% vs baseline 59% = +9%, CI reported).
+4. **Performance Budget** — CPU / memory / API calls / WS bandwidth audited;
+   20 good ideas must not add up to a slow system.
+5. **Decision Contribution** — Observer → Research → Evidence → Approved →
+   Contributor. Until Approved, Decision-Engine influence = **0**.
+
 ---
 
 ## PROPOSAL #001 — Greeks Gate Softening (Regime-Conditional)
@@ -214,6 +246,34 @@ often this exact pattern would have won. Only after that ledger shows
 repeated advantage across expiry days does an override proposal go to the
 approval pipeline. (The verdict engine already shadows every blocked setup;
 this adds the five-condition tag so the specific pattern is separable.)
+
+---
+
+## RESEARCH QUESTION #008 — Leading Structure Detection
+
+**Status: 🔬 RESEARCH** *(filed from Incident #001 — Structure printed
+BREAKDOWN only AFTER the move completed)*
+
+Can breakdown be detected while it BUILDS (leading), not after it confirms
+(lagging)? Candidate inputs already computed: liquidity sweep, order-flow
+delta, OI velocity, MODE acceleration flag. Design work belongs to IPMME
+Phase 1 (012.6 false-breakout classifier shares machinery). Evidence bar:
+the leading detector must beat the current structure layer's timing WITHOUT
+raising false-positive rate — both measured in the ledger.
+
+---
+
+## RESEARCH QUESTION #009 — Expiry Breakout Regime Detector
+
+**Status: 🔬 RESEARCH** *(filed from Incident #001 — gamma-wall break was
+treated as pinning/trap risk while it was a real breakout)*
+
+Owner's 5-condition pattern: Expiry day + gamma-wall break + volume spike +
+OI collapse + premium expansion. When all five align while a hard gate
+blocks, the shadow trade should be TAGGED "override candidate" in the
+verdict ledger (measurement only — entry stays blocked). After enough
+tagged episodes across expiries: evidence table → Proposal → approval.
+Depends on #007's episode data.
 
 ---
 
