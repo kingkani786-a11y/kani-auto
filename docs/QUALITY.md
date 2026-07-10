@@ -54,6 +54,29 @@ Buckets are labelled **LEARNING** below 30 samples, **MEASURED** after.
    own backend's rolling-24h computation. See docs/ARCHITECTURE.md "Market
    State & Time Source Map".)
 
+## Entry Command Center — owner's target UI spec (2026-07-10, display workstream)
+
+Recorded for the display-unification pass (queued after validation, per the
+owner's own "no new proposals / market data first" declaration). Three
+top-level states only — 🟡 PREPARING / 🟢 READY / 🔴 EXIT — with every
+engine output shown as supporting evidence, never competing verdicts:
+
+- **WHY ENTRY / WHY WAIT quantified**: not bare WAIT — each missing factor
+  with current vs required (e.g. Volume 1.2× vs 2× · OI shift 0.4% vs 1% ·
+  premium expansion 7 vs 12 pts). Data largely exists (checklist gaps,
+  MODE confirmations); presentation is the change.
+- **Premium Live Tracker**: the MODE tier ladder rendered inline (74 → 81 →
+  89 🔥WATCH → 128 🚀MOMENTUM …). Data: /api/move-alerts ledger.
+- **Strike Competition** (top 3): exists (Strike Queue) — reposition.
+- **Entry Countdown meters + Fire Meter**: exists (checklist scores/fire
+  score) — reposition.
+- **MISSED MOVE PROTECTION box**: MODE alert + gate state + blocker + tier
+  on one card — built 2026-07-10 (the MODE validation window's UI face).
+- **⚠ Honesty flags (must resolve before build)**: "Estimated wait 3–5 min"
+  and "NOW vs 5-min-later advantage 93%→71%" require a real time-decay
+  model or must ship as DECLARED BANDS with that label — these numbers may
+  not be fabricated to fill the mock. Voice lines belong to #011.
+
 ## UI Consistency Audit Checklist (owner's standing RC validation criteria)
 
 Applied to every card, on every RC cycle:

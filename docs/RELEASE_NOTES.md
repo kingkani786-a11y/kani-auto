@@ -4,6 +4,24 @@
 
 ---
 
+## RC1.16.9 — 2026-07-10 — MISSED MOVE PROTECTION panel + Entry Command Center spec
+
+### Added
+- `MissedMoveProtection.tsx` on the main dashboard: MODE's live move alerts
+  (tier, strike, rise, confirmations, time) rendered NEXT TO the execution
+  gate's current state + top blocker — a building move is visible even
+  while the Decision Layer says WAIT (the exact Incident-#001 blindness).
+  Pure consumer of the existing WS alert feed + gate state; computes
+  nothing; hidden until the opportunity layer first speaks.
+- Owner's full Entry Command Center UI spec recorded in QUALITY.md for the
+  queued display-unification pass (3 states PREPARING/READY/EXIT, quantified
+  WHY-WAIT, premium live tracker, strike competition). Two honesty flags
+  recorded: "estimated wait minutes" and "NOW-vs-later advantage %" may not
+  ship without a real model or a DECLARED-BAND label — no fabricated
+  numbers to fill the mock.
+
+---
+
 ## RC1.16.8 — 2026-07-10 — MODE guard-rails #1 + #2 (owner review, pre-validation)
 
 ### Purpose
