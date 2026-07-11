@@ -4,6 +4,27 @@
 
 ---
 
+## AI-A7 — 2026-07-11 — Production observability (Trust by Verification)
+
+Owner: prove it on the user's own screen, not by claim. Four panels, all from
+LIVE state / git — no hand-written status:
+
+- **System Verify** (`/api/system-verify`): per-subsystem health (Backend/
+  Decision/Memory/Broker/Data/Gemini/Timeline/Research/Voice) + a core-only
+  health score. paused/off on a closed market is shown honestly, not faked.
+- **AI Changelog** (`/api/ai-changelog`): derived from git history (verifiable
+  vs `git log`) + today's AI spend.
+- **Trust badge** on AI Analysis: "✓ Engine-Verified — decision = Decision
+  Engine, wording = Gemini."
+- **Build Version** expanded: frontend/backend commit + Match (in-sync/mismatch),
+  database, decision-engine, knowledge, SW, built-at.
+
+### Verified
+frontend=backend=d080501 IN SYNC; system-verify health 75 (Degraded, honest —
+market closed); changelog lists real AI-A commits; tsc clean; build stamped.
+All observability — no new AI feature (per the stabilize directive).
+
+
 ## AI-A6 — 2026-07-11 — self-verifiable Build Version + PWA deploy-visibility fix
 
 ### Root-cause fix (why new UI wasn't appearing)
