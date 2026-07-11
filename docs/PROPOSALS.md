@@ -587,3 +587,52 @@ Memory Manager · Voice Manager · Research Manager · **Cost Controller** ·
   never writes production.
 - Context Builder emits only the published structured snapshot (Rule-10);
   raw candles never reach the LLM.
+
+---
+
+## PROPOSAL #015 — AI Governance & Trust Layer (owner, 2026-07-11)
+
+**Status: RECORDED — depends on #013 + #014. Blocked on API key + queue.**
+
+Every LLM output is watched and validated before it reaches the user. This is
+what makes the OS Explainable + Auditable. Full spec in
+**docs/AI_OS_VISION.md** → "#015 AI Governance & Trust Layer".
+
+### 8 components
+1. **AI Confidence Validator** — cross-check LLM claim vs engine truth; reject
+   on mismatch (LLM says "Trend Strong" but engine Trend=49 → REJECT)
+2. **Evidence Validator** — every claim tagged with its source engine
+3. **Trust Score** — per-agent reliability (measured, starts at "building")
+4. **Cost Monitor** — live calls/tokens/₹ today; budget-out halts research
+5. **AI Memory Graph** — what the AI has learned per module (measured %)
+6. **AI Disagreement Engine** — logs LLM-vs-gate conflicts; **gate always wins**
+7. **AI Audit Trail** — every AI answer logged with time/agent/reason/evidence
+8. **Self Diagnostics** — daily self-check (voice/research/memory/latency/safety)
+
+### Honest rulings
+- Confidence + Evidence Validators are the **enforcement arm of the
+  Structured-Context law** — they catch hallucination by comparing LLM text
+  to the engine snapshot it was given. High value, low risk.
+- **Trust Score / Memory Graph must be MEASURED, never seeded** — they start
+  "building / insufficient" and only show numbers after real samples, same as
+  every existing ledger (no fabricated 98%).
+- Disagreement Engine re-affirms the gate-wins law (MODE Two-Layer): a
+  conflict is logged and shown, never resolved in the LLM's favour.
+
+### Final flow (owner-locked)
+`Market Data → Decision Engine → AI Governance → AI Orchestrator → 10 Agents → Voice → Dashboard`
+
+---
+
+## ROADMAP LOCK — AI OS (owner, 2026-07-11)
+
+- **#013** AI Cortex (LLM integration + FAIOS 10-layer + Structured-Context law)
+- **#014** Multi-Agent AI (10 role-agents + 10 infra modules)
+- **#015** AI Governance & Trust Layer (8 validators)
+
+**Build order (owner-locked, complexity-first-minimized):**
+Build **#013 Phase A ONLY** first — (1) Context Builder, (2) Safety Layer,
+(3) Cost Controller, (4) LLM integration, (5) EOD AI Report — prove it 100%
+stable, THEN #014 multi-agent, THEN #015 governance. Does not disturb the
+active validation queue (RC1.17 → MODE → premium-accuracy → Voice v0.5).
+Still gated on the owner creating an API key.
