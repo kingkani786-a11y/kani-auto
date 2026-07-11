@@ -196,3 +196,46 @@ No BUY · no SELL · no Stop Loss · no Option-Strike selection · no gate overr
 ### Allowed
 Explain · Review · Research · Compare · Teach · Reports · Voice commentary ·
 Developer suggestions · Proposal generation.
+
+---
+
+## #015 AI Governance & Trust Layer (owner, 2026-07-11)
+
+The watchdog over every LLM output. Turns the OS from "trust the LLM" into
+"verify the LLM against the engine". Sits BETWEEN the agents and the user.
+
+| # | Component | What it does | Honest ruling |
+|---|---|---|---|
+| 1 | Confidence Validator | rejects an LLM claim that contradicts the engine snapshot (LLM "Trend Strong" vs engine Trend=49 → REJECT) | enforcement arm of the Structured-Context law |
+| 2 | Evidence Validator | tags every claim with its source engine (Trend→Decision Engine, Gamma→Greeks, Research→LLM) | no source = not shown |
+| 3 | Trust Score | per-agent reliability % | **measured**, starts "building" — never seeded 98% |
+| 4 | Cost Monitor | live calls/tokens/₹ today; halts research at budget | shares the Cost Controller ledger (#014) |
+| 5 | Memory Graph | learned-confidence per module | **measured** from real samples only |
+| 6 | Disagreement Engine | logs LLM-vs-gate conflicts | **gate always wins** (MODE Two-Layer law) |
+| 7 | Audit Trail | every AI answer: time/agent/decision/reason/evidence | append-only, like the verdict ledger |
+| 8 | Self Diagnostics | daily pass/fail: voice/research/memory/latency/safety | one scheduled cortex-free check |
+
+### Final architecture (owner-locked)
+```
+Market Data → Decision Engine → AI Governance → AI Orchestrator → 10 Agents → Voice → Dashboard
+```
+Governance sits ON the path from engine to user — an LLM answer that fails
+validation never reaches the dashboard.
+
+---
+
+## BUILD ORDER — LOCKED (owner, 2026-07-11)
+
+Roadmap: **#013 Cortex → #014 Multi-Agent → #015 Governance.**
+
+Do NOT build all at once. Sequence:
+
+1. **#013 Phase A only** — Context Builder · Safety Layer · Cost Controller ·
+   LLM integration · EOD AI Report. Prove 100% stable.
+2. then **#014** multi-agent (add role-agents one at a time).
+3. then **#015** governance (validators wrap the agents).
+
+Rationale (owner): reduces complexity, eases debugging, grows the AI layer
+without touching the trading engine. Remains gated on: (a) owner creates an
+API key, (b) active validation queue clears (RC1.17 → MODE → premium-accuracy
+→ Voice v0.5).
