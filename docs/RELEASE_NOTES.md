@@ -4,6 +4,61 @@
 
 ---
 
+## AI-A1 — 2026-07-11 — AI Cortex Phase A (#013): provider-agnostic LLM layer
+
+### Purpose
+First increment of the AI Operating System (Proposal #013). Adds an OPTIONAL
+LLM "cortex" that explains/reviews/researches on top of the deterministic
+engine — it NEVER touches the decision path, never emits BUY/SELL/SL/strike,
+never overrides the gate. Disabled until an API key is present; the trading
+engine runs identically with or without it.
+
+### Added — backend/app/services/cortex/
+- **context_builder.py** — the ONLY engine→LLM bridge. Emits the owner's
+  locked structured snapshot ({market{trend,trendScore,liquidity,
+  liquidityScore,structure,decision}, blockers[], confidence, reason[],
+  status}) from PUBLISHED state only (Rule 10). Raw candles never sent.
+- **safety.py** — code-enforced hard NOs. Scans LLM text for imperative
+  trade-directive patterns; flags + records them; always attaches the
+  engine's authoritative decision. Prompt-injection-safe by construction.
+- **cost_controller.py** — mandatory budget guard. Per-IST-day call cap
+  (CAT_AI_DAILY_CALL_CAP=200) + ₹ cap (CAT_AI_DAILY_COST_CAP_INR=100), live
+  ledger resetting at IST midnight, per-model $/1M pricing → ₹ estimate.
+- **prompts.py** — owner's Master Prompt (verbatim charter) + 7 role prompts
+  (explainer/analyst/teacher/reviewer/planner/developer/research).
+- **provider.py** — `cortex.ask(role, context, question)`; auto-detects
+  provider from whichever key is set (Gemini or Anthropic), lazy-imports the
+  SDK, wires Cost check→call→record + Safety guard around every request.
+- **report.py** — EOD AI Report: first Tier-3 consumer; grounds prose in
+  measured daily_review/report_card/verdict ledgers, never invents figures.
+
+### Config (backend/app/config.py, CAT_ prefix)
+ai_provider · gemini_api_key · anthropic_api_key · ai_model ·
+ai_max_output_tokens(1024) · ai_daily_cost_cap_inr(100) ·
+ai_daily_call_cap(200) · usd_inr(88).
+
+### API + frontend
+GET /api/cortex/status · GET /api/cortex/snapshot · POST /api/cortex/ask ·
+POST /api/cortex/eod-report. Frontend api.ts: cortexStatus/Snapshot/Ask/
+EodReport helpers.
+
+### Verified (key-independent, offline)
+Backend imports clean with NO key and NO SDK installed. Unit-checked:
+context builder shape · Safety flags 3 directives in a bad string & passes a
+clean one · Cost Controller ₹1.54 for a 1500/400 opus call · disabled ask/EOD
+return honest notes · 4 routes registered. All passed.
+
+### Not done (by design)
+No live LLM call yet — gated on owner adding CAT_GEMINI_API_KEY or
+CAT_ANTHROPIC_API_KEY to backend/.env + one restart. #014 multi-agent and
+#015 governance follow AFTER Phase A proves stable (roadmap locked).
+
+### Doctrine
+LLM = consumer of published state (Rule 10 extended); decision path untouched;
+Phase-22 remains the only route to production changes.
+
+---
+
 ## RC1.16.14 — 2026-07-11 — Voice v0.3: Trading Radio deltas
 
 ### Purpose

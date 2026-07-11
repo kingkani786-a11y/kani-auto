@@ -67,6 +67,12 @@ export const api = {
   systemHealth: () => req<any>("/api/health/system"),
   moveAlerts: () => req<any>("/api/move-alerts"),
   briefing: () => req<any>("/api/briefing"),
+  // AI Cortex (Proposal #013 Phase A — optional LLM layer)
+  cortexStatus: () => req<any>("/api/cortex/status"),
+  cortexSnapshot: () => req<any>("/api/cortex/snapshot"),
+  cortexAsk: (role: string, question: string) =>
+    req<any>("/api/cortex/ask", { method: "POST", body: JSON.stringify({ role, question }) }),
+  cortexEodReport: () => req<any>("/api/cortex/eod-report", { method: "POST" }),
   // auth
   authCheck: () => req<any>("/api/auth/check"),
   login: (password: string) =>

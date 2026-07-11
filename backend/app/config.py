@@ -35,6 +35,21 @@ class Settings(BaseSettings):
     # CORS
     frontend_origin: str = "*"
 
+    # ── AI Cortex (Proposal #013 Phase A) ──────────────────────────────────
+    # The LLM is an OPTIONAL language/research layer on top of the engine. It
+    # NEVER touches the decision path. Disabled unless a key is present.
+    # Provider auto-detects from whichever key is set; override with
+    # CAT_AI_PROVIDER=gemini|anthropic. Keys go in .env as CAT_GEMINI_API_KEY
+    # / CAT_ANTHROPIC_API_KEY (never committed, never logged).
+    ai_provider: str = ""               # "" = auto-detect | gemini | anthropic
+    gemini_api_key: str = ""
+    anthropic_api_key: str = ""
+    ai_model: str = ""                  # "" = provider default
+    ai_max_output_tokens: int = 1024
+    ai_daily_cost_cap_inr: float = 100.0   # Cost Controller hard cap / IST day
+    ai_daily_call_cap: int = 200            # Cost Controller hard call cap / day
+    usd_inr: float = 88.0                   # for ₹ cost estimate display
+
     class Config:
         env_file = ".env"
         env_prefix = "CAT_"

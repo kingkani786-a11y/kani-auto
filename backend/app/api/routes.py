@@ -240,6 +240,47 @@ async def market_briefing():
     return brain.briefing()
 
 
+# ---------- AI Cortex (Proposal #013 Phase A) — optional LLM layer ----------
+class CortexAskBody(BaseModel):
+    role: str = "explainer"     # explainer|analyst|teacher|reviewer|planner|developer|research
+    question: str
+
+
+@router.get("/cortex/status")
+async def cortex_status_ep():
+    """AI Cortex status + live budget (Cost Controller). Works with AI off."""
+    from ..services.cortex import cortex_status
+    return cortex_status()
+
+
+@router.get("/cortex/snapshot")
+async def cortex_snapshot_ep():
+    """The exact structured snapshot the LLM would receive (published state
+    only — never raw candles). Lets the owner audit what the AI sees."""
+    from ..services.cortex import context_builder
+    return context_builder.build_snapshot()
+
+
+@router.post("/cortex/ask")
+async def cortex_ask_ep(body: CortexAskBody):
+    """On-demand Cortex call (Tier 2). Explanation/research only — the Safety
+    Layer flags any trade-directive language and the engine decision is always
+    attached as the source of truth."""
+    from ..services.cortex import context_builder
+    from ..services.cortex.provider import cortex
+    ctx = context_builder.build_context()
+    return cortex.ask(body.role, ctx, body.question)
+
+
+@router.post("/cortex/eod-report")
+async def cortex_eod_report_ep():
+    """Generate the end-of-day AI review (Tier 3). Grounded in measured
+    ledgers; returns an honest disabled/capped note if AI is off or budget
+    is spent."""
+    from ..services.cortex import report
+    return report.eod_report()
+
+
 @router.get("/brain/auto")
 async def ai_brain_auto():
     """S14 — auto-answered key questions (the AI answers before you ask)."""
