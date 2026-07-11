@@ -9,5 +9,5 @@ numpy>=2.2
 
 # AI Cortex (Proposal #013) — OPTIONAL. Install only the provider you use.
 # The backend runs fine without either; adapters are lazy-imported.
-# google-generativeai>=0.8   # for CAT_AI_PROVIDER=gemini
+# google-genai>=1.0          # for CAT_AI_PROVIDER=gemini
 # anthropic>=0.40            # for CAT_AI_PROVIDER=anthropic

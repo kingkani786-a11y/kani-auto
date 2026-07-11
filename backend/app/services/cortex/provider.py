@@ -111,13 +111,19 @@ class Cortex:
 
 def _ask_gemini(key: str, model: str, system: str, user: str,
                 max_tokens: int) -> tuple[str, int, int]:
-    import google.generativeai as genai  # lazy
+    # New official SDK (google-genai). The old google-generativeai is EOL.
+    from google import genai  # lazy
+    from google.genai import types
 
-    genai.configure(api_key=key)
-    gm = genai.GenerativeModel(model, system_instruction=system)
-    resp = gm.generate_content(
-        user,
-        generation_config={"max_output_tokens": max_tokens, "temperature": 0.4},
+    client = genai.Client(api_key=key)
+    resp = client.models.generate_content(
+        model=model,
+        contents=user,
+        config=types.GenerateContentConfig(
+            system_instruction=system,
+            max_output_tokens=max_tokens,
+            temperature=0.4,
+        ),
     )
     text = (getattr(resp, "text", "") or "").strip()
     um = getattr(resp, "usage_metadata", None)
