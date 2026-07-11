@@ -150,3 +150,49 @@ the cortex: **one state → one source → one truth → LLM is a consumer.**
 | **AI Architect** | Full software audit: architecture, code quality, performance, memory, security, API usage, AI quality, trading quality | Daily full-repo audit is token-expensive; scoped to **weekly + on-demand**, fed a repo summary + metrics (not the whole codebase per call). Findings → PROPOSALS.md, never auto-applied. |
 | **AI Research Center** | Autonomous research: SMC, Wyckoff, order flow, gamma/dealer positioning, market profile, auction theory, liquidity concepts, academic papers → produces test/reject/adopt proposals | Needs web-search capability in the cortex call. Output = proposals only; enters the Improvement flow below. |
 | **AI Improvement Engine** | Observe → Research → Idea → Simulation → Backtest → Proposal → **Human Approval** → Production | This IS the existing Phase-22 pipeline with LLM-generated candidates upstream. AI never touches production directly (owner-locked, re-affirmed). |
+
+---
+
+## #014 AI Cortex Integration (owner, 2026-07-11)
+
+Owner ruling: one LLM API used as an OS — many role-scoped agents behind an
+Orchestrator, not one chatbot doing everything.
+
+### 10 role-agents (each = a role prompt + the structured snapshot, one API)
+1. **Orchestrator (Chief)** — only agent that talks to the user; routes to the others
+2. **Market Analyst** — summary/trend/structure/liquidity/momentum/price-action narration
+3. **Decision Explainer** — turns the gate's WAIT/BUY/NO-TRADE into plain language
+4. **Research** — SMC/Wyckoff/ICT/gamma/auction/papers — research only, no decision
+5. **Learning** — daily/weekly/monthly review prose
+6. **Developer** — dashboard/perf/duplicate/slow-API/UI review
+7. **Architect** — whole-software audit (weekly + on-demand)
+8. **Voice** — radio; knows no decision, speaks only what Orchestrator hands it
+9. **Teacher** — concept Q&A (BOS, liquidity sweep, Greeks…)
+10. **Planner** — morning brief / close report / weekly plan
++ **Improvement** — Observe→Research→Idea→Sim→Backtest→Proposal→**Approval**→Production
+
+### 10 infra modules (the actual code in ai_layer)
+| Module | Job |
+|---|---|
+| AI Orchestrator | route user/schedule requests to the right role-agent |
+| Agent Manager | registry of role prompts + their allowed context slices |
+| Context Builder | assemble the published structured snapshot (Rule-10) — **raw candles never sent** |
+| Prompt Manager | versioned system+role prompts (Master Prompt is the base) |
+| Memory Manager | conversational recall over existing ledgers/module_stats |
+| Voice Manager | hand engine-published lines to TTS (consumer-only) |
+| Research Manager | web-research calls + proposal capture |
+| **Cost Controller** | per-agent + daily call/token caps; a Council/Planner run ≈ 10 calls — **not optional** |
+| **Safety Layer** | hard-blocks BUY/SELL/SL/strike/override at the code boundary, not via prompt trust |
+| **Human Approval Layer** | = existing Phase-22; Improvement AI feeds it, never writes production |
+
+### Snapshot contract (owner-provided JSON shape, locked as the Context Builder output)
+```json
+{ "market": {"trend","trendScore","liquidity","liquidityScore","structure","decision"},
+  "blockers": [...], "confidence": N, "reason": [...] }
+```
+
+### Hard NOs (Safety Layer, code-enforced)
+No BUY · no SELL · no Stop Loss · no Option-Strike selection · no gate override.
+### Allowed
+Explain · Review · Research · Compare · Teach · Reports · Voice commentary ·
+Developer suggestions · Proposal generation.
