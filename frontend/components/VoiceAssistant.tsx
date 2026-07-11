@@ -49,8 +49,30 @@ function speakSoft(text: string, lang: string, rate = 0.95): boolean {
   return true;
 }
 
+// AI Radio v1.0 (FAIOS Layer 9) — reads the engine's published state and turns
+// transitions into a spoken radio stream. Reads ONLY published state; the
+// engine decides, the radio narrates. (owner: "Screen பார்க்காமல் Market புரியணும்")
+function layerTag(layers: any, ...names: string[]): string | null {
+  for (const n of names) {
+    const row = layers?.[n];
+    if (row && typeof row === "object")
+      for (const k of ["label", "state", "status", "verdict"])
+        if (row[k]) return String(row[k]);
+  }
+  return null;
+}
+function layerScore(layers: any, ...names: string[]): number | null {
+  for (const n of names) {
+    const row = layers?.[n];
+    if (row && typeof row === "object")
+      for (const k of ["score", "value", "pct", "strength"])
+        if (typeof row[k] === "number") return row[k];
+  }
+  return null;
+}
+
 export function VoiceAssistant() {
-  const { alerts, decision, narrative } = useMarket();
+  const { alerts, decision, narrative, status, layers, exitIntel } = useMarket();
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [mode, setMode] = useState<Mode>("SILENT");
@@ -66,6 +88,10 @@ export function VoiceAssistant() {
   const spokenLines = useRef<Set<string>>(new Set());
   const prevGate = useRef<string>("");
   const prevConfWhy = useRef<string>("");
+  // AI Radio transition memory
+  const radio = useRef<{ open?: boolean; trend?: string | null; structure?: string | null;
+    liq?: number | null; confBucket?: number | null; targets?: number }>({});
+  const greeted = useRef(false);
 
   async function speakBriefing() {
     try {
@@ -152,6 +178,65 @@ export function VoiceAssistant() {
     }, 15000);
     return () => clearInterval(t);
   }, [mode, lang, rate, narrative]);
+
+  // ── AI Radio v1.0 (Layer 9) — spoken transition stream. COMMENTARY/FULL. ──
+  // Watches engine-published state and announces the moments a trader would
+  // want to hear: market open/close, trend flip, structure/liquidity change,
+  // confidence crossing a 10-pt band, target hits. speakSoft = never interrupts
+  // alerts/decisions. Good-Morning briefing fires once on open.
+  useEffect(() => {
+    if (mode !== "COMMENTARY" && mode !== "FULL") return;
+    const ta = lang === "ta-IN";
+    const isOpen = !!status?.market_open;
+    const r = radio.current;
+
+    // Market open / close
+    if (r.open !== undefined && isOpen !== r.open) {
+      if (isOpen) {
+        speak(ta ? "Good morning. Market open ஆகிவிட்டது." : "Good morning. Market is now open.", lang, rate);
+        if (!greeted.current) { greeted.current = true; setTimeout(() => speakBriefing(), 3500); }
+      } else {
+        speak(ta ? "Market close ஆகிவிட்டது. இன்றைக்கு முடிந்தது." : "Market closed. That's a wrap for today.", lang, rate);
+      }
+    }
+    r.open = isOpen;
+
+    // The rest only when open (no chatter on a closed tape)
+    if (isOpen) {
+      const trend = layerTag(layers, "Trend", "MTF Trend");
+      if (trend && r.trend !== undefined && trend !== r.trend)
+        speakSoft(ta ? `Trend இப்போது ${trend}.` : `Trend is now ${trend}.`, lang, rate);
+      r.trend = trend;
+
+      const structure = layerTag(layers, "Structure", "Market Structure");
+      if (structure && r.structure !== undefined && structure !== r.structure &&
+          /confirm|break|bos/i.test(structure))
+        speakSoft(ta ? `Structure ${structure}.` : `Structure ${structure}.`, lang, rate);
+      r.structure = structure;
+
+      const liq = layerScore(layers, "Liquidity", "Order Flow");
+      if (liq != null && r.liq != null && liq - r.liq >= 8)
+        speakSoft(ta ? "Liquidity improve ஆகுது." : "Liquidity improving.", lang, rate);
+      if (liq != null) r.liq = liq;
+
+      const conf = (decision as any)?.conviction ?? (decision as any)?.confidence ?? null;
+      if (typeof conf === "number") {
+        const bucket = Math.round(conf / 10) * 10;
+        if (r.confBucket != null && bucket !== r.confBucket)
+          speakSoft(ta ? `Confidence ${bucket} ஆக ${bucket > r.confBucket ? "உயர்ந்தது" : "குறைந்தது"}.`
+                       : `Confidence ${bucket > r.confBucket ? "up" : "down"} to ${bucket}.`, lang, rate);
+        r.confBucket = bucket;
+      }
+
+      const tHit = (exitIntel as any)?.targets_hit ?? (exitIntel as any)?.targets_done ??
+                   ((exitIntel as any)?.targets || []).filter((t: any) => t?.hit).length;
+      if (typeof tHit === "number") {
+        if (r.targets != null && tHit > r.targets)
+          speak(ta ? `Target ${tHit} hit ஆகிவிட்டது.` : `Target ${tHit} hit.`, lang, rate);
+        r.targets = tHit;
+      }
+    }
+  }, [mode, lang, rate, status, layers, decision, exitIntel]);
 
   function listen() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;

@@ -4,6 +4,37 @@
 
 ---
 
+## AI-A3 — 2026-07-11 — AI Radio v1.0 (FAIOS Layer 9)
+
+### Purpose
+The OS's face (owner: "Screen பார்க்காமல் Market புரியணும்"). Voice ON →
+the engine's state transitions are spoken as a continuous radio stream. FINAL
+LAW intact: every word comes from engine-published state; the radio narrates,
+the engine decides. No LLM in this path.
+
+### Added — components/VoiceAssistant.tsx (AI Radio transition watcher)
+COMMENTARY/FULL modes now announce, via speakSoft (never interrupts alerts/
+decisions), the moments a trader wants to hear:
+- Market OPEN → "Good morning, market is now open" + auto Good-Morning briefing (once)
+- Market CLOSE → "Market closed. That's a wrap."
+- Trend flip → "Trend is now <state>"
+- Structure confirmed / BOS → spoken
+- Liquidity score +8 → "Liquidity improving"
+- Confidence crossing a 10-pt band → "Confidence up/down to N"
+- Target hit → priority "Target N hit"
+Tolerant readers (layerTag/layerScore) over published `layers`; transition
+memory in a ref so nothing repeats. Builds on the existing alert/decision/
+confidence/narrator voice streams — no rewrite.
+
+### Verified
+tsc clean · production build compiled · frontend rebuilt + restarted (200).
+
+### Live verification pending
+Market is closed (Sat) — the open/trend/target transitions can only fire on a
+live tape. Full spoken-radio verification is Monday at 09:15 open. Logic is
+deterministic and compiles; nothing in the trading path changed.
+
+
 ## AI-A2 — 2026-07-11 — AI Workspace page + Weekend AI (live Gemini)
 
 ### Purpose
