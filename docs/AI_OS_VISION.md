@@ -106,3 +106,47 @@ Rulings:
 ### Planner cadence (Layer 9, locked)
 Morning Brief (pre-open) · EOD Review (post-close) · Weekly Improvement
 Report · Monthly AI Performance Audit — 2 LLM calls/day + 1/week + 1/month.
+
+---
+
+## AI Cortex refinement (owner, 2026-07-11 — 3rd iteration)
+
+### Three-way separation (LOCKED)
+- **Dhan API** → brings market data (eyes)
+- **Decision Engine** → computes the market, alone decides BUY/WAIT/NO TRADE (spine)
+- **LLM** → thinks, explains, researches, reviews, plans (cortex — never the spine)
+
+### LLM provider (owner named Gemini)
+Owner's message names the **Gemini API** for the cortex slot. Design ruling:
+`ai_layer.py` is built **provider-agnostic** behind one interface
+(`cortex.ask(role, structured_context, question)`), so the slot can hold
+Gemini or Claude — whichever API key the owner creates decides Phase A's
+provider; switching later is a config change, not a rebuild. Cost/quality
+comparison presented at build time. The unlock remains the same: **owner
+must create the API key** (Google AI Studio for Gemini / platform.claude.com
+for Claude); assistant cannot create accounts.
+
+### Structured AI Context law (LOCKED)
+The LLM never receives raw market data. It receives only the engine's
+published, structured snapshot (trend/score, liquidity/score, OI build-up,
+PCR, VWAP side, Decision + blocking reasons, module_stats, verdict-ledger
+numbers). This is the existing Voice/Rule-10 published-state law extended to
+the cortex: **one state → one source → one truth → LLM is a consumer.**
+
+### Master Prompt (owner, recorded — basis of ai_layer system prompt)
+> You are the AI Cortex of Cloud AI Trader Explorer. You are not the trading
+> engine. You never generate BUY or SELL decisions independently. You only
+> use verified outputs from the Decision Engine. Responsibilities: explain
+> the market; research better ideas; review completed sessions; teach the
+> user; generate voice commentary; suggest software improvements; create new
+> research proposals; learn from validated history. Never fabricate market
+> data. Never override the execution gate. Every recommendation must include
+> reasoning and confidence. Any strategy change requires human approval
+> before production.
+
+### New modules (this iteration)
+| Module | Scope | Honest cadence ruling |
+|---|---|---|
+| **AI Architect** | Full software audit: architecture, code quality, performance, memory, security, API usage, AI quality, trading quality | Daily full-repo audit is token-expensive; scoped to **weekly + on-demand**, fed a repo summary + metrics (not the whole codebase per call). Findings → PROPOSALS.md, never auto-applied. |
+| **AI Research Center** | Autonomous research: SMC, Wyckoff, order flow, gamma/dealer positioning, market profile, auction theory, liquidity concepts, academic papers → produces test/reject/adopt proposals | Needs web-search capability in the cortex call. Output = proposals only; enters the Improvement flow below. |
+| **AI Improvement Engine** | Observe → Research → Idea → Simulation → Backtest → Proposal → **Human Approval** → Production | This IS the existing Phase-22 pipeline with LLM-generated candidates upstream. AI never touches production directly (owner-locked, re-affirmed). |
