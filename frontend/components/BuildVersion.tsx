@@ -28,11 +28,17 @@ export function BuildVersion() {
     <section className="panel text-[11px] space-y-1">
       <div className="text-xs font-semibold text-white mb-1">🏷 Build Version</div>
       {row("Frontend", fe?.commit)}
-      {row("Frontend built", fmt(fe?.builtAt))}
       {row("Backend", be?.backend_commit)}
+      {row("Match", fe?.commit && be?.backend_commit
+        ? (fe.commit === be.backend_commit ? <span className="text-terminal-bull">✅ in sync</span>
+           : <span className="text-terminal-warn">⚠ mismatch</span>) : "—")}
+      {row("Database", be?.database)}
+      {row("Decision Engine", be?.decision_engine)}
       {row("AI Cortex", be?.ai_enabled ? `${be?.ai_provider} · ${be?.ai_model}` : "OFF")}
       {row("Radio", be?.radio)}
+      {row("Knowledge", be?.knowledge)}
       {row("Service Worker", fe?.sw)}
+      {row("Built", fmt(fe?.builtAt))}
     </section>
   );
 }

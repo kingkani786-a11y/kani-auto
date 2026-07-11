@@ -302,8 +302,45 @@ async def version_ep():
         "ai_provider": cs.get("provider"),
         "ai_model": cs.get("model"),
         "ai_enabled": cs.get("enabled"),
+        "decision_engine": "v5.0",
         "radio": "v1.0",
+        "knowledge": "not built",
+        "database": "Supabase" if settings.supabase_url else "in-memory",
     }
+
+
+@router.get("/system-verify")
+async def system_verify_ep():
+    """Per-subsystem health from LIVE state + an honest health score. The
+    dashboard renders this as the SYSTEM VERIFY grid — self-verifiable."""
+    from ..services import system_verify
+    return system_verify.verify()
+
+
+@router.get("/ai-changelog")
+async def ai_changelog_ep(limit: int = 30):
+    """AI changelog derived from git history (AI-A* commits) — self-updating,
+    verifiable against `git log`. Plus today's AI spend."""
+    import subprocess
+    from ..services.cortex import cortex_status
+    entries: list[dict] = []
+    try:
+        root = pathlib.Path(__file__).resolve().parents[3]
+        out = subprocess.check_output(
+            ["git", "log", "--pretty=%h\x1f%cs\x1f%s", "-n", "200"],
+            cwd=root, text=True, stderr=subprocess.DEVNULL)
+        for line in out.splitlines():
+            h, date, subj = (line.split("\x1f") + ["", "", ""])[:3]
+            if subj.startswith(("AI-A", "feat:", "fix(pwa)")) or "AI OS" in subj or "Cortex" in subj:
+                entries.append({"commit": h, "date": date, "summary": subj})
+            if len(entries) >= limit:
+                break
+    except Exception:
+        pass
+    b = (cortex_status().get("budget") or {})
+    return {"entries": entries, "budget_today": {
+        "calls": b.get("calls"), "cost_inr": b.get("cost_inr_today"),
+        "cap_inr": b.get("cost_cap_inr")}}
 
 
 @router.get("/ai-timeline")

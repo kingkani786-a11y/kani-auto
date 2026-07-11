@@ -76,6 +76,8 @@ export const api = {
   cortexAnalyze: (force = false) => req<any>(`/api/cortex/analyze${force ? "?force=true" : ""}`),
   aiTimeline: (limit = 60) => req<any>(`/api/ai-timeline?limit=${limit}`),
   version: () => req<any>("/api/version"),
+  systemVerify: () => req<any>("/api/system-verify"),
+  aiChangelog: (limit = 30) => req<any>(`/api/ai-changelog?limit=${limit}`),
   weekendAi: () => req<any>("/api/weekend-ai"),
   weekendAiRun: () => req<any>("/api/weekend-ai/run", { method: "POST" }),
   // auth

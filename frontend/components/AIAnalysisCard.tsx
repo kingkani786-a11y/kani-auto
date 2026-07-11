@@ -61,8 +61,11 @@ export function AIAnalysisCard() {
               <div className="text-sm whitespace-pre-wrap leading-relaxed">{r.text}</div>
             )}
             {flagged && <div className="text-[11px] text-terminal-bear border border-terminal-bear/40 rounded p-1.5">⚠️ AI text contained a trade directive — ignore it; follow the engine decision.</div>}
-            <div className="text-[11px] text-terminal-muted flex flex-wrap gap-2">
-              <span>Engine decision: <b className="text-white">{r.authoritative_decision ?? "—"}</b></span>
+            <div className="text-[11px] text-terminal-muted flex flex-wrap items-center gap-2">
+              <span className="px-1.5 py-0.5 rounded bg-terminal-bull/15 text-terminal-bull border border-terminal-bull/30">
+                ✓ Engine-Verified
+              </span>
+              <span>Decision <b className="text-white">{r.authoritative_decision ?? "—"}</b> = Decision Engine · wording = Gemini</span>
               {r.cached ? <span>· cached {r.cache_age_sec}s</span> : r.usage && <span>· fresh · ₹{r.usage.cost_inr}</span>}
             </div>
           </>

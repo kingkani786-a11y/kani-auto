@@ -25,6 +25,8 @@ import { AIHealthStrip } from "@/components/AIHealthStrip";
 import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { AITimelineCard } from "@/components/AITimelineCard";
 import { BuildVersion } from "@/components/BuildVersion";
+import { SystemVerify } from "@/components/SystemVerify";
+import { AIChangelog } from "@/components/AIChangelog";
 import { StrikeQueue } from "@/components/StrikeQueue";
 import { PremiumTimeline } from "@/components/PremiumTimeline";
 import { DailyReview } from "@/components/DailyReview";
@@ -378,9 +380,18 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <SafeBoundary name="Build Version">
-        <BuildVersion />
+      {/* Production observability (owner: Trust by Verification) */}
+      <SafeBoundary name="System Verify">
+        <SystemVerify />
       </SafeBoundary>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SafeBoundary name="Build Version">
+          <BuildVersion />
+        </SafeBoundary>
+        <SafeBoundary name="AI Changelog">
+          <AIChangelog />
+        </SafeBoundary>
+      </div>
     </div>
   );
 }
