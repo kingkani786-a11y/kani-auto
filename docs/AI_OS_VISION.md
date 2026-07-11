@@ -239,3 +239,58 @@ Rationale (owner): reduces complexity, eases debugging, grows the AI layer
 without touching the trading engine. Remains gated on: (a) owner creates an
 API key, (b) active validation queue clears (RC1.17 → MODE → premium-accuracy
 → Voice v0.5).
+
+---
+
+## FAIOS v4.0 — Master Architecture (owner, 2026-07-11)
+
+### TOP LAW (owner, re-affirmed — supersedes nothing, governs everything)
+> **AI may learn about itself, but must NEVER auto-change trading rules.**
+> Every change is a PROPOSAL; it reaches production only after human approval.
+This is the existing Phase-22 pipeline. It is the safety spine of v4.0.
+
+### 10 layers → live/partial/new (honest map, on top of AI-A1/AI-A2)
+| Layer | Owner name | Status today |
+|---|---|---|
+| 1 | Live Data OS | ✅ Dhan/chain/Greeks/VIX/global; ❌ News/Econ-Calendar/FII-DII/DXY/Gold/Crude/Bond feeds (external, not LLM) |
+| 2 | Decision Engine | ✅ full (PA/OF/VP/VWAP/structure/liquidity/MTF/institutional) — LLM-free |
+| 3 | AI Cortex (Gemini) | ✅ **LIVE** (AI-A1): explain/research/voice/reports/chat/learning |
+| 4 | Memory Engine | 🟡 ledgers/module_stats exist ("Runner 81%" is real today); DB-grow + conversational recall = next |
+| 5 | Research Engine | ✅ **LIVE** (AI-A2 Weekend AI): auto research when market closed |
+| 6 | Evolution Engine | ✅ nightly audit + Phase-22 proposals (LLM candidates upstream = enhancement) |
+| 7 | Dashboard Auto-Update | ❌ new — AI Architect proposes card/panel/analytics changes (Layer 10 twin) |
+| 8 | **Entry Intelligence** | ❌ new — Tiny/Normal/Strong/Institutional/Mega entry tiers w/ colour dots (green/yellow/orange/red/purple). **Deterministic (engine), NOT LLM — no cost.** Owner's favourite. |
+| 9 | AI Radio (auto-speak) | 🟡 narrator lines + briefing exist; continuous auto-speech = Voice v0.5 frontend |
+| 10 | AI Architect | ❌ new — nightly software scan (dup code/slow API/layout) → proposals only |
+
+### Entry Intelligence tiers (Layer 8 — locked spec, engine-side)
+| Tier | Colour | Meaning |
+|---|---|---|
+| Tiny | 🟢 green dot | ~5-point scalp |
+| Normal | 🟡 yellow | standard setup |
+| Strong | 🟠 orange | high-confidence |
+| Institutional | 🔴 red | institutional-grade flow |
+| Mega | 🟣 purple | rare, biggest |
+Magnitude comes from the existing decision/confidence/institutional scores —
+a classifier over published state, no LLM, glanceable "how big is this entry".
+
+### Daily AI Schedule (owner cadence — maps to broker-independent loops)
+| Time (IST) | Job | Today |
+|---|---|---|
+| 09:00 | Market Planner (Morning Brief) | ❌ new (Tier-3 cortex, 1 call) |
+| 09:15–15:30 | Live analysis · AI Radio · Entry Intelligence | ✅ engine live; Radio/Entry = Layers 8/9 |
+| 15:45 | Daily Review | ✅ EOD report (AI-A1) |
+| 18:00 | Research | ✅ weekend/closed AI (AI-A2) |
+| 21:00 | Evolution (proposals) | ✅ nightly audit 23:59 (retime to 21:00 opt) |
+| 23:00 | Dashboard Improvement (Architect) | ❌ new (Layer 10) |
+| Weekend | Strategy research · pattern mining · software audit · proposals | 🟡 research live; audit/mining = new |
+
+### Build order (owner-locked: Phase 1→10, stable before next)
+Already shipped: Phase A (Cortex) + A2 (Weekend AI + Workspace). Next phases
+recommended in order, each engine-safe and independently shippable:
+1. **Entry Intelligence tiers** (Layer 8 — deterministic, no LLM cost, owner's favourite, high visual impact)
+2. **AI Radio auto-speak** (Layer 9 — Voice frontend, the product's identity)
+3. **Daily Planner + schedule wiring** (09:00 brief + retimed cadence)
+4. **AI Architect** (Layer 10 — nightly software-scan proposals)
+5. **News / Econ-Calendar / FII-DII feeds** (Layer 1 external data — real integration work)
+6. **#014 AI Council / #015 Governance** (after soak)
