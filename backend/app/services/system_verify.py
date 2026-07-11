@@ -22,6 +22,22 @@ def _cortex() -> dict[str, Any]:
         return {"enabled": False}
 
 
+def _os_status(open_: bool, ms: dict, cs: dict) -> tuple[str, str]:
+    """One unified state line for the whole AI OS."""
+    if open_:
+        return "LIVE — market open", "Decision Engine + AI analysing live"
+    # market closed → what is the AI actually doing?
+    if cs.get("enabled"):
+        try:
+            from . import weekend_ai
+            w = weekend_ai.status()
+            act = w.get("activity") or "Weekend AI ready"
+            return "MARKET CLOSED — Weekend AI working", act
+        except Exception:
+            pass
+    return "MARKET CLOSED", f"Next live session {ms.get('next_open_ist') or 'Mon 09:15'}"
+
+
 def verify() -> dict[str, Any]:
     cs = _cortex()
     ms = market_status(state.market_type)
@@ -102,10 +118,17 @@ def verify() -> dict[str, Any]:
     score = round(100 * ok_core / max(1, len(core_subs)))
     label = ("Stable" if score >= 90 else "Degraded" if score >= 60 else "Attention")
 
+    # Unified AI-OS status line (owner #2: one state machine, not scattered
+    # "PAUSED"/"Weekend AI ready"/"scanner paused").
+    os_line, os_sub = _os_status(open_, ms, cs)
+
     return {
         "health_score": score,
         "health_label": label,
         "market_open": open_,
+        "os_status": os_line,
+        "os_substatus": os_sub,
+        "next_session": None if open_ else ms.get("next_open_ist"),
         "subsystems": subs,
         "note": "Statuses are derived from live state — paused/off on a closed "
                 "market or disconnected broker is expected, not a fault.",

@@ -30,6 +30,13 @@ export function SystemVerify() {
           <span className="text-[11px] text-terminal-muted ml-1">{d.health_label}</span>
         </div>
       </div>
+      {d.os_status && (
+        <div className="text-xs border border-terminal-border rounded p-2">
+          <span className="text-white font-medium">{d.os_status}</span>
+          {d.os_substatus && <span className="text-terminal-muted"> · {d.os_substatus}</span>}
+          {d.next_session && <span className="text-terminal-muted"> · next live {d.next_session}</span>}
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
         {(d.subsystems || []).map((s: any) => (
           <div key={s.name} className="flex items-center gap-2">

@@ -105,3 +105,16 @@ confirmed speaking on a live tape.
 - ✅ Service Worker: network-first for HTML; cache name = git commit (auto-invalidates every build via `scripts/stamp-version.mjs` prebuild)
 - ✅ Build Version visible on the dashboard (frontend/backend commit, AI provider, Radio, SW) → self-verifiable, no trust needed
 - Per-deploy checks: □ Frontend rebuilt □ Backend restarted □ SW version changed □ version.json commit matches □ dashboard shows the new commit
+
+---
+
+## PRODUCTION FREEZE (owner, 2026-07-11 → ~2026-07-18)
+Status: **Product Hardening**, not Feature Building. For ~7 days, ONLY:
+bug fixes · performance · duplicate cleanup · voice tuning · cost optimization.
+**No new AI layer** (Entry Intelligence / AI Council / Knowledge OS) until the
+freeze ends AND AI Radio live-speech is verified (Mon 09:15).
+
+Done in hardening: ✅ removed duplicate AI SELF-CHECK panel (System Verify is
+the single health source) · ✅ unified AI-OS status line (one state machine:
+"MARKET CLOSED — Weekend AI working · next live Mon 09:15").
+Pending: ⏳ AI Radio live verify (Mon) · ⏳ observe over the week.

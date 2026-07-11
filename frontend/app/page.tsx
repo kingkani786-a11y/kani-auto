@@ -41,7 +41,6 @@ import { GammaShield } from "@/components/GammaShield";
 import { PointCaptureStrip } from "@/components/PointCaptureStrip";
 import { ScalpingTool } from "@/components/ScalpingTool";
 import { IndexRadar } from "@/components/IndexRadar";
-import { SelfCheck } from "@/components/SelfCheck";
 import { OpportunityBoard } from "@/components/OpportunityBoard";
 import { TradeManagement } from "@/components/TradeManagement";
 import { MarketMemory } from "@/components/MarketMemory";
@@ -198,9 +197,10 @@ export default function Dashboard() {
         <GammaShield />
       </SafeBoundary>
 
-      {/* diagnostics — below the action stack (read when something is off) */}
-      <SafeBoundary name="Self Check">
-        <SelfCheck />
+      {/* diagnostics — single health source (System Verify replaced the old
+          duplicate AI SELF-CHECK panel; owner: one health source only) */}
+      <SafeBoundary name="System Verify">
+        <SystemVerify />
       </SafeBoundary>
       <SafeBoundary name="AI Health">
         <AIHealthStrip />
@@ -381,9 +381,6 @@ export default function Dashboard() {
       </div>
 
       {/* Production observability (owner: Trust by Verification) */}
-      <SafeBoundary name="System Verify">
-        <SystemVerify />
-      </SafeBoundary>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SafeBoundary name="Build Version">
           <BuildVersion />
