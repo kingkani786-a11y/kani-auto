@@ -98,3 +98,10 @@ Natural next build once Phase 2 items clear their live-market verification.
 **AI Radio live spoken output — verify Monday 09:15 at market open.** Everything
 else is either ✅ or ⏳-on-live-data. No new layer should start until Radio is
 confirmed speaking on a live tape.
+
+---
+
+## Deployment (added after the PWA stale-cache bug, owner)
+- ✅ Service Worker: network-first for HTML; cache name = git commit (auto-invalidates every build via `scripts/stamp-version.mjs` prebuild)
+- ✅ Build Version visible on the dashboard (frontend/backend commit, AI provider, Radio, SW) → self-verifiable, no trust needed
+- Per-deploy checks: □ Frontend rebuilt □ Backend restarted □ SW version changed □ version.json commit matches □ dashboard shows the new commit

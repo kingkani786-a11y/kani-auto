@@ -15,7 +15,8 @@
     "desktop:dev": "ELECTRON_DEV=1 electron electron/main.js",
     "desktop:build": "npm run build:static && electron-builder",
     "desktop:win": "npm run build:static && electron-builder --win",
-    "desktop:mac": "npm run build:static && electron-builder --mac"
+    "desktop:mac": "npm run build:static && electron-builder --mac",
+    "prebuild": "node scripts/stamp-version.mjs"
   },
   "dependencies": {
     "lightweight-charts": "^4.2.3",
@@ -33,6 +34,6 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"
   },
-  "comment:optionalPackaging": "Install these only on the build machine for native targets — kept out of the core install so the web build stays lean. npm i -D @capacitor/cli @capacitor/core @capacitor/android @capacitor/ios electron electron-builder electron-updater",
+  "comment:optionalPackaging": "Install these only on the build machine for native targets \u2014 kept out of the core install so the web build stays lean. npm i -D @capacitor/cli @capacitor/core @capacitor/android @capacitor/ios electron electron-builder electron-updater",
   "optionalDependencies": {}
 }

@@ -281,6 +281,31 @@ async def cortex_eod_report_ep():
     return report.eod_report()
 
 
+@router.get("/version")
+async def version_ep():
+    """Build/version info so the dashboard can show exactly what is running —
+    self-verifiable, no need to trust a claim."""
+    import subprocess
+    from ..services.cortex import cortex_status
+    commit = "unknown"
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=pathlib.Path(__file__).resolve().parents[3], text=True,
+            stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        pass
+    cs = cortex_status()
+    return {
+        "backend_commit": commit,
+        "server_time": time.time(),
+        "ai_provider": cs.get("provider"),
+        "ai_model": cs.get("model"),
+        "ai_enabled": cs.get("enabled"),
+        "radio": "v1.0",
+    }
+
+
 @router.get("/ai-timeline")
 async def ai_timeline_ep(limit: int = 60):
     """AI Timeline — the day's market story (engine transitions, timestamped)."""

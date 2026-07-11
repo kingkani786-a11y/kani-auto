@@ -24,6 +24,7 @@ import { AlphaPanel } from "@/components/AlphaPanel";
 import { AIHealthStrip } from "@/components/AIHealthStrip";
 import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { AITimelineCard } from "@/components/AITimelineCard";
+import { BuildVersion } from "@/components/BuildVersion";
 import { StrikeQueue } from "@/components/StrikeQueue";
 import { PremiumTimeline } from "@/components/PremiumTimeline";
 import { DailyReview } from "@/components/DailyReview";
@@ -376,6 +377,10 @@ export default function Dashboard() {
           Show full analysis (layers, option chain, Greeks, strike engine) →
         </Link>
       </div>
+
+      <SafeBoundary name="Build Version">
+        <BuildVersion />
+      </SafeBoundary>
     </div>
   );
 }
