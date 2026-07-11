@@ -74,6 +74,7 @@ export const api = {
     req<any>("/api/cortex/ask", { method: "POST", body: JSON.stringify({ role, question }) }),
   cortexEodReport: () => req<any>("/api/cortex/eod-report", { method: "POST" }),
   cortexAnalyze: (force = false) => req<any>(`/api/cortex/analyze${force ? "?force=true" : ""}`),
+  aiTimeline: (limit = 60) => req<any>(`/api/ai-timeline?limit=${limit}`),
   weekendAi: () => req<any>("/api/weekend-ai"),
   weekendAiRun: () => req<any>("/api/weekend-ai/run", { method: "POST" }),
   // auth

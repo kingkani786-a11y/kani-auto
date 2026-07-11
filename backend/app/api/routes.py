@@ -281,6 +281,13 @@ async def cortex_eod_report_ep():
     return report.eod_report()
 
 
+@router.get("/ai-timeline")
+async def ai_timeline_ep(limit: int = 60):
+    """AI Timeline — the day's market story (engine transitions, timestamped)."""
+    from ..services import ai_timeline
+    return ai_timeline.timeline(limit=limit)
+
+
 @router.get("/cortex/analyze")
 async def cortex_analyze_ep(force: bool = False):
     """AI Analysis — Gemini explains the CURRENT decision, cached by

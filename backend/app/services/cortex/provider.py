@@ -118,14 +118,17 @@ def _ask_gemini(key: str, model: str, system: str, user: str,
     from google.genai import types
 
     client = genai.Client(api_key=key)
+    # Disable "thinking" — these are phrasing/explain tasks, not reasoning; on
+    # flash models thinking silently eats the output-token budget and truncates
+    # the answer. thinking_budget=0 frees the full budget for the reply.
+    cfg = dict(system_instruction=system, max_output_tokens=max_tokens, temperature=0.4)
+    try:
+        cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+    except Exception:
+        pass
     resp = client.models.generate_content(
-        model=model,
-        contents=user,
-        config=types.GenerateContentConfig(
-            system_instruction=system,
-            max_output_tokens=max_tokens,
-            temperature=0.4,
-        ),
+        model=model, contents=user,
+        config=types.GenerateContentConfig(**cfg),
     )
     text = (getattr(resp, "text", "") or "").strip()
     um = getattr(resp, "usage_metadata", None)

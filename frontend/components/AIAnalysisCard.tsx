@@ -47,7 +47,19 @@ export function AIAnalysisCard() {
         : r.ok === false ? <div className="text-xs text-terminal-warn">{r.capped ? "Budget cap reached — " : "AI unavailable — "}{r.error || r.reason}</div>
         : (
           <>
-            <div className="text-sm whitespace-pre-wrap leading-relaxed">{r.text}</div>
+            {r.blocks && (r.blocks.why || r.blocks.next || r.blocks.watch || r.blocks.change) ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {([["WHY", "why", "text-terminal-muted"], ["NEXT", "next", "text-terminal-accent"],
+                   ["WATCH", "watch", "text-terminal-warn"], ["CHANGE", "change", "text-terminal-bull"]] as const).map(([label, key, tone]) => (
+                  <div key={key} className="border border-terminal-border rounded p-2">
+                    <div className={`text-[10px] font-semibold ${tone}`}>{label}</div>
+                    <div className="text-sm leading-snug">{r.blocks[key] || "—"}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm whitespace-pre-wrap leading-relaxed">{r.text}</div>
+            )}
             {flagged && <div className="text-[11px] text-terminal-bear border border-terminal-bear/40 rounded p-1.5">⚠️ AI text contained a trade directive — ignore it; follow the engine decision.</div>}
             <div className="text-[11px] text-terminal-muted flex flex-wrap gap-2">
               <span>Engine decision: <b className="text-white">{r.authoritative_decision ?? "—"}</b></span>

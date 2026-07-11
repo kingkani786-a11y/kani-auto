@@ -49,20 +49,40 @@ def analyze(force: bool = False) -> dict[str, Any]:
         out["cache_age_sec"] = int(age)
         return out
 
+    decision = (snap.get("market") or {}).get("decision")
     question = (
-        "In 3-4 short sentences, explain the engine's CURRENT decision to the "
-        "trader: what the trend/liquidity/structure show, why the decision is "
-        f"'{(snap.get('market') or {}).get('decision')}', and the single most "
-        "important thing to watch next. Use the snapshot only; if the market is "
-        "closed or data is null, say so plainly. Do NOT tell the trader to "
-        "buy/sell — explain the engine's reasoning. Tanglish."
+        "Output ONLY these 4 lines, nothing before or after, keep the labels "
+        "EXACTLY, each one short Tanglish sentence:\n"
+        f"WHY: why the engine decided '{decision}'\n"
+        "NEXT: the likely near-term path\n"
+        "WATCH: the single key level or signal to watch\n"
+        "CHANGE: what would flip the decision (e.g. Liquidity >55 makes BUY ready)\n"
+        "Rules: always emit all 4 lines with their labels even if the market is "
+        "closed or data is null (then say that honestly inside the lines). Never "
+        "tell the trader to buy or sell — explain the engine only."
     )
-    res = cortex.ask("explainer", {"snapshot": snap}, question, max_tokens=500)
+    res = cortex.ask("explainer", {"snapshot": snap}, question, max_tokens=700)
     res["cached"] = False
     res["decision_key"] = key
     if res.get("ok"):
+        res["blocks"] = _parse_blocks(res.get("text", ""))
         _cache.update(key=key, ts=time.time(), result=res)
     return res
+
+
+def _parse_blocks(text: str) -> dict[str, str]:
+    """Split the 4-block reply into {why,next,watch,change}. Tolerant: falls
+    back to leaving blocks empty (the card shows the raw text then)."""
+    out: dict[str, str] = {}
+    labels = {"why": "why", "next": "next", "watch": "watch", "change": "change"}
+    for line in (text or "").splitlines():
+        s = line.strip().lstrip("-*• ").strip()
+        for lab in labels:
+            pre = lab + ":"
+            if s.lower().startswith(pre):
+                out[lab] = s[len(pre):].strip()
+                break
+    return out
 
 
 def latest_text() -> str | None:

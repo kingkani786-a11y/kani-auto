@@ -1024,6 +1024,11 @@ class MarketService:
         state.decision = decision
         state.risk = packet["risk"]
         state.heartbeats["signal_engine"] = time.time()
+        try:
+            from . import ai_timeline
+            ai_timeline.scan()   # AI Journal — record transitions (read-only, additive)
+        except Exception:
+            pass
         journal.log_signal(inst.symbol, inst.market_type, packet["signal"])
         await manager.broadcast("signal", {
             "signal": state.signal,

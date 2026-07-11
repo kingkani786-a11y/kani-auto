@@ -4,6 +4,33 @@
 
 ---
 
+## AI-A5 — 2026-07-11 — AI Timeline + 4-block Analysis (+ thinking-off fix)
+
+### AI Timeline (AI Journal)
+backend/app/services/ai_timeline.py — records timestamped engine transitions
+(trend flip · structure confirmed/BOS · liquidity +8 · entry ready · decision
+change · target hit · back-to-wait). scan() hooked at the END of the AI cycle
+(market_service, read-only + guarded — never touches the decision path).
+GET /api/ai-timeline. components/AITimelineCard.tsx on the home dashboard:
+glance after 30 min away → the whole session story. Quiet on a closed market.
+
+### 4-block AI Analysis (WHY / NEXT / WATCH / CHANGE)
+cortex/analysis.py now asks Gemini for 4 labelled blocks and parses them
+(tolerant: falls back to raw text). AIAnalysisCard renders a 4-quadrant grid
+(WHY reason · NEXT path · WATCH level · CHANGE what-flips-it) + engine decision
++ Safety banner. Verified LIVE (closed market): all 4 blocks populate, ₹0.04.
+
+### Fix — disable Gemini "thinking" on utility calls
+gemini-flash-latest was spending the output-token budget on thinking and
+truncating replies (only WHY appeared). provider.py now sets
+thinking_config.thinking_budget=0 for all cortex calls → complete replies,
+cheaper, faster. Fixes the 4-block truncation; benefits chat/reports/weekend AI.
+
+### Verified
+tsc clean · build compiled · both services restarted · home renders AI Analysis
++ AI Timeline. Live transition events verify Monday (closed tape is quiet).
+
+
 ## AI-A4 — 2026-07-11 — AI Analysis card (Gemini on the dashboard)
 
 ### Purpose

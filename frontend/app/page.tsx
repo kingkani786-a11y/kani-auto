@@ -23,6 +23,7 @@ import { EntryScoreTimeline } from "@/components/EntryScoreTimeline";
 import { AlphaPanel } from "@/components/AlphaPanel";
 import { AIHealthStrip } from "@/components/AIHealthStrip";
 import { AIAnalysisCard } from "@/components/AIAnalysisCard";
+import { AITimelineCard } from "@/components/AITimelineCard";
 import { StrikeQueue } from "@/components/StrikeQueue";
 import { PremiumTimeline } from "@/components/PremiumTimeline";
 import { DailyReview } from "@/components/DailyReview";
@@ -152,6 +153,11 @@ export default function Dashboard() {
       {/* AI Analysis — Gemini explains the live decision (cost-cached) */}
       <SafeBoundary name="AI Analysis">
         <AIAnalysisCard />
+      </SafeBoundary>
+
+      {/* AI Timeline — the day's market story (engine transitions) */}
+      <SafeBoundary name="AI Timeline">
+        <AITimelineCard />
       </SafeBoundary>
 
       {/* THE decision card — first thing on screen */}
