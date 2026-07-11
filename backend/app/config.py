@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     ai_daily_cost_cap_inr: float = 100.0   # Cost Controller hard cap / IST day
     ai_daily_call_cap: int = 200            # Cost Controller hard call cap / day
     usd_inr: float = 88.0                   # for ₹ cost estimate display
+    weekend_ai_enabled: bool = True         # auto Research/Review/Plan when market closed
+    weekend_ai_interval: float = 3600.0     # seconds between auto weekend cycles
 
     class Config:
         env_file = ".env"

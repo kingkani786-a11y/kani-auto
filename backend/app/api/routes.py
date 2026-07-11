@@ -281,6 +281,21 @@ async def cortex_eod_report_ep():
     return report.eod_report()
 
 
+@router.get("/weekend-ai")
+async def weekend_ai_status_ep():
+    """AI-A2 — Weekend AI status + last Research/Review/Plan outputs. Shows the
+    AI is working (not 'Paused') when the market is closed."""
+    from ..services import weekend_ai
+    return weekend_ai.status()
+
+
+@router.post("/weekend-ai/run")
+async def weekend_ai_run_ep():
+    """Manually trigger one weekend AI cycle now (respects the Cost cap)."""
+    from ..services import weekend_ai
+    return weekend_ai.run_cycle(force=True)
+
+
 @router.get("/brain/auto")
 async def ai_brain_auto():
     """S14 — auto-answered key questions (the AI answers before you ask)."""

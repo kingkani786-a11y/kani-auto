@@ -288,7 +288,7 @@ export default function Dashboard() {
       {/* Research-mode quick links to the deep-analysis pages */}
       {mode === "Research" && (
         <div className="flex flex-wrap gap-1.5">
-          {[["Analysis", "/advanced"], ["Market DNA", "/dna"], ["Simulator", "/simulator"],
+          {[["🧠 AI Workspace", "/ai-workspace"], ["Analysis", "/advanced"], ["Market DNA", "/dna"], ["Simulator", "/simulator"],
             ["Evolution", "/evolution"], ["Research Lab", "/research"], ["Report Card", "/report-card"],
             ["Audit", "/audit"], ["Replay", "/replay"], ["Brain", "/brain"]].map(([label, href]) => (
             <Link key={href} href={href}

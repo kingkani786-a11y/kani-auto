@@ -54,6 +54,22 @@ async def _nightly_audit_loop():
             log.exception("nightly historical learning failed")
 
 
+async def _weekend_ai_loop():
+    """AI-A2 — run one weekend cortex job (Review/Research/Plan) per interval
+    while the market is closed. Broker-independent, cost-capped by the Cost
+    Controller. Disabled via CAT_WEEKEND_AI_ENABLED=false. Never touches the
+    trading path."""
+    await asyncio.sleep(30)  # let the app settle before the first cycle
+    while True:
+        try:
+            if settings.weekend_ai_enabled:
+                from .services import weekend_ai
+                weekend_ai.run_cycle()
+        except Exception:
+            log.exception("weekend AI cycle failed")
+        await asyncio.sleep(max(300.0, settings.weekend_ai_interval))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Deliberately idle on boot: engines start only after SAVE & CONNECT.
@@ -72,8 +88,11 @@ async def lifespan(app: FastAPI):
         pass
     # Phase 23 — always-on nightly self-tuning audit (independent of broker).
     nightly_task = asyncio.create_task(_nightly_audit_loop())
+    # AI-A2 — Weekend AI: the cortex works when the market sleeps (broker-independent).
+    weekend_task = asyncio.create_task(_weekend_ai_loop())
     yield
     nightly_task.cancel()
+    weekend_task.cancel()
     await service.stop()
 
 

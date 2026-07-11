@@ -137,6 +137,15 @@ def _status_brief() -> dict[str, Any]:
         ("Confluence + gate", bool((state.intelligence or {}).get("layers"))),
     ]
     active = connected and open_
+    # AI-A2 — when the market is closed, show what the Weekend AI is doing
+    # instead of a bare "PAUSED" (honest: only when the cortex is actually on).
+    weekend_line = None
+    if not active:
+        try:
+            from . import weekend_ai
+            weekend_line = weekend_ai.brain_activity_line()
+        except Exception:
+            weekend_line = None
     first_pending = next((s for s, done in stages if not done), None)
     pipeline = [{"step": s,
                  "state": ("done" if done else
@@ -150,7 +159,8 @@ def _status_brief() -> dict[str, Any]:
             "market": ms["status"],
             "ist_time": ms["ist_time"],
             "data_quality": state.data_quality,
-            "ai_cycle": "WAITING FOR FIRST CYCLE" if active else "PAUSED",
+            "ai_cycle": ("WAITING FOR FIRST CYCLE" if active
+                         else weekend_line or "PAUSED"),
         },
         "reason": why,
         "next_action": nxt,
