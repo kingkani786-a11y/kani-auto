@@ -22,6 +22,7 @@ import { ExecutionCard } from "@/components/ExecutionCard";
 import { EntryScoreTimeline } from "@/components/EntryScoreTimeline";
 import { AlphaPanel } from "@/components/AlphaPanel";
 import { AIHealthStrip } from "@/components/AIHealthStrip";
+import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { StrikeQueue } from "@/components/StrikeQueue";
 import { PremiumTimeline } from "@/components/PremiumTimeline";
 import { DailyReview } from "@/components/DailyReview";
@@ -147,6 +148,11 @@ export default function Dashboard() {
 
       {/* V20 ACTION-FIRST ORDER (user design review): decision → strike/plan →
           capture → index → shields; diagnostics move BELOW the action stack. */}
+
+      {/* AI Analysis — Gemini explains the live decision (cost-cached) */}
+      <SafeBoundary name="AI Analysis">
+        <AIAnalysisCard />
+      </SafeBoundary>
 
       {/* THE decision card — first thing on screen */}
       <SafeBoundary name="Live Candle">

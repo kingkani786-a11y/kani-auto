@@ -4,6 +4,35 @@
 
 ---
 
+## AI-A4 — 2026-07-11 — AI Analysis card (Gemini on the dashboard)
+
+### Purpose
+Owner directive: use the live Gemini API to analyse the engine's data and show
+the answer ON THE DASHBOARD (and let the radio speak it). The Cortex explainer,
+surfaced as a live card at the top of the home screen.
+
+### Added
+- backend/app/services/cortex/analysis.py — analyze() explains the CURRENT
+  decision, CACHED by (symbol, decision-band, market, data-quality). While the
+  decision view is unchanged, dashboard polls return the cached answer with
+  ZERO new Gemini calls; a 180s min-interval guards rapid band flips. Cost stays
+  ~1 call per real decision-change. latest_text() lets the radio speak it.
+- GET /api/cortex/analyze (?force=true to regenerate) · api.cortexAnalyze().
+- components/AIAnalysisCard.tsx — top-of-dashboard card: Gemini's plain-language
+  read of the live decision + engine authoritative decision + Safety banner +
+  🔊 speak + ↻ refresh. Hides entirely when the cortex is off (no broken card).
+  Polls every 60s (cheap due to server cache).
+
+### Verified LIVE (Gemini, Sat market-closed)
+analyze #1 fresh (Tanglish "NIFTY CLOSED… WAIT", ₹0.02) → #2 cached (age 0, no
+new call) → budget shows 1 call total. Proves the cost cache. tsc clean, build
+compiled, both services restarted; home renders "AI Analysis".
+
+### Doctrine
+Engine decides, Gemini phrases; Safety + Cost caps wrap the call; provider-
+agnostic (Gemini now, Claude/others via settings). No decision-path change.
+
+
 ## AI-A3 — 2026-07-11 — AI Radio v1.0 (FAIOS Layer 9)
 
 ### Purpose

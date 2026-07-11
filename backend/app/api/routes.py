@@ -281,6 +281,15 @@ async def cortex_eod_report_ep():
     return report.eod_report()
 
 
+@router.get("/cortex/analyze")
+async def cortex_analyze_ep(force: bool = False):
+    """AI Analysis — Gemini explains the CURRENT decision, cached by
+    decision-band so the dashboard can poll cheaply. Pass ?force=true to
+    regenerate now."""
+    from ..services.cortex import analysis
+    return analysis.analyze(force=force)
+
+
 @router.get("/weekend-ai")
 async def weekend_ai_status_ep():
     """AI-A2 — Weekend AI status + last Research/Review/Plan outputs. Shows the
