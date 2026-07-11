@@ -294,3 +294,39 @@ recommended in order, each engine-safe and independently shippable:
 4. **AI Architect** (Layer 10 — nightly software-scan proposals)
 5. **News / Econ-Calendar / FII-DII feeds** (Layer 1 external data — real integration work)
 6. **#014 AI Council / #015 Governance** (after soak)
+
+---
+
+## FAIOS v4.0 update (owner, 2026-07-11) — reorder + Layer 11 Knowledge OS
+
+### Build order REORDERED (owner: AI Radio is the OS's face, not a feature)
+1. **AI Radio v1.0** ← FIRST (identity: "Screen பார்க்காமல் Market புரியணும்")
+2. Entry Intelligence tiers
+3. AI Planner (09:00 bias/risk-time/events)
+4. AI Architect
+5. External Intelligence (News/Calendar/FII-DII/RBI/CPI/Earnings/Global)
+
+### AI Radio v1.0 spec (Phase 1) — speaks from the DECISION ENGINE only
+Morning "Good Morning" briefing · Market Open · Trend change · Structure
+confirmed · Liquidity improved · Confidence delta (46→58) · Entry Ready ·
+Target Hit · Exit · Market Close · EOD Summary. **LLM takes no decision** —
+it may polish language later, but the radio speaks engine-published state.
+
+### Layer 11 — Knowledge OS (owner, NEW)
+A local knowledge database the AI grows over time: trading books, research
+papers, NSE/SEBI/RBI circulars, option theory, macro, ML/AI/prompt papers.
+Then "Gamma Exposure என்றால் என்ன?" is answered from the LOCAL DB, not the
+internet. Turns the Teacher/Research layers from live-call-only into a
+grounded, owned knowledge base.
+
+### KNOWLEDGE LAW (owner, locked — twin of the Phase-22 rule)
+> AI may read, research, summarize, and PROPOSE knowledge — but must NEVER
+> auto-write to the Knowledge Database.
+> Flow: **Pending Knowledge → Review → Approve → Knowledge Database.**
+Rationale: one wrong fact auto-ingested would be repeated as truth forever.
+Same human-approval gate as trading weights (Phase-22).
+
+### Final 11-layer stack
+1 Live Data OS · 2 Decision Engine · 3 AI Cortex · 4 Memory · 5 Research ·
+6 Evolution · 7 Dashboard Intelligence · 8 Entry Intelligence · 9 AI Radio ·
+10 AI Architect · 11 Knowledge OS.
