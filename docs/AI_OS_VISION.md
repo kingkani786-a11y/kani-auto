@@ -368,3 +368,33 @@ engine's data, generate the answer, and surface it BOTH on the dashboard and
 via radio. Build it to run as a complete options-trading AI platform.
 → First increment: **AI Analysis card** (Gemini explains the live decision on
 the dashboard; cost-gated cache; provider-agnostic).
+
+---
+
+## v5.0 additions (owner, 2026-07-11) — Timeline, 4-block, Radio modes, Knowledge Confidence
+
+### AI Timeline (AI Journal) — BUILD NOW, before Entry Intelligence
+A timestamped story of the day the AI writes as transitions happen: 09:15 Good
+Morning · 09:18 Trend Turning Bullish · 09:24 Liquidity Improving · 09:27
+Institutional Buying · 09:32 Entry Ready · 09:36 BUY Trigger · 09:45 Target 1
+Hit · 09:52 Move Weakening · 10:05 Exit. Glance at it after 30 min away → the
+whole market story. Engine-published transitions only.
+
+### 4-block AI Analysis — BUILD NOW
+Upgrade the AI Analysis card from a paragraph to 4 labelled blocks:
+WHY (decision reason) · NEXT (likely path) · WATCH (key level) · CHANGE (what
+flips the decision — "Liquidity >55 → BUY ready"). Gemini phrases each block
+from the snapshot; engine still decides.
+
+### AI Radio — 5 modes (record; wire when Radio matures)
+🔇 Silent · 📢 Alerts · 📻 Commentary · 🎙 Analyst · 🎧 Full Copilot.
+
+### Knowledge OS — Knowledge Confidence (record; part of Layer 11)
+Every knowledge item carries a status: Verified · Peer-Reviewed · Experimental
+· User-Added · Pending-Review. The AI weights/uses knowledge by status → never
+treats an unverified note as fact. Twin of the Knowledge Law approval gate.
+
+### Re-affirmed LAW (owner)
+LLM: Explain · Teach · Research · Summarize · Compare · Propose. NEVER
+BUY/WAIT/EXIT/Risk/Entry/SL — those are the Decision Engine's alone. This split
+is what keeps it a trustworthy Trading OS, not a chatbot.
