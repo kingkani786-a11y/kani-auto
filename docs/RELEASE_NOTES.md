@@ -4,6 +4,37 @@
 
 ---
 
+## AI-A2 — 2026-07-11 — AI Workspace page + Weekend AI (live Gemini)
+
+### Purpose
+Make the live Cortex VISIBLE (owner: AI Experience felt low because there was
+no frontend for it) and put the AI to work when the market sleeps. Engine
+untouched; LLM stays explanation/research only, never the decision path.
+
+### Weekend AI (backend/app/services/weekend_ai.py)
+Rotates Review -> Research -> Plan, one cost-capped Gemini call each, while the
+market is closed. Broker-independent loop in main.py lifespan, 1/hour,
+CAT_WEEKEND_AI_ENABLED toggle. Grounded in measured ledgers (report_card,
+verdicts, weekly evolution) — no fabricated numbers. brain._status_brief now
+shows "Weekend AI ready — Research / Review / Plan" instead of "PAUSED".
+Endpoints: GET /api/weekend-ai, POST /api/weekend-ai/run.
+
+### AI Workspace (frontend/app/ai-workspace/page.tsx)
+AI Chat (6 roles -> /cortex/ask, every answer shows the engine's authoritative
+decision + Safety banner) · AI Reports (EOD) · Weekend AI outputs + run-now ·
+live budget header. Linked from home Research quick-links. Honest roadmap
+footer (Council/Architect/News = coming #014/#015).
+
+### Verified LIVE (real Gemini, Sat market-closed)
+Weekend auto-loop ran on boot; manual run: Review Rs0.148 + Research Rs0.041,
+Safety clean, budget Rs0.19/100. /ai-workspace serves 200; tsc clean; both
+services restarted.
+
+### Honest
+News/Calendar/FII-DII are external DATA feeds (not LLM) — shown "coming",
+never faked. Research-depth history needs real data (Phase D). Council = #014.
+
+
 ## AI-A1 — 2026-07-11 — AI Cortex Phase A (#013): provider-agnostic LLM layer
 
 ### Purpose
