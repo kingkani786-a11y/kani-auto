@@ -4,6 +4,32 @@
 
 ---
 
+## AI-A6 — 2026-07-11 — self-verifiable Build Version + PWA deploy-visibility fix
+
+### Root-cause fix (why new UI wasn't appearing)
+The service worker cached the app shell CACHE-FIRST with a fixed name, so every
+deploy was invisible to existing clients (stale HTML -> old JS -> old UI). Now:
+HTML navigations are NETWORK-FIRST (latest UI always loads online); the SW cache
+name = the git commit, stamped at build by scripts/stamp-version.mjs (npm
+prebuild) -> every deploy auto-invalidates the cache. No more manual bumps.
+
+### Build Version (owner request) — self-verify, no trust needed
+- backend GET /api/version (backend commit, AI provider/model, radio)
+- build-time public/version.json (frontend commit, built-at, sw)
+- BuildVersion dashboard panel (home footer) shows both side by side, so anyone
+  can confirm exactly which build/commit is live.
+
+### Verified
+version.json = fe08162 · sw = cat-shell-fe08162 · /api/version backend fe08162
+gemini-flash-latest · home renders "Build Version". Deployment checklist section
+added to PRODUCTION_CHECKLIST.md.
+
+### Owner action
+Hard-reload once (Cmd/Ctrl+Shift+R) so the browser fetches the new SW; after
+that the Build Version panel + all AI cards are visible and every future deploy
+updates automatically.
+
+
 ## AI-A5 — 2026-07-11 — AI Timeline + 4-block Analysis (+ thinking-off fix)
 
 ### AI Timeline (AI Journal)
