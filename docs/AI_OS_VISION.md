@@ -398,3 +398,35 @@ treats an unverified note as fact. Twin of the Knowledge Law approval gate.
 LLM: Explain · Teach · Research · Summarize · Compare · Propose. NEVER
 BUY/WAIT/EXIT/Risk/Entry/SL — those are the Decision Engine's alone. This split
 is what keeps it a trustworthy Trading OS, not a chatbot.
+
+---
+
+## GOVERNANCE (owner, 2026-07-11) — 3-phase build + Production Checklist
+
+### Build in 3 phases, not feature-by-feature
+- **Phase 1 — AI Foundation** (must be 100% before more AI): Decision Engine ·
+  Context Builder · Safety Layer · Cost Controller · Memory · Gemini · ⏳
+  Multi-provider layer.
+- **Phase 2 — AI Intelligence**: AI Analysis · Timeline · Radio · Workspace ·
+  Planner · Research · Teacher · Reviewer.
+- **Phase 3 — AI Automation** (self-growing OS): daily review/research/learn/
+  suggest · weekly software/strategy/performance audit · monthly proposal/
+  knowledge/architecture. **Nothing reaches production without human approval.**
+
+### RULE: stop adding layers — Production-Checklist gating
+No new layer until the current ones are each "Production Ready" per
+docs/PRODUCTION_CHECKLIST.md. Advance only when a layer passes its checklist.
+
+### AI Health Center (recorded — the live view of the checklist)
+Dashboard tile: per-subsystem health % (Decision/Memory/Knowledge/Research/
+Learning/Radio/Timeline), AI budget (₹ used/cap), knowledge freshness,
+research queue, improvement queue. Build as the observability layer once the
+core checklist is green.
+
+### Knowledge Center flow (Layer 11, locked)
+Internet → AI Research → Summary → Proposal → Human Review → Knowledge DB.
+Never internet → DB directly (Knowledge Law).
+
+### The core intent (owner, restated)
+The AI must WORK continuously (Observe · Analyze · Explain · Learn · Research ·
+Review · Propose), not just answer questions like a chatbot.
