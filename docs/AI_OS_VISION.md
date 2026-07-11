@@ -330,3 +330,41 @@ Same human-approval gate as trading weights (Phase-22).
 1 Live Data OS · 2 Decision Engine · 3 AI Cortex · 4 Memory · 5 Research ·
 6 Evolution · 7 Dashboard Intelligence · 8 Entry Intelligence · 9 AI Radio ·
 10 AI Architect · 11 Knowledge OS.
+
+---
+
+## FAIOS v5.0 / v6.0 (owner, 2026-07-11) — 12 layers + provider-agnostic
+
+### Stabilize-first directive (owner)
+Stop adding raw features; lock the LAYER ARCHITECTURE, then bring each layer to
+production quality one at a time. This is the governing build philosophy now.
+
+### 12-layer stack
+1 Data OS · 2 Decision Engine (immutable brain) · 3 AI Cortex (explains, never
+decides) · 4 Memory (trade/mistake/pattern/setup/user) · 5 Research Center ·
+6 Evolution (proposals only) · 7 Dashboard Intelligence (AI decides which cards
+to highlight/hide) · 8 Entry Intelligence (Tiny/Small/Strong/Institutional/Mega
++ lifetime/quality/failure-prob/runner-prob on one card) · 9 AI Radio ·
+10 AI Architect (code/perf/security/UX review → proposals) · 11 Knowledge OS ·
+**12 Simulation Intelligence (v6.0, NEW)**.
+
+### Layer 12 — Simulation Intelligence (owner, NEW)
+On each signal, simulate ~5 future scenarios with probabilities (A 42% · B 28%
+· C 15% · D 9% · E 6%) → AI says "high runner probability" or "5-min scalp
+only". Sits ON TOP of the deterministic engine — never replaces it. (Note:
+the existing forward/war-room engines already produce scenario skeletons —
+this formalises them + adds the AI verdict.)
+
+### Provider-agnostic AI Provider Layer (LOCKED — already built this way in AI-A1)
+```
+Decision Engine → Context Builder → AI Provider Layer → {Gemini | Claude | ChatGPT | …}
+```
+Swapping models = a settings change, never a rewrite. Today: Gemini live.
+Claude/others slot in when keys exist (cortex/provider.py already abstracts this).
+
+### Owner's active directive (this turn)
+Use the LIVE Gemini API to do what an Anthropic model would do — analyze the
+engine's data, generate the answer, and surface it BOTH on the dashboard and
+via radio. Build it to run as a complete options-trading AI platform.
+→ First increment: **AI Analysis card** (Gemini explains the live decision on
+the dashboard; cost-gated cache; provider-agnostic).
