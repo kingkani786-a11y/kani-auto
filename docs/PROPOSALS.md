@@ -553,3 +553,37 @@ Core rulings (owner-locked): AI never auto-changes trading rules (Phase-22
 pipeline is the only path); decision loop stays deterministic/LLM-free
 (Tier 1); LLM is a language + research layer on top (Tiers 2–3); includes
 the earlier "Design Studio" request as Engine 9 / Phase C.
+
+---
+
+## PROPOSAL #014 — AI Cortex Integration (owner, 2026-07-11)
+
+**Status: RECORDED — blocked on API key + validation queue. Depends on #013.**
+
+Owner's multi-agent framing: use one LLM API (owner named Gemini) as an
+**AI Operating System**, not a single chatbot — many role-scoped "agents"
+sharing the same API behind one Orchestrator. Full spec in
+**docs/AI_OS_VISION.md** → "#014 AI Cortex Integration".
+
+### 10 agents (role prompts, one API)
+Orchestrator (Chief — only one that talks to user) + Market Analyst ·
+Decision Explainer · Research · Learning · Developer · Architect · Voice ·
+Teacher · Planner · Improvement.
+
+### 10 infra modules
+AI Orchestrator · Agent Manager · Context Builder · Prompt Manager ·
+Memory Manager · Voice Manager · Research Manager · **Cost Controller** ·
+**Safety Layer** · **Human Approval Layer**.
+
+### Honest rulings (recorded)
+- "Agents" = different **role prompts + structured context**, not different
+  models. One API key, one interface. Cheaper and simpler than N models.
+- **Cost Controller is not optional** — each agent = 1 API call; a full
+  Council/Planner run fans out to ~10 calls. Per-agent + daily caps enforced
+  here, else a "council meeting" could cost ₹100+/run.
+- **Safety Layer** enforces the hard NOs (no BUY/SELL/SL/strike/override) at
+  the code boundary — never relies on the prompt alone.
+- **Human Approval Layer** = existing Phase-22. Improvement AI feeds it;
+  never writes production.
+- Context Builder emits only the published structured snapshot (Rule-10);
+  raw candles never reach the LLM.
