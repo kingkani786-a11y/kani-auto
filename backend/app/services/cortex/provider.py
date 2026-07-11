@@ -25,7 +25,9 @@ from . import cost_controller as cost
 from . import safety
 from .prompts import MASTER_PROMPT, ROLE_PROMPTS
 
-_DEFAULT_MODEL = {"gemini": "gemini-2.5-flash", "anthropic": "claude-opus-4-8"}
+# gemini-flash-latest is an always-current alias (cheap flash tier) — the
+# dated gemini-2.5-flash is closed to new keys.
+_DEFAULT_MODEL = {"gemini": "gemini-flash-latest", "anthropic": "claude-opus-4-8"}
 
 
 def _resolve_provider() -> tuple[str, str, str]:
