@@ -108,11 +108,12 @@ confirmed speaking on a live tape.
 
 ---
 
-## PRODUCTION FREEZE (owner, 2026-07-11 → ~2026-07-18)
-Status: **Product Hardening**, not Feature Building. For ~7 days, ONLY:
-bug fixes · performance · duplicate cleanup · voice tuning · cost optimization.
-**No new AI layer** (Entry Intelligence / AI Council / Knowledge OS) until the
-freeze ends AND AI Radio live-speech is verified (Mon 09:15).
+## STATUS: STABLE / FINALIZED (owner, 2026-07-11)
+No hard freeze — owner may request updates anytime; we apply them as needed.
+Current build is stable and finalized: all AI endpoints 200, FE/BE in sync,
+tsc clean, cost-safe. Next additions arrive from the owner in ~1–2 days.
+Preferred mode is still hardening (bug/perf/cleanup/voice/cost) over big new
+layers, but updates are NOT blocked.
 
 Done in hardening: ✅ removed duplicate AI SELF-CHECK panel (System Verify is
 the single health source) · ✅ unified AI-OS status line (one state machine:
