@@ -636,3 +636,42 @@ Build **#013 Phase A ONLY** first — (1) Context Builder, (2) Safety Layer,
 stable, THEN #014 multi-agent, THEN #015 governance. Does not disturb the
 active validation queue (RC1.17 → MODE → premium-accuracy → Voice v0.5).
 Still gated on the owner creating an API key.
+
+---
+
+## PROPOSAL #016 — Opportunity Engine v2 (owner, 2026-07-13)
+
+**Status: RECORDED — build AFTER the pending A9–A11 batch ships + is verified live.**
+
+Owner's architectural milestone: make the Opportunity layer world-class and
+FIRST-CLASS (surfaced before the Decision gate). "Opportunity never WAITs; only
+Decision WAITs." Note: premium_radar ALREADY runs independent of the gate every
+option tick (Two-Layer law) — v2 widens + deepens it, it is not a re-architecture.
+
+### 5-layer framing (owner)
+1. **Market Hunter** — every tick, scan ALL liquid CE + PE (not ATM±4)
+2. **Opportunity Intelligence** — Birth→Building→Acceleration→Runner→Exhaustion per strike (live)
+3. **AI Attention** — focus % across strikes (built A11)
+4. **Decision** — BUY/WAIT/EXIT (unchanged gate, still the sole trade authority)
+5. **AI Thinking** — why-not / what's-missing / when-BUY / invalidation (built A9/A9.1)
+
+### The 10 items → status
+Built/partial (7): Rank(A10) · Birth(A8.1) · Prob-of-expansion=runner-score ·
+WHY(A9.1 evidence) · WHY-NOT(checklist) · Attention(A11) · Miss(watchlist+MODE).
+Genuinely NEW (3), the v2 scope:
+- **#2 100% liquid-chain scan** — widen ATM±4 → all liquid CE+PE, rate-safe
+  (respect Dhan feed limits; sample/stagger; cap tracked strikes by liquidity).
+- **#8 Opportunity Timer** — time-in-stage (EARLY 18s → BUILDING 54s → RUNNER 3m → LATE).
+- **#10 Proactive Miss-Prevention** — alert at ~+40% ("Runner building, look
+  here"), not "MISSED" at +100%. Ties into the alert bus + AI Radio.
+
+### Doctrine (unchanged)
+Deterministic (Dhan LTP/Vol/OI); observer layer — the execution gate still
+decides every trade; runner score is a declared blend, never a calibrated
+win-probability; Gemini explains, never decides. No "every move guaranteed"
+claim — the honest goal is action-oriented early surfacing vs WAIT-centric.
+
+### Sequencing (locked)
+Ship the pending 7-commit batch (A9/A9.1/A10/A11 + missed-neg fix + version-
+honesty fix + version.json SW bypass) at market close, verify live, THEN build
+#2/#8/#10 as Opportunity Engine v2 on the known-live base.
