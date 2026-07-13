@@ -97,7 +97,14 @@ class Cortex:
             else:
                 text, in_tok, out_tok = _ask_anthropic(key, model, system, user, mt)
         except Exception as e:  # never crash a request path
-            return {"ok": False, "error": f"{prov} call failed: {e}",
+            es = str(e)
+            # Transient upstream errors (high demand / rate limit) → soft,
+            # friendly message + a flag so the UI can show "retrying" not a dump.
+            transient = any(k in es for k in ("503", "UNAVAILABLE", "429",
+                                              "overloaded", "high demand", "RESOURCE_EXHAUSTED"))
+            msg = ("AI temporarily busy (high demand) — retrying automatically."
+                   if transient else f"{prov} call failed: {es}")
+            return {"ok": False, "error": msg, "transient": transient,
                     **safety.guard("", snapshot)}
 
         inr = cost.record(role, model, in_tok, out_tok)
