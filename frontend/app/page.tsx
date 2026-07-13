@@ -25,6 +25,7 @@ import { AIHealthStrip } from "@/components/AIHealthStrip";
 import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { AITimelineCard } from "@/components/AITimelineCard";
 import { PremiumRadar } from "@/components/PremiumRadar";
+import { HotNow } from "@/components/HotNow";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
@@ -149,6 +150,11 @@ export default function Dashboard() {
       {/* V3.0 — Smart Alert Bar (sticky, single latest critical alert) */}
       <SafeBoundary name="Smart Alerts">
         <SmartAlertBar />
+      </SafeBoundary>
+
+      {/* 🔥 HOT NOW — action-first, the top opportunity at the very top */}
+      <SafeBoundary name="Hot Now">
+        <HotNow />
       </SafeBoundary>
 
       {/* V20 ACTION-FIRST ORDER (user design review): decision → strike/plan →

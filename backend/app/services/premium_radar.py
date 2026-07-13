@@ -228,8 +228,23 @@ def _thinking(rows: list[dict]) -> dict[str, Any] | None:
         "OI": _clip(max(0, r["oi_pct"]) * 10),
     }
 
+    # #4 — Miss probability / entry-window honesty (from the lifecycle phase)
+    rp = r["rise_pct"]
+    if rp >= 70:
+        miss = {"label": "LATE — don't chase", "tone": "late",
+                "detail": f"Already ran {rp:.0f}% — runner mostly played out."}
+    elif rp >= 30:
+        miss = {"label": "ENTERING — window closing", "tone": "mid",
+                "detail": f"Up {rp:.0f}% — momentum underway, later entries riskier."}
+    else:
+        miss = {"label": "EARLY — window open", "tone": "early",
+                "detail": f"Only {rp:.0f}% from low — birth/build stage."}
+
     return {
         "watching": f"{r['strike']} {r['type']}",
+        "premium": r["premium"], "rise_pct": r["rise_pct"],
+        "runner_score": r["runner_score"], "stars": r["stars"], "stage": r["stage"],
+        "miss": miss,
         "cause": cause,
         "invalidation": {"conditions": inval, "then": "Runner thesis cancelled — stand aside."},
         "evidence": evidence,
