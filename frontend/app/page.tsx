@@ -26,6 +26,7 @@ import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { AITimelineCard } from "@/components/AITimelineCard";
 import { PremiumRadar } from "@/components/PremiumRadar";
 import { HotNow } from "@/components/HotNow";
+import { EarlyWarning } from "@/components/EarlyWarning";
 import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { BuildVersion } from "@/components/BuildVersion";
@@ -151,6 +152,11 @@ export default function Dashboard() {
       {/* V3.0 — Smart Alert Bar (sticky, single latest critical alert) */}
       <SafeBoundary name="Smart Alerts">
         <SmartAlertBar />
+      </SafeBoundary>
+
+      {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts */}
+      <SafeBoundary name="Early Warning">
+        <EarlyWarning />
       </SafeBoundary>
 
       {/* 🔥 HOT NOW — action-first, the top opportunity at the very top */}

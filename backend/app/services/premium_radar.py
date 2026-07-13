@@ -78,6 +78,38 @@ def _stage(m: dict[str, Any]) -> str:
     return "EXPANSION"
 
 
+def _coil(m: dict[str, Any]) -> dict[str, Any]:
+    """Pre-breakout 'loaded spring' — the EARLIEST honest catch.
+
+    Every other signal (runner-score, stage, phase) needs the premium to have
+    already moved. This one fires BEFORE the move: energy building underneath
+    (fresh volume and/or OI accumulating) while the premium is still
+    compressed (little rise, near-flat velocity). Catching a strike here means
+    being ready at ₹86 instead of chasing at ₹120.
+
+    Declared heuristic from data already captured — NOT a win probability.
+    States: COILED (loaded, no move yet) → IGNITING (spring releasing now)."""
+    compressed = m["rise_pct"] < 8 and abs(m["velocity"]) < 2
+    vol_energy = m["vol_delta"] > 0
+    oi_energy = m["oi_pct"] >= 1
+    energy = (1 if vol_energy else 0) + (1 if oi_energy else 0)
+    # strength 0–100: energy sources + how much OI is piling in (capped)
+    strength = int(min(100, energy * 35 + min(30, max(0, m["oi_pct"]) * 3)))
+    # ignition: compression just broke on stored energy, still early (catchable)
+    if m["rise_pct"] < 18 and m["velocity"] >= 2 and m["accel"] > 0 and energy >= 1:
+        return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 60),
+                "note": "Coil breaking — energy releasing, move starting NOW. Earliest entry window."}
+    if compressed and energy >= 1:
+        bits = []
+        if vol_energy:
+            bits.append("volume rising")
+        if oi_energy:
+            bits.append(f"OI +{m['oi_pct']}%")
+        return {"state": "COILED", "dot": "🌀", "strength": strength,
+                "note": f"Loaded spring — premium flat but {', '.join(bits)}. Watch for ignition."}
+    return {"state": "NONE", "dot": "", "strength": 0, "note": ""}
+
+
 def _stars(score: int) -> int:
     return max(1, min(5, 1 + score // 20))
 
@@ -161,6 +193,12 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 t["vol_confirm"] = now
             if t["oi_confirm"] is None and m["oi_pct"] >= 1 and m["rise_pct"] >= 5:
                 t["oi_confirm"] = now
+            # coil clock: when did this strike first start loading? (evidence:
+            # "coiling 45s") — reset once it stops coiling so it's always fresh.
+            if _coil(m)["state"] == "COILED":
+                t.setdefault("coil_since", now)
+            elif _coil(m)["state"] != "IGNITING":
+                t.pop("coil_since", None)
     # drop stale tracks (strike left the ATM window long ago)
     for k in [k for k, t in _tracks.items() if t["series"] and now - t["series"][-1][0] > 120]:
         _tracks.pop(k, None)
@@ -295,6 +333,8 @@ def radar(top: int = 8) -> dict[str, Any]:
         m = _series_metrics(t["series"])
         score = _runner_score(m)
         chk = _checklist(m)
+        coil = _coil(m)
+        coil_secs = int(time.time() - t["coil_since"]) if t.get("coil_since") else 0
         rows.append({
             "symbol": t["symbol"], "strike": t["strike"], "type": t["type"],
             "premium": m["premium"], "from_low": m["low"], "rise_pct": m["rise_pct"],
@@ -304,6 +344,7 @@ def radar(top: int = 8) -> dict[str, Any]:
             "ladder": _ladder(t["series"]), "checklist": chk,
             "checks_met": sum(chk.values()),
             "score_hist": [s for _ts, s in t.get("score_hist", [])],
+            "coil": {**coil, "secs": coil_secs},
         })
         # Missed Opportunity: strike ran a big move today (peak ≥ 30%)
         if t.get("peak_rise", 0) >= 30:
@@ -330,11 +371,17 @@ def radar(top: int = 8) -> dict[str, Any]:
                  if r["rise_pct"] < 30 and r["checks_met"] >= 2 and r["runner_score"] > 0]
     watchlist.sort(key=lambda r: r["runner_score"], reverse=True)
     missed.sort(key=lambda r: r["peak_rise_pct"], reverse=True)
+    # ⚡ EARLY WARNING — the earliest catch: strikes loading (COILED) or just
+    # breaking out (IGNITING), BEFORE the runner-score can see them. IGNITING
+    # first (act now), then strongest coils. This is the anti-miss layer.
+    early = [r for r in rows if r.get("coil", {}).get("state") in ("COILED", "IGNITING")]
+    early.sort(key=lambda r: (r["coil"]["state"] != "IGNITING", -r["coil"]["strength"]))
     return {
         "movers": rows[:top],            # full radar table (kept)
         "leaders": leaders,              # 🔴/🟠 running now
         "watchlist": watchlist[:6],      # 🟢 building — watch before it runs
         "missed": missed[:6],            # peaked ≥30% today
+        "early_warning": early[:5],      # ⚡ loading/igniting — catch it at birth
         "thinking": thinking,            # 🧠 AI reasoning cycle on the top opportunity
         "attention": attention,          # 👀 where the radar's focus is (%)
         "tracked": len(_tracks),
