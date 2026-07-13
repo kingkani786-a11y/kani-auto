@@ -281,20 +281,31 @@ async def cortex_eod_report_ep():
     return report.eod_report()
 
 
-@router.get("/version")
-async def version_ep():
-    """Build/version info so the dashboard can show exactly what is running —
-    self-verifiable, no need to trust a claim."""
+# Captured ONCE at import (process start) — reflects the commit the RUNNING
+# backend was launched from, not the live git HEAD (which may be ahead if new
+# commits landed without a restart). This is what makes the Build Version panel
+# honest: a "mismatch" now means the running code really differs.
+def _startup_commit() -> str:
     import subprocess
-    from ..services.cortex import cortex_status
-    commit = "unknown"
     try:
-        commit = subprocess.check_output(
+        return subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
             cwd=pathlib.Path(__file__).resolve().parents[3], text=True,
             stderr=subprocess.DEVNULL).strip()
     except Exception:
-        pass
+        return "unknown"
+
+
+_BACKEND_COMMIT = _startup_commit()
+
+
+@router.get("/version")
+async def version_ep():
+    """Build/version info so the dashboard can show exactly what is running —
+    self-verifiable, no need to trust a claim. backend_commit is the commit the
+    running process started from (not live git HEAD)."""
+    from ..services.cortex import cortex_status
+    commit = _BACKEND_COMMIT
     cs = cortex_status()
     return {
         "backend_commit": commit,

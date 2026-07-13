@@ -150,8 +150,13 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
             hist = t["score_hist"]
             if not hist or now - hist[-1][0] >= 10:   # ~1 sample / 10s
                 hist.append((now, sc))
-            if m["rise_pct"] > t["peak_rise"]:
-                t["peak_rise"] = m["rise_pct"]; t["peak_prem"] = m["premium"]
+            # absolute session low/high — the TRUE intraday range for Missed
+            # (the rolling-window low moves up, so peak must use the session low)
+            t["sess_low"] = min(t.get("sess_low", prem), prem)
+            t["sess_high"] = max(t.get("sess_high", prem), prem)
+            t["peak_prem"] = t["sess_high"]
+            t["peak_rise"] = ((t["sess_high"] - t["sess_low"]) / t["sess_low"] * 100
+                              if t["sess_low"] else 0.0)
             if t["vol_confirm"] is None and m["vol_delta"] > 0 and m["rise_pct"] >= 5:
                 t["vol_confirm"] = now
             if t["oi_confirm"] is None and m["oi_pct"] >= 1 and m["rise_pct"] >= 5:
@@ -272,11 +277,12 @@ def radar(top: int = 8) -> dict[str, Any]:
                 reasons.append("Volume confirmation")
             if t.get("oi_confirm"):
                 reasons.append("OI breakout")
+            sess_low = t.get("sess_low", m["low"])
             missed.append({
                 "symbol": t["symbol"], "strike": t["strike"], "type": t["type"],
-                "from_low": m["low"], "peak_premium": round(t["peak_prem"], 2),
+                "from_low": round(sess_low, 2), "peak_premium": round(t["peak_prem"], 2),
                 "peak_rise_pct": round(t["peak_rise"], 1),
-                "missed_points": round(t["peak_prem"] - m["low"], 2),
+                "missed_points": round(t["peak_prem"] - sess_low, 2),
                 "reasons": reasons or ["Premium velocity"],
             })
 
