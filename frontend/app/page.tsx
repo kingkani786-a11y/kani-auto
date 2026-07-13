@@ -26,6 +26,7 @@ import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { AITimelineCard } from "@/components/AITimelineCard";
 import { PremiumRadar } from "@/components/PremiumRadar";
 import { HotNow } from "@/components/HotNow";
+import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
@@ -155,6 +156,11 @@ export default function Dashboard() {
       {/* 🔥 HOT NOW — action-first, the top opportunity at the very top */}
       <SafeBoundary name="Hot Now">
         <HotNow />
+      </SafeBoundary>
+
+      {/* 👀 AI Attention — where the radar's focus is now */}
+      <SafeBoundary name="AI Attention Focus">
+        <AIAttention />
       </SafeBoundary>
 
       {/* V20 ACTION-FIRST ORDER (user design review): decision → strike/plan →

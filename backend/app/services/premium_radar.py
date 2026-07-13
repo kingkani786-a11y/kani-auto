@@ -265,6 +265,26 @@ def _thinking(rows: list[dict]) -> dict[str, Any] | None:
     }
 
 
+def _attention(rows: list[dict], topn: int = 4) -> dict[str, Any]:
+    """👀 AI Attention — where the radar's focus is, as a % across strikes
+    (like an LLM attention distribution). Weight = runner_score; normalised.
+    Honest: this is WHERE it is looking, not a probability of profit."""
+    scored = [r for r in rows if r["runner_score"] > 0]
+    total = sum(r["runner_score"] for r in scored)
+    if not total:
+        return {"items": [], "note": "No active premium movement to focus on."}
+    ranked = sorted(scored, key=lambda r: r["runner_score"], reverse=True)
+    items = [{"strike": r["strike"], "type": r["type"],
+              "pct": round(100 * r["runner_score"] / total, 1)}
+             for r in ranked[:topn]]
+    rest = round(100 - sum(i["pct"] for i in items), 1)
+    if rest > 0.5:
+        items.append({"strike": None, "type": "Rest", "pct": rest})
+    return {"items": items,
+            "note": "Attention = share of the radar's focus (runner-score "
+                    "weighted), not a win probability."}
+
+
 def radar(top: int = 8) -> dict[str, Any]:
     """Leaders (running now) · Watchlist (building) · Missed (peaked today)."""
     rows = []
@@ -305,6 +325,7 @@ def radar(top: int = 8) -> dict[str, Any]:
     # Leaders = clear movers; Watchlist = still-building with momentum but not yet runners
     leaders = [r for r in rows if r["rise_pct"] >= 30][:top]
     thinking = _thinking(rows)
+    attention = _attention(rows)
     watchlist = [r for r in rows
                  if r["rise_pct"] < 30 and r["checks_met"] >= 2 and r["runner_score"] > 0]
     watchlist.sort(key=lambda r: r["runner_score"], reverse=True)
@@ -315,6 +336,7 @@ def radar(top: int = 8) -> dict[str, Any]:
         "watchlist": watchlist[:6],      # 🟢 building — watch before it runs
         "missed": missed[:6],            # peaked ≥30% today
         "thinking": thinking,            # 🧠 AI reasoning cycle on the top opportunity
+        "attention": attention,          # 👀 where the radar's focus is (%)
         "tracked": len(_tracks),
         "note": "Runner score is a declared transparent signal blend "
                 "(rise/velocity/acceleration/volume/OI), NOT a win-calibrated "
