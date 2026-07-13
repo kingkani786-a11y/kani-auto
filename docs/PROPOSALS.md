@@ -689,3 +689,40 @@ This is the substrate for #8 Opportunity Timer and #10 Miss-Prevention.
 4. 🚨 Runner Alert  5. 🧠 AI Thinking  6. 🎯 Decision.
 i.e. Opportunity → Thinking → Decision (never Decision → Opportunity).
 Dashboard's job is "something is forming here / LOOK HERE", not "BUY".
+
+---
+
+## #017 — Opportunity Capture Terminal (owner's 10-layer, 2026-07-13)
+
+Reframe: not an "analysis dashboard" but an **Opportunity Capture System**.
+The top of the screen must answer an option buyer's 5 questions, big:
+(1) which strike? (2) when to buy? (3) how many points now? (4) exit now?
+(5) next opportunity? Analysis/timelines/diagnostics/health/logs go BELOW.
+
+### Layer → status (audited against code, 2026-07-13)
+- L1 🔥 HOT OPPORTUNITY top card — DONE `HotNow.tsx`
+- L2 Premium Hunter (₹ ladder, velocity, vol/OI) — DONE `PremiumRadar.tsx`
+- L3 Point Catch Counter (entry→current→+pts, live) — PARTIAL (PointCaptureStrip = potential pts; no live entry-anchored counter)
+- L4 Live Voice milestone ("+10 Target One achieved") — PARTIAL (VoiceAssistant exists; no premium-milestone announce)
+- L5 Opportunity Timer (time-in-stage Early/Building/Runner/Late) — MISSING
+- L6 Entry/Exit Meter (★) — DONE `EntryReadinessMeter.tsx`
+- L7 AI Target Ladder (86→156) — DONE Radar `_ladder` + `PremiumTimeline`
+- L8 Miss Prevention (Look Here / Don't Chase) — DONE `MissedMoveProtection.tsx`
+- L9 Dashboard Never Sleeps (Premium ∥ Decision) — DONE (radar per-tick, gate-independent)
+- L10 Today Point Capture Mission scoreboard — MISSING
+
+### Real remaining work (build on VERIFIED base after ship)
+1. **Opportunity Timer** — premium_radar: record stage-entry timestamps per
+   strike; expose `time_in_stage` + stage history. Frontend chip row.
+2. **Today Point Capture Mission** — backend aggregate per IST day:
+   opportunities_detected, entry_ready_count, (taken/captured need a trade log —
+   honest "—" until a position feed exists), missed_points (sum of
+   session_high−birth on strikes that ran without a READY surfaced in time).
+   Frontend scoreboard card, top of page.
+3. **Live Point-Catch counter + milestone voice** — anchor to a user-selected
+   HOT strike; count live pts from that ₹; fire 🔔 + speech at +10/+20/+30/+40/+50
+   (Target1 / Trail / Runner / Book-partial / Exit-suggested). Deterministic
+   thresholds; voice reuses VoiceAssistant speech util.
+
+Note: "Opportunity first, analysis below" REORDER is already the page.tsx
+structure in the pending batch — ships with the restart, no new work.
