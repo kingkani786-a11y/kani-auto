@@ -762,3 +762,26 @@ If misses are detection-delay, this engine doesn't help; a different fix wins.
 Data note: RSI/ADX/etc need candle history — confirm the candle feed depth
 before building. Owner's test governs: "does it raise point-catch %? if no,
 don't build even if pretty." Ties to [[cat-lts-freeze-rule]].
+
+### #018 refinement — Phase 1 / Phase 2 split (owner, 2026-07-13)
+Owner's key distinction so IEIE never becomes "another indicator panel":
+- **Phase 1 — Foundation (display + record ONLY, no decision impact):** compute
+  CPR / VWAP / RSI / ADX / ATR / ADR / Elder Force / Bollinger / Stochastic /
+  SuperTrend from candles; show as "AI MARKET CONTEXT" readout. Does NOT feed
+  any decision, does NOT affect the Black Box measurement.
+- **Phase 2 — Consensus Engine (evidence-gated):** the weighted % that actually
+  influences entry. Build ONLY after Black Box evidence says confirmation gap /
+  false entries are the point-catch bottleneck.
+
+RECORD-OR-LOSE dependency (time-critical): owner's validation Question #2 —
+"were false entries caused by weak RSI / VWAP / Elder Force?" — is only
+answerable tomorrow IF the indicator snapshot is captured into the Black Box at
+ignite time tomorrow. Not recorded ⇒ that correlation waits an extra day.
+So Phase-1 *minimal* (compute + snapshot into black box, no display, no
+decision) is the record-or-lose slice; full display + Phase 2 stay deferred.
+Owner instruction stands: don't change the roadmap; read tomorrow's Black Box
+first. Path A (full hold) vs Path B (minimal snapshot tonight) — owner's call.
+
+Also captured for later: AI Confidence Breakdown (86% = Trend24+Momentum18+
+Volume15+OI16+Greeks11+PriceAction16 — mostly EXISTS via WHY CONFIDENCE) and
+chart AI-overlay (clean chart + AI annotations, not drawn indicators).
