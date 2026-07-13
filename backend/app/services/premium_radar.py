@@ -134,36 +134,86 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
             key = f"{symbol}:{int(strike)}:{typ}"
             live_keys.add(key)
             t = _tracks.setdefault(key, {"series": collections.deque(maxlen=200),
-                                         "symbol": symbol, "strike": int(strike), "type": typ})
-            t["series"].append((now, prem, float(row.get(f"{side}_volume") or 0),
-                                float(row.get(f"{side}_oi") or 0)))
+                                         "symbol": symbol, "strike": int(strike),
+                                         "type": typ, "peak_rise": 0.0, "peak_prem": 0.0,
+                                         "vol_confirm": None, "oi_confirm": None})
+            vol = float(row.get(f"{side}_volume") or 0)
+            oi = float(row.get(f"{side}_oi") or 0)
+            t["series"].append((now, prem, vol, oi))
             while t["series"] and now - t["series"][0][0] > _LOOKBACK:
                 t["series"].popleft()
+            # day-peak + first confirmation timestamps (for Missed Opportunity)
+            m = _series_metrics(t["series"])
+            if m["rise_pct"] > t["peak_rise"]:
+                t["peak_rise"] = m["rise_pct"]; t["peak_prem"] = m["premium"]
+            if t["vol_confirm"] is None and m["vol_delta"] > 0 and m["rise_pct"] >= 5:
+                t["vol_confirm"] = now
+            if t["oi_confirm"] is None and m["oi_pct"] >= 1 and m["rise_pct"] >= 5:
+                t["oi_confirm"] = now
     # drop stale tracks (strike left the ATM window long ago)
     for k in [k for k, t in _tracks.items() if t["series"] and now - t["series"][-1][0] > 120]:
         _tracks.pop(k, None)
 
 
+def _checklist(m: dict[str, Any]) -> dict[str, bool]:
+    """The conditions a strike needs to become a runner (owner's watchlist)."""
+    return {
+        "premium_rising": m["rise_pct"] > 0,
+        "velocity": m["velocity"] > 0,
+        "volume": m["vol_delta"] > 0,
+        "oi": m["oi_pct"] >= 1,
+    }
+
+
 def radar(top: int = 8) -> dict[str, Any]:
-    """Current premium movers, sorted by runner score. Always available."""
+    """Leaders (running now) · Watchlist (building) · Missed (peaked today)."""
     rows = []
+    missed = []
     for key, t in _tracks.items():
         if len(t["series"]) < 2:
             continue
         m = _series_metrics(t["series"])
         score = _runner_score(m)
+        chk = _checklist(m)
         rows.append({
             "symbol": t["symbol"], "strike": t["strike"], "type": t["type"],
             "premium": m["premium"], "from_low": m["low"], "rise_pct": m["rise_pct"],
             "velocity": m["velocity"], "accel": m["accel"], "oi_pct": m["oi_pct"],
             "vol_delta": m["vol_delta"], "runner_score": score, "stars": _stars(score),
-            "stage": _stage(m),          # fine 5-stage (Birth…Exhaustion)
-            "phase": _phase(m["rise_pct"]),  # owner's 3 macro-phases (🟢🟠🔴)
-            "ladder": _ladder(t["series"]),  # visible price ladder
+            "stage": _stage(m), "phase": _phase(m["rise_pct"]),
+            "ladder": _ladder(t["series"]), "checklist": chk,
+            "checks_met": sum(chk.values()),
         })
+        # Missed Opportunity: strike ran a big move today (peak ≥ 30%)
+        if t.get("peak_rise", 0) >= 30:
+            reasons = []
+            if t.get("vol_confirm"):
+                reasons.append("Volume confirmation")
+            if t.get("oi_confirm"):
+                reasons.append("OI breakout")
+            missed.append({
+                "symbol": t["symbol"], "strike": t["strike"], "type": t["type"],
+                "from_low": m["low"], "peak_premium": round(t["peak_prem"], 2),
+                "peak_rise_pct": round(t["peak_rise"], 1),
+                "missed_points": round(t["peak_prem"] - m["low"], 2),
+                "reasons": reasons or ["Premium velocity"],
+            })
+
     rows.sort(key=lambda r: r["runner_score"], reverse=True)
-    return {"movers": rows[:top], "tracked": len(_tracks),
-            "note": "Runner score is a declared transparent signal blend "
-                    "(rise/velocity/acceleration/volume/OI), NOT a win-calibrated "
-                    "probability. Radar observes premium; it never places or "
-                    "recommends a trade — the engine gate decides."}
+    # Leaders = clear movers; Watchlist = still-building with momentum but not yet runners
+    leaders = [r for r in rows if r["rise_pct"] >= 30][:top]
+    watchlist = [r for r in rows
+                 if r["rise_pct"] < 30 and r["checks_met"] >= 2 and r["runner_score"] > 0]
+    watchlist.sort(key=lambda r: r["runner_score"], reverse=True)
+    missed.sort(key=lambda r: r["peak_rise_pct"], reverse=True)
+    return {
+        "movers": rows[:top],            # full radar table (kept)
+        "leaders": leaders,              # 🔴/🟠 running now
+        "watchlist": watchlist[:6],      # 🟢 building — watch before it runs
+        "missed": missed[:6],            # peaked ≥30% today
+        "tracked": len(_tracks),
+        "note": "Runner score is a declared transparent signal blend "
+                "(rise/velocity/acceleration/volume/OI), NOT a win-calibrated "
+                "probability. Radar observes premium; it never places or "
+                "recommends a trade — the engine gate decides.",
+    }

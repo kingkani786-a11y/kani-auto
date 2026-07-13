@@ -24,7 +24,10 @@ export function PremiumRadar() {
   }, []);
 
   const movers: any[] = (d?.movers || []).filter((m: any) => m.runner_score > 0);
-  const leaders = movers.slice(0, 3);
+  const leaders = (d?.leaders?.length ? d.leaders : movers).slice(0, 3);
+  const watchlist: any[] = d?.watchlist || [];
+  const missed: any[] = d?.missed || [];
+  const chk = (b: boolean) => (b ? "☑" : "☐");
 
   return (
     <section className="panel space-y-2">
@@ -43,7 +46,7 @@ export function PremiumRadar() {
           <>
             {/* 🔥 LIVE PREMIUM LEADERS — which option is running right now */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {leaders.map((m, i) => (
+              {leaders.map((m: any, i: number) => (
                 <div key={i} className="border border-terminal-border rounded p-2">
                   <div className="flex items-center justify-between">
                     <span className="text-white text-sm">{["①","②","③"][i]} {m.strike} {m.type}</span>
@@ -57,6 +60,36 @@ export function PremiumRadar() {
                 </div>
               ))}
             </div>
+
+            {/* ⏳ NEXT OPPORTUNITY — building strikes to watch before they run */}
+            {watchlist.length > 0 && (
+              <div className="border border-terminal-border rounded p-2 space-y-1">
+                <div className="text-[11px] font-semibold text-terminal-bull">⏳ WATCHLIST — building (watch before it runs)</div>
+                {watchlist.map((m, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                    <span className="text-white">{m.strike} {m.type}</span>
+                    <span className="tabular-nums">₹{m.premium} <span className="text-terminal-bull">+{m.rise_pct}%</span></span>
+                    <span className="text-terminal-muted">Runner {m.runner_score}</span>
+                    <span className="text-terminal-muted">{chk(m.checklist.premium_rising)} Premium {chk(m.checklist.velocity)} Velocity {chk(m.checklist.volume)} Volume {chk(m.checklist.oi)} OI</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ❌ MISSED TODAY — strikes that ran a big move */}
+            {missed.length > 0 && (
+              <div className="border border-terminal-border rounded p-2 space-y-1">
+                <div className="text-[11px] font-semibold text-terminal-bear">❌ MISSED TODAY (ran ≥30%)</div>
+                {missed.map((m, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                    <span className="text-white">{m.strike} {m.type}</span>
+                    <span className="tabular-nums">₹{m.from_low} → ₹{m.peak_premium}</span>
+                    <span className="text-terminal-bear tabular-nums">+{m.missed_points} pts ({m.peak_rise_pct}%)</span>
+                    <span className="text-terminal-muted">{m.reasons.join(" · ")}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* full table — click a row for its premium ladder */}
             <div className="overflow-x-auto">
