@@ -63,7 +63,7 @@ export function CaptureScore() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center border-t border-terminal-border pt-2">
+          <div className="grid grid-cols-4 gap-2 text-center border-t border-terminal-border pt-2">
             <div>
               <div className={`text-sm font-semibold tabular-nums ${delayColor}`}>{delayLabel}</div>
               <div className="text-[9px] text-terminal-muted">Detection delay <span className="opacity-70">(≤5s goal)</span></div>
@@ -73,10 +73,26 @@ export function CaptureScore() {
               <div className="text-[9px] text-terminal-muted">Alert accuracy <span className="opacity-70">({d.false_alerts}/{d.alerts_total} false)</span></div>
             </div>
             <div>
+              <div className="text-sm font-semibold tabular-nums text-white">{d.avg_stability === null || d.avg_stability === undefined ? "—" : d.avg_stability}</div>
+              <div className="text-[9px] text-terminal-muted">Prediction stability <span className="opacity-70">(smooth=high)</span></div>
+            </div>
+            <div>
               <div className="text-sm font-semibold tabular-nums text-white">{d.runners_total}</div>
               <div className="text-[9px] text-terminal-muted">Runners today</div>
             </div>
           </div>
+
+          {d.recovered_pct !== null && d.recovered_pct !== undefined && (
+            <div className="border-t border-terminal-border pt-2">
+              <div className="flex items-center justify-between text-[10px] text-terminal-muted mb-1">
+                <span>Money recovered vs the peak that was available</span>
+                <span className="tabular-nums"><b className="text-terminal-bull">{d.recovered_pct}%</b> got · <span className="text-terminal-bear">{d.lost_pct}% lost</span></span>
+              </div>
+              <div className="h-2 bg-terminal-bear/25 rounded overflow-hidden">
+                <div className="h-full bg-terminal-bull" style={{ width: `${d.recovered_pct}%` }} />
+              </div>
+            </div>
+          )}
 
           {d.missed_money?.length > 0 && (
             <div className="border-t border-terminal-border pt-2">

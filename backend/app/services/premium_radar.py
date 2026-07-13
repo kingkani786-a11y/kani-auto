@@ -200,10 +200,12 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 t.setdefault("coil_since", now)
             elif cs != "IGNITING":
                 t.pop("coil_since", None)
-            # feed the measurement layer (read-only KPI instrumentation)
+            # feed the measurement layer (read-only KPI + black-box instrumentation)
             try:
                 from . import opportunity_metrics as _om
-                _om.record(key, int(strike), typ, prem, m["rise_pct"], cs, now)
+                _om.record(key, int(strike), typ, prem, m["rise_pct"], cs,
+                           score=sc, velocity=m["velocity"], vol_delta=m["vol_delta"],
+                           oi_pct=m["oi_pct"], accel=m["accel"], now=now)
             except Exception:
                 pass  # measurement must never affect the radar
     # drop stale tracks (strike left the ATM window long ago)

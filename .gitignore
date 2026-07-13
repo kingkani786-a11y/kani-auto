@@ -13,3 +13,4 @@ dist-desktop/
 android/
 ios/
 *.keystore
+data/opportunity_log/

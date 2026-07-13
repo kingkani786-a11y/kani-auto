@@ -377,6 +377,14 @@ async def opportunity_metrics_ep():
     return opportunity_metrics.report()
 
 
+@router.get("/opportunity-log")
+async def opportunity_log_ep(limit: int = 50):
+    """Opportunity Black Box — the durable per-opportunity learning log (today).
+    Feeds tomorrow's Opportunity Replay + AI Journal. Read-only."""
+    from ..services import opportunity_metrics
+    return opportunity_metrics.black_box_log(limit=limit)
+
+
 @router.get("/cortex/analyze")
 async def cortex_analyze_ep(force: bool = False):
     """AI Analysis — Gemini explains the CURRENT decision, cached by
