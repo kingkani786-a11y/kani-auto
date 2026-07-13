@@ -196,8 +196,38 @@ def _thinking(rows: list[dict]) -> dict[str, Any] | None:
         expect = "Early / weak — not enough confirmation yet."
     risk = ("Volume exhaustion or OI failing to confirm can invalidate this move."
             if missing else "Give-back if velocity fades.")
+
+    # #2 — inferred CAUSE (honest heuristic from OI/premium/volume/acceleration)
+    if r["oi_pct"] <= -1 and r["rise_pct"] > 0:
+        cause = "Short covering (premium up while OI falls)"
+    elif r["oi_pct"] >= 1 and r["rise_pct"] > 0:
+        cause = "Fresh buying (OI and premium both rising)"
+    elif r["accel"] > 0 and r["vol_delta"] > 0:
+        cause = "Momentum / gamma expansion (accelerating on volume)"
+    else:
+        cause = "Directional buying"
+
+    # #5 — pre-stated INVALIDATION (falsifiable: the thesis is cancelled IF…)
+    inval = ["Velocity turns negative (premium stops rising)",
+             f"Premium falls back under ₹{r['from_low']}"]
+    if r["oi_pct"] >= 0:
+        inval.insert(1, "OI turns negative")
+
+    # Evidence Meter — where the confidence comes from (declared strengths 0–100)
+    def _clip(x): return int(max(0, min(100, round(x))))
+    evidence = {
+        "Premium": _clip(r["rise_pct"] * 3),
+        "Velocity": _clip(max(0, r["velocity"]) * 10),
+        "Acceleration": 100 if r["accel"] > 0 else 50 if r["accel"] == 0 else 20,
+        "Volume": 90 if r["vol_delta"] > 0 else 25,
+        "OI": _clip(max(0, r["oi_pct"]) * 10),
+    }
+
     return {
         "watching": f"{r['strike']} {r['type']}",
+        "cause": cause,
+        "invalidation": {"conditions": inval, "then": "Runner thesis cancelled — stand aside."},
+        "evidence": evidence,
         "observed": f"Premium ₹{r['from_low']} → ₹{r['premium']} ({r['rise_pct']:+}% ), "
                     f"velocity {r['velocity']} pts/min, OI {r['oi_pct']:+}%",
         "confirmed": have,

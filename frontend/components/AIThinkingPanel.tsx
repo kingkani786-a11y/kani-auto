@@ -52,6 +52,7 @@ export function AIThinkingPanel() {
           <div className="text-terminal-muted">{t.confirmations_line}</div>
         </div>
         <div className="space-y-1">
+          {t.cause && <div><span className="text-terminal-muted">Why: </span><span className="text-white">{t.cause}</span></div>}
           <div><span className="text-terminal-muted">Expectation: </span><span className="text-white">{t.expectation}</span></div>
           <div><span className="text-terminal-muted">Risk: </span><span className="text-terminal-warn">{t.risk}</span></div>
           <div className="flex items-center gap-2">
@@ -61,6 +62,33 @@ export function AIThinkingPanel() {
           </div>
         </div>
       </div>
+
+      {/* Evidence Meter — where the confidence comes from */}
+      {t.evidence && (
+        <div className="border-t border-terminal-border pt-2">
+          <div className="text-[10px] text-terminal-muted mb-1">EVIDENCE (declared signal strength)</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+            {Object.entries(t.evidence).map(([k, v]: any) => (
+              <div key={k} className="flex items-center gap-2 text-[11px]">
+                <span className="text-terminal-muted w-20 shrink-0">{k}</span>
+                <div className="flex-1 h-1.5 bg-terminal-border rounded overflow-hidden">
+                  <div className={`h-full ${v >= 75 ? "bg-terminal-bull" : v >= 50 ? "bg-terminal-warn" : "bg-terminal-bear"}`} style={{ width: `${v}%` }} />
+                </div>
+                <span className="tabular-nums text-terminal-muted w-8 text-right">{v}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Invalidation — the pre-stated condition that cancels the thesis */}
+      {t.invalidation && (
+        <div className="border border-terminal-bear/30 rounded p-2 text-[11px]">
+          <span className="text-terminal-bear font-semibold">Invalidation (I change my mind IF): </span>
+          <span className="text-white">{t.invalidation.conditions.join(" · ")}</span>
+          <span className="text-terminal-muted"> → {t.invalidation.then}</span>
+        </div>
+      )}
 
       <div className="text-[10px] text-terminal-muted">{t.note}</div>
     </section>
