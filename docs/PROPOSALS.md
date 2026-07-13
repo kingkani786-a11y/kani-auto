@@ -675,3 +675,17 @@ claim — the honest goal is action-oriented early surfacing vs WAIT-centric.
 Ship the pending 7-commit batch (A9/A9.1/A10/A11 + missed-neg fix + version-
 honesty fix + version.json SW bypass) at market close, verify live, THEN build
 #2/#8/#10 as Opportunity Engine v2 on the known-live base.
+
+### #016 addition — Lifecycle Memory ("movie, not snapshot", owner 2026-07-13)
+Each tracked strike keeps its full intraday journey, not just the current tick:
+born-at · velocity-spike-at · volume-arrived-at · OI-confirmed-at ·
+acceleration-at · current stage. So a strike already at ₹158 still carries the
+context of its ₹85 birth. (Partly built: score_hist + confirmation timestamps
+vol_confirm/oi_confirm exist; v2 formalises a per-strike event log + timer.)
+This is the substrate for #8 Opportunity Timer and #10 Miss-Prevention.
+
+### Dashboard order (owner-locked, top→bottom, once v2 ships)
+1. 🔥 HOT NOW  2. 👀 AI Attention  3. ⏳ Building Opportunities
+4. 🚨 Runner Alert  5. 🧠 AI Thinking  6. 🎯 Decision.
+i.e. Opportunity → Thinking → Decision (never Decision → Opportunity).
+Dashboard's job is "something is forming here / LOOK HERE", not "BUY".
