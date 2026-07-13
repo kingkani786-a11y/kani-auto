@@ -44,7 +44,7 @@ export function AIAnalysisCard() {
       </div>
 
       {!r ? <div className="text-xs text-terminal-muted">Loading…</div>
-        : r.ok === false ? <div className="text-xs text-terminal-warn">{r.capped ? "Budget cap reached — " : "AI unavailable — "}{r.error || r.reason}</div>
+        : r.ok === false ? <div className={`text-xs ${r.transient ? "text-terminal-muted" : "text-terminal-warn"}`}>{r.capped ? "Budget cap reached — " : r.transient ? "⏳ " : "AI unavailable — "}{r.error || r.reason}</div>
         : (
           <>
             {r.blocks && (r.blocks.why || r.blocks.next || r.blocks.watch || r.blocks.change) ? (
