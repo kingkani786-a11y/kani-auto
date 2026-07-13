@@ -726,3 +726,39 @@ The top of the screen must answer an option buyer's 5 questions, big:
 
 Note: "Opportunity first, analysis below" REORDER is already the page.tsx
 structure in the pending batch — ships with the restart, no new work.
+
+---
+
+## #018 — Institutional Entry Intelligence Engine (IEIE) (owner, 2026-07-13)
+
+North star: not an indicator dashboard — an ENTRY DECISION. Fold structure +
+momentum + institutional confirmation into one weighted consensus → Entry Score
+→ Trade Plan → WHY/WHY-NOT → Window → Ranking → Narrator.
+
+### Audited against code (2026-07-13) — most of IEIE already exists
+- L1 Market Structure (VWAP, pivots, ORB, S/R) — EXISTS (market_context, market_path)
+- L2 Momentum — GAP: RSI, Elder Force, Bollinger, SuperTrend, Stochastic ABSENT;
+  ATR/ADX only partial; VWAP present.
+- L3 Institutional (OI/PCR/IV/Greeks/Chain Wave/Premium Radar/Coil) — EXISTS
+- L4 Entry Score /100 — ~EXISTS (Entry Score Timeline, Fire Score, 11-layer checklist)
+- L5 Trade Plan (entry/SL/T1-3/trail) — EXISTS (scalping plan)
+- L6/L7 WHY / WHY-NOT — EXISTS
+- L8 Entry Window Meter — ~EXISTS (Entry Readiness, Signal Maturity)
+- L9 Opportunity Ranking — EXISTS (Strike Queue, Index Selector)
+- L10 AI Narrator — EXISTS (Voice Narrator, AI Timeline)
+
+### THE real gap
+1. Classic TA indicator layer from candles: RSI, ADX (verify existing), ATR,
+   ADR, Elder Force Index, Bollinger (expansion/squeeze), SuperTrend, Stochastic
+   (owner's "Scotch" = Stochastic; pair with RSI for reversal timing).
+2. A single weighted **Indicator Consensus %** (owner weights: CPR20 VWAP15
+   EFI12 ADX10 OI10 Volume8 RSI8 Premium7 ATR5 ADR5) → STRONG BUY / WAIT.
+   Must remain a DECISION, never a soup of gauges.
+
+### Discipline gate (do NOT build until evidence justifies)
+Build only if tomorrow's Black Box shows the miss/loss cause is a CONFIRMATION
+gap or false entries — i.e. the indicator consensus would raise point-catch %.
+If misses are detection-delay, this engine doesn't help; a different fix wins.
+Data note: RSI/ADX/etc need candle history — confirm the candle feed depth
+before building. Owner's test governs: "does it raise point-catch %? if no,
+don't build even if pretty." Ties to [[cat-lts-freeze-rule]].
