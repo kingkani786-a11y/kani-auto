@@ -24,10 +24,17 @@ export function KillSwitchBanner() {
 
   return (
     <div className={`panel border ${tone} py-3`}>
+      {/* Layer separation: the Risk Engine blocks EXECUTION only. The
+          Analysis + Opportunity engines never stop — so we say so, loudly,
+          right above the block. (Owner's institutional-desk design.) */}
+      <div className="flex items-center gap-2 text-[11px] font-semibold text-terminal-bull mb-2 pb-2 border-b border-terminal-border/40">
+        <span className="w-2 h-2 rounded-full bg-terminal-bull animate-pulse" />
+        AI ANALYSING — market read, radar, thinking & opportunities all running.
+      </div>
       <div className="flex items-center gap-2 mb-1.5">
         <span className={`w-2.5 h-2.5 rounded-full ${dot}`} />
         <span className={`text-sm font-bold tracking-wider ${label}`}>
-          KILL SWITCH — {active ? "ACTIVE · FORCE WAIT" : level}
+          {active ? "⚠ EXECUTION BLOCKED — new entries disabled" : `EXECUTION CAUTION — ${level}`}
         </span>
       </div>
       <ul className="text-xs text-gray-200 space-y-0.5 mb-1">
@@ -49,7 +56,7 @@ export function KillSwitchBanner() {
       )}
       {active && (
         <div className="text-[11px] text-terminal-muted mt-1">
-          Capital protection first — new entries are held until conditions clear. Probabilities, not certainty.
+          Capital Protection active — only <b className="text-gray-200">execution</b> is held; analysis continues so you never lose visibility. Probabilities, not certainty.
         </div>
       )}
     </div>
