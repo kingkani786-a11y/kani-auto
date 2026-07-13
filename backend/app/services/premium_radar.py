@@ -82,6 +82,33 @@ def _stars(score: int) -> int:
     return max(1, min(5, 1 + score // 20))
 
 
+# Owner's 3 macro-phases by %-rise from the session low.
+def _phase(rise_pct: float) -> dict[str, str]:
+    if rise_pct >= 70:
+        return {"code": "RUNNER_CONFIRMED", "label": "RUNNER CONFIRMED", "dot": "🔴"}
+    if rise_pct >= 30:
+        return {"code": "RUNNER_BUILDING", "label": "RUNNER BUILDING", "dot": "🟠"}
+    return {"code": "BUILDING", "label": "PREMIUM BUILDING", "dot": "🟢"}
+
+
+def _ladder(series) -> list[dict[str, Any]]:
+    """Down-sample the premium series to ≤6 points for the visible ladder
+    (09:36 ₹85 → 09:57 ₹158). Times are IST HH:MM."""
+    from ..core.clock import IST
+    import datetime
+    pts = list(series)
+    if len(pts) <= 6:
+        chosen = pts
+    else:
+        step = (len(pts) - 1) / 5
+        chosen = [pts[round(i * step)] for i in range(6)]
+    out = []
+    for ts, p, _v, _o in chosen:
+        t = datetime.datetime.fromtimestamp(ts, IST).strftime("%H:%M")
+        out.append({"t": t, "p": round(p, 2)})
+    return out
+
+
 def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
     """Track ATM ± N strikes (CE+PE) each option tick. Read-only, additive."""
     if not chain or not spot:
@@ -130,7 +157,9 @@ def radar(top: int = 8) -> dict[str, Any]:
             "premium": m["premium"], "from_low": m["low"], "rise_pct": m["rise_pct"],
             "velocity": m["velocity"], "accel": m["accel"], "oi_pct": m["oi_pct"],
             "vol_delta": m["vol_delta"], "runner_score": score, "stars": _stars(score),
-            "stage": _stage(m),
+            "stage": _stage(m),          # fine 5-stage (Birth…Exhaustion)
+            "phase": _phase(m["rise_pct"]),  # owner's 3 macro-phases (🟢🟠🔴)
+            "ladder": _ladder(t["series"]),  # visible price ladder
         })
     rows.sort(key=lambda r: r["runner_score"], reverse=True)
     return {"movers": rows[:top], "tracked": len(_tracks),
