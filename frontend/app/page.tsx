@@ -25,6 +25,7 @@ import { AIHealthStrip } from "@/components/AIHealthStrip";
 import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { AITimelineCard } from "@/components/AITimelineCard";
 import { PremiumRadar } from "@/components/PremiumRadar";
+import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
 import { AIChangelog } from "@/components/AIChangelog";
@@ -156,6 +157,11 @@ export default function Dashboard() {
       {/* Premium Radar — the option buyer's live premium view (always-on) */}
       <SafeBoundary name="Premium Radar">
         <PremiumRadar />
+      </SafeBoundary>
+
+      {/* AI Thinking Now — the engine's live reasoning made visible */}
+      <SafeBoundary name="AI Thinking">
+        <AIThinkingPanel />
       </SafeBoundary>
 
       {/* AI Analysis — Gemini explains the live decision (cost-cached) */}

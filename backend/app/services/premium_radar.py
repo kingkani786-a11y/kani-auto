@@ -144,6 +144,12 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 t["series"].popleft()
             # day-peak + first confirmation timestamps (for Missed Opportunity)
             m = _series_metrics(t["series"])
+            # runner-score history for the confidence-evolution sparkline
+            t.setdefault("score_hist", collections.deque(maxlen=40))
+            sc = _runner_score(m)
+            hist = t["score_hist"]
+            if not hist or now - hist[-1][0] >= 10:   # ~1 sample / 10s
+                hist.append((now, sc))
             if m["rise_pct"] > t["peak_rise"]:
                 t["peak_rise"] = m["rise_pct"]; t["peak_prem"] = m["premium"]
             if t["vol_confirm"] is None and m["vol_delta"] > 0 and m["rise_pct"] >= 5:
@@ -165,6 +171,50 @@ def _checklist(m: dict[str, Any]) -> dict[str, bool]:
     }
 
 
+_CHECK_LABEL = {"premium_rising": "Premium velocity", "velocity": "Velocity rising",
+                "volume": "Volume expansion", "oi": "OI build-up"}
+
+
+def _thinking(rows: list[dict]) -> dict[str, Any] | None:
+    """Deterministic reasoning cycle (OBSERVE→REASON→EXPECT→RISK) on the single
+    best current opportunity. Evidence-based narration of the radar's own
+    numbers — NOT a prediction, NOT an entry call. The engine gate decides."""
+    if not rows:
+        return None
+    r = rows[0]
+    chk = r["checklist"]
+    have = [_CHECK_LABEL[k] for k, v in chk.items() if v]
+    missing = [_CHECK_LABEL[k] for k, v in chk.items() if not v]
+    # expectation is a conditional statement, never a certainty
+    if r["rise_pct"] >= 70:
+        expect = "Runner confirmed — continuation while volume/OI hold; watch for exhaustion."
+    elif r["checks_met"] >= 3 and r["accel"] > 0:
+        expect = "Runner continuation likely WHILE the missing checks confirm and OI stays positive."
+    elif r["checks_met"] >= 2:
+        expect = "Building — needs the remaining checks to become a runner."
+    else:
+        expect = "Early / weak — not enough confirmation yet."
+    risk = ("Volume exhaustion or OI failing to confirm can invalidate this move."
+            if missing else "Give-back if velocity fades.")
+    return {
+        "watching": f"{r['strike']} {r['type']}",
+        "observed": f"Premium ₹{r['from_low']} → ₹{r['premium']} ({r['rise_pct']:+}% ), "
+                    f"velocity {r['velocity']} pts/min, OI {r['oi_pct']:+}%",
+        "confirmed": have,
+        "missing": missing,
+        "confirmations_line": f"{r['checks_met']} / 4 confirmations",
+        "expectation": expect,
+        "risk": risk,
+        "confidence": r["runner_score"],
+        "phase": r["phase"],
+        "score_hist": r.get("score_hist", []),
+        "cycle": "OBSERVE → DETECT → REASON → EXPECT → VERIFY → LEARN",
+        "next_review": "~5s (next option tick)",
+        "note": "Evidence-based reasoning over live premium data — not a "
+                "prediction and not an entry signal. The engine gate decides trades.",
+    }
+
+
 def radar(top: int = 8) -> dict[str, Any]:
     """Leaders (running now) · Watchlist (building) · Missed (peaked today)."""
     rows = []
@@ -183,6 +233,7 @@ def radar(top: int = 8) -> dict[str, Any]:
             "stage": _stage(m), "phase": _phase(m["rise_pct"]),
             "ladder": _ladder(t["series"]), "checklist": chk,
             "checks_met": sum(chk.values()),
+            "score_hist": [s for _ts, s in t.get("score_hist", [])],
         })
         # Missed Opportunity: strike ran a big move today (peak ≥ 30%)
         if t.get("peak_rise", 0) >= 30:
@@ -202,6 +253,7 @@ def radar(top: int = 8) -> dict[str, Any]:
     rows.sort(key=lambda r: r["runner_score"], reverse=True)
     # Leaders = clear movers; Watchlist = still-building with momentum but not yet runners
     leaders = [r for r in rows if r["rise_pct"] >= 30][:top]
+    thinking = _thinking(rows)
     watchlist = [r for r in rows
                  if r["rise_pct"] < 30 and r["checks_met"] >= 2 and r["runner_score"] > 0]
     watchlist.sort(key=lambda r: r["runner_score"], reverse=True)
@@ -211,6 +263,7 @@ def radar(top: int = 8) -> dict[str, Any]:
         "leaders": leaders,              # 🔴/🟠 running now
         "watchlist": watchlist[:6],      # 🟢 building — watch before it runs
         "missed": missed[:6],            # peaked ≥30% today
+        "thinking": thinking,            # 🧠 AI reasoning cycle on the top opportunity
         "tracked": len(_tracks),
         "note": "Runner score is a declared transparent signal blend "
                 "(rise/velocity/acceleration/volume/OI), NOT a win-calibrated "
