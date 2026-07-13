@@ -5,7 +5,7 @@
  */
 // Bump this on every deploy-visibility change; the activate handler purges
 // older caches so clients pick up new builds instead of a stale shell.
-const CACHE = "cat-shell-6165e0f";
+const CACHE = "cat-shell-ecf7d82";
 const SHELL = ["/manifest.webmanifest", "/icons/icon.svg", "/offline.html"];
 
 self.addEventListener("install", (e) => {
@@ -26,8 +26,11 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(request.url);
 
   // Bypass everything sensitive/live — straight to network, no caching.
+  // /version.json MUST be uncached so the Build Version panel is always
+  // accurate (a stale cached copy showed a false "mismatch").
   if (url.pathname.startsWith("/api") || url.protocol === "ws:" ||
-      url.protocol === "wss:" || url.pathname === "/ws") {
+      url.protocol === "wss:" || url.pathname === "/ws" ||
+      url.pathname === "/version.json") {
     return;
   }
 
