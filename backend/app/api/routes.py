@@ -369,6 +369,14 @@ async def premium_radar_ep(top: int = 8):
     return premium_radar.radar(top=top)
 
 
+@router.get("/opportunity-metrics")
+async def opportunity_metrics_ep():
+    """Measurement layer — Capture Rate, Detection Delay, False-Positive Rate,
+    Missed Money. System-measured KPIs (the 'Measure' step), read-only."""
+    from ..services import opportunity_metrics
+    return opportunity_metrics.report()
+
+
 @router.get("/cortex/analyze")
 async def cortex_analyze_ep(force: bool = False):
     """AI Analysis — Gemini explains the CURRENT decision, cached by

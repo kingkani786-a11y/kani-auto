@@ -27,6 +27,7 @@ import { AITimelineCard } from "@/components/AITimelineCard";
 import { PremiumRadar } from "@/components/PremiumRadar";
 import { HotNow } from "@/components/HotNow";
 import { EarlyWarning } from "@/components/EarlyWarning";
+import { CaptureScore } from "@/components/CaptureScore";
 import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { BuildVersion } from "@/components/BuildVersion";
@@ -175,6 +176,11 @@ export default function Dashboard() {
       {/* Premium Radar — the option buyer's live premium view (always-on) */}
       <SafeBoundary name="Premium Radar">
         <PremiumRadar />
+      </SafeBoundary>
+
+      {/* 🏆 Capture Score — the Measure step: is the software actually catching more? */}
+      <SafeBoundary name="Capture Score">
+        <CaptureScore />
       </SafeBoundary>
 
       {/* AI Thinking Now — the engine's live reasoning made visible */}

@@ -195,10 +195,17 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 t["oi_confirm"] = now
             # coil clock: when did this strike first start loading? (evidence:
             # "coiling 45s") — reset once it stops coiling so it's always fresh.
-            if _coil(m)["state"] == "COILED":
+            cs = _coil(m)["state"]
+            if cs == "COILED":
                 t.setdefault("coil_since", now)
-            elif _coil(m)["state"] != "IGNITING":
+            elif cs != "IGNITING":
                 t.pop("coil_since", None)
+            # feed the measurement layer (read-only KPI instrumentation)
+            try:
+                from . import opportunity_metrics as _om
+                _om.record(key, int(strike), typ, prem, m["rise_pct"], cs, now)
+            except Exception:
+                pass  # measurement must never affect the radar
     # drop stale tracks (strike left the ATM window long ago)
     for k in [k for k, t in _tracks.items() if t["series"] and now - t["series"][-1][0] > 120]:
         _tracks.pop(k, None)
