@@ -75,6 +75,7 @@ export const api = {
   cortexEodReport: () => req<any>("/api/cortex/eod-report", { method: "POST" }),
   cortexAnalyze: (force = false) => req<any>(`/api/cortex/analyze${force ? "?force=true" : ""}`),
   aiTimeline: (limit = 60) => req<any>(`/api/ai-timeline?limit=${limit}`),
+  premiumRadar: (top = 8) => req<any>(`/api/premium-radar?top=${top}`),
   version: () => req<any>("/api/version"),
   systemVerify: () => req<any>("/api/system-verify"),
   aiChangelog: (limit = 30) => req<any>(`/api/ai-changelog?limit=${limit}`),

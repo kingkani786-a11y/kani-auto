@@ -4,6 +4,38 @@
 
 ---
 
+## AI-A8 — 2026-07-13 — Premium Radar (the option buyer's live view)
+
+### Owner insight
+The platform watched the INDEX too much; an option buyer lives on PREMIUM
+movement. MODE already tracks velocity/tiers/OI but (a) only on the ATM
+strike_queue and (b) the dashboard HID it until a big-move alert fired — so the
+BIRTH of a move (₹85→99→112) was invisible.
+
+### Built — premium_radar.py (reuses MODE math, wider + always-on)
+Tracks ATM ± 4 strikes (CE+PE) from the FULL chain every option tick; per
+strike exposes premium · %from-low · velocity (pts/min) · acceleration ·
+volume Δ · OI% · a transparent Runner SCORE (0–100 = rise/velocity/accel/
+volume/OI blend) · a lifecycle STAGE (Birth→Expansion→Acceleration→Runner→
+Exhaustion) · ★stars. GET /api/premium-radar. Hooked read-only into the option
+tick beside MODE.
+
+### Frontend — ⚡ Premium Radar card (always-on, near the top)
+Live table of movers sorted by runner score; visible from a move's first
+minute, not hidden until an alert. Honest label: runner score is a declared
+signal blend, NOT a win-calibrated probability; radar observes, the engine gate
+decides trades.
+
+### Verified
+Synthetic test on the owner's exact ₹85→₹158 example: rise 85.9%, runner 85,
+★5. Endpoint 200 (empty on closed/disconnected — honest). tsc clean, build
+compiled, home renders "Premium Radar", FE=BE in sync.
+
+### Pending (live)
+Real premium tracking + lifecycle stages verify at market open with a connected
+broker (radar is empty until then). Doctrine intact: not the decision path.
+
+
 ## AI-A7 — 2026-07-11 — Production observability (Trust by Verification)
 
 Owner: prove it on the user's own screen, not by claim. Four panels, all from

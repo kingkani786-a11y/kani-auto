@@ -350,6 +350,14 @@ async def ai_timeline_ep(limit: int = 60):
     return ai_timeline.timeline(limit=limit)
 
 
+@router.get("/premium-radar")
+async def premium_radar_ep(top: int = 8):
+    """Premium Radar — live ATM±N option-premium movers (premium/velocity/
+    acceleration/runner-score/lifecycle stage). Always-on, read-only."""
+    from ..services import premium_radar
+    return premium_radar.radar(top=top)
+
+
 @router.get("/cortex/analyze")
 async def cortex_analyze_ep(force: bool = False):
     """AI Analysis — Gemini explains the CURRENT decision, cached by

@@ -385,6 +385,13 @@ class MarketService:
                                 (state.decision or {}).get("strike_queue"))
                         except Exception:
                             log.exception("move detector failed")
+                        # Premium Radar — always-on ATM±N premium tracking for the
+                        # buyer (read-only; wider coverage than MODE's queue).
+                        try:
+                            from . import premium_radar
+                            premium_radar.scan(inst.symbol, spot, analytics.get("chain"))
+                        except Exception:
+                            log.exception("premium radar failed")
             except MarketClosedError:
                 raise
             except Exception as e:

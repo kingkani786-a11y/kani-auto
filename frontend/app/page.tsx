@@ -24,6 +24,7 @@ import { AlphaPanel } from "@/components/AlphaPanel";
 import { AIHealthStrip } from "@/components/AIHealthStrip";
 import { AIAnalysisCard } from "@/components/AIAnalysisCard";
 import { AITimelineCard } from "@/components/AITimelineCard";
+import { PremiumRadar } from "@/components/PremiumRadar";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
 import { AIChangelog } from "@/components/AIChangelog";
@@ -151,6 +152,11 @@ export default function Dashboard() {
 
       {/* V20 ACTION-FIRST ORDER (user design review): decision → strike/plan →
           capture → index → shields; diagnostics move BELOW the action stack. */}
+
+      {/* Premium Radar — the option buyer's live premium view (always-on) */}
+      <SafeBoundary name="Premium Radar">
+        <PremiumRadar />
+      </SafeBoundary>
 
       {/* AI Analysis — Gemini explains the live decision (cost-cached) */}
       <SafeBoundary name="AI Analysis">
