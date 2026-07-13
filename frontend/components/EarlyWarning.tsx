@@ -18,6 +18,7 @@ function speak(text: string) {
 
 export function EarlyWarning() {
   const [items, setItems] = useState<any[]>([]);
+  const [waves, setWaves] = useState<any[]>([]);
   const spoken = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function EarlyWarning() {
       api.premiumRadar(8).then((d: any) => {
         const ew: any[] = d?.early_warning || [];
         setItems(ew);
+        setWaves(d?.chain_wave || []);
         // Announce each strike's IGNITION once — hands-free "look here NOW".
         for (const r of ew) {
           const key = `${r.strike}${r.type}`;
@@ -42,7 +44,7 @@ export function EarlyWarning() {
     return () => clearInterval(id);
   }, []);
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && waves.length === 0) return null;
 
   return (
     <section className="panel space-y-2 border border-terminal-warn/40 bg-terminal-warn/[0.03]">
@@ -50,6 +52,22 @@ export function EarlyWarning() {
         ⚡ Early Warning
         <span className="text-[10px] text-terminal-muted">(loading / igniting — before it runs)</span>
       </h2>
+
+      {/* 🌊 Chain-Wave — 3+ same-type strikes heating together = real direction.
+          A coil inside a wave is corroborated, not a lone twitch. */}
+      {waves.map((w, i) => (
+        <div key={i}
+          className={`flex items-center gap-2 text-[11px] rounded px-2 py-1 border ${
+            w.type === "CE" ? "border-terminal-bull/50 bg-terminal-bull/10 text-terminal-bull"
+                            : "border-terminal-bear/50 bg-terminal-bear/10 text-terminal-bear"}`}>
+          <span className="font-bold">🌊 {w.label}</span>
+          <span className="text-gray-200">{w.count} {w.type} strikes together{w.igniting ? ` · ${w.igniting} igniting` : ""}</span>
+          <span className="ml-auto text-terminal-muted tabular-nums">{w.strikes?.slice(0, 4).join(" ")}</span>
+        </div>
+      ))}
+      {items.length === 0 && (
+        <div className="text-[11px] text-terminal-muted">Wave forming — no single strike coiled yet.</div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {items.map((r, i) => {
           const igniting = r.coil?.state === "IGNITING";
@@ -63,6 +81,7 @@ export function EarlyWarning() {
                   {r.coil?.dot} {r.strike} {r.type}
                 </span>
                 <span className={`text-[10px] font-bold tracking-wide ${igniting ? "text-terminal-bull" : "text-terminal-warn"}`}>
+                  {r.in_wave && <span className="text-terminal-accent" title="Confirmed by chain-wave">🌊 </span>}
                   {r.coil?.state}{r.coil?.secs ? ` · ${r.coil.secs}s` : ""}
                 </span>
               </div>

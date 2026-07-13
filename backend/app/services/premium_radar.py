@@ -323,6 +323,31 @@ def _attention(rows: list[dict], topn: int = 4) -> dict[str, Any]:
                     "weighted), not a win probability."}
 
 
+def _chain_wave(rows: list[dict]) -> list[dict[str, Any]]:
+    """3+ same-type strikes heating TOGETHER = a real directional WAVE, not a
+    single-strike blip or fakeout. CE wave → underlying pushing up; PE wave →
+    down. This is the confirmation layer for the coil: a COIL/IGNITE that sits
+    inside a wave is far more trustworthy than a lone strike twitching.
+    Declared heuristic on data already tracked — never a trade instruction."""
+    out = []
+    for typ, dirn, label in (("CE", "up", "BULLISH WAVE"), ("PE", "down", "BEARISH WAVE")):
+        hot = [r for r in rows if r["type"] == typ and (
+            r.get("coil", {}).get("state") in ("COILED", "IGNITING")
+            or (r["velocity"] > 0 and r["rise_pct"] >= 3))]
+        if len(hot) >= 3:
+            hot.sort(key=lambda r: r["strike"])
+            igniting = sum(1 for r in hot if r.get("coil", {}).get("state") == "IGNITING")
+            out.append({
+                "type": typ, "direction": dirn, "label": label,
+                "count": len(hot), "igniting": igniting,
+                "strikes": [r["strike"] for r in hot],
+                "note": (f"{len(hot)} {typ} strikes heating together — real "
+                         "directional pressure, not a single-strike blip."),
+            })
+    out.sort(key=lambda w: (w["count"], w["igniting"]), reverse=True)
+    return out
+
+
 def radar(top: int = 8) -> dict[str, Any]:
     """Leaders (running now) · Watchlist (building) · Missed (peaked today)."""
     rows = []
@@ -376,12 +401,19 @@ def radar(top: int = 8) -> dict[str, Any]:
     # first (act now), then strongest coils. This is the anti-miss layer.
     early = [r for r in rows if r.get("coil", {}).get("state") in ("COILED", "IGNITING")]
     early.sort(key=lambda r: (r["coil"]["state"] != "IGNITING", -r["coil"]["strength"]))
+    # Chain-wave confirmation — and mark each early row that sits inside a wave
+    # (its coil is corroborated by neighbours moving the same way).
+    waves = _chain_wave(rows)
+    wave_types = {w["type"] for w in waves}
+    for r in early:
+        r["in_wave"] = r["type"] in wave_types
     return {
         "movers": rows[:top],            # full radar table (kept)
         "leaders": leaders,              # 🔴/🟠 running now
         "watchlist": watchlist[:6],      # 🟢 building — watch before it runs
         "missed": missed[:6],            # peaked ≥30% today
         "early_warning": early[:5],      # ⚡ loading/igniting — catch it at birth
+        "chain_wave": waves,             # 🌊 3+ same-type strikes = real direction
         "thinking": thinking,            # 🧠 AI reasoning cycle on the top opportunity
         "attention": attention,          # 👀 where the radar's focus is (%)
         "tracked": len(_tracks),
