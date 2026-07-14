@@ -800,3 +800,45 @@ so the dashboard drives a decision, not a data dump:
 LTS gate stands (owner cited it): each section ships only if it measurably lifts
 win-rate, cuts risk, or cuts decision-time — proven by Black Box evidence, not
 assumed. See [[cat-lts-freeze-rule]]. TradingView AI-context panel = later.
+
+---
+
+## V5 ARCHITECTURE FREEZE (owner, 2026-07-15) — canonical 10-layer flow
+
+Staged flow (each layer = one clear responsibility; AI recommends, USER executes):
+  WAIT → READY → AI VERIFY → RISK APPROVAL → BUY NOW → USER CONFIRM → ACTIVE TRADE → EXIT
+
+1. Market Intelligence — data collection ................... EXISTS
+2. AI Brain — 100+ parameter analysis ..................... EXISTS (confluence/matrix)
+3. Decision Engine — score + probability .................. EXISTS
+4. AI Verify — last-second validation (data fresh, liquidity,
+   spread, delta, price-stable, OI) ...................... GAP (partial via exec gate)
+5. Risk Approval — capital & market safety ............... GAP (consolidate existing:
+   Kill Switch, Capital Protection, VIX/News/circuit, margin, RR≥1:2, position cap)
+6. BUY NOW — AI recommendation (informational) ........... EXISTS (Execution Control Center)
+7. User Confirm — MANUAL execution by the user ........... GAP (no confirm button today)
+8. Trade Tracker — live monitoring of the user's trade ... GAP (Exit Intel exists, not
+   tied to a user-confirmed active trade)
+9. Exit Engine — exit score & management ................. EXISTS (Exit Intelligence)
+10. Journal & Replay — learning & review ................. EXISTS (Audit + Black Box)
+
+### DOCTRINE BOUNDARY (hard, non-negotiable)
+- System NEVER places/sends an order. "BUY NOW" is a recommendation; the user
+  executes on their own broker terminal manually; "ACTIVE TRADE" only TRACKS a
+  trade the user placed. USER CONFIRM is a UI acknowledgement, not an auto-order.
+- Position Size = a risk calculator on the user's own capital + risk% (→ lots),
+  presented as information. NOT personalized investment advice. Keep the
+  "informational only — not investment advice; no orders are ever placed" disclaimer.
+
+### Risk Approval checklist (owner spec, for layer 5)
+Account: daily-loss limit · weekly drawdown · max consecutive losses · open
+positions · available margin.  Market: major news/event (RBI/Fed/Budget) ·
+halt/circuit · India VIX extreme · abnormal option spread · data latency.
+Trade quality: RR ≥ 1:2 · probability ≥ threshold · liquidity · premium quality.
+
+### Build sequencing (LTS-gated)
+This is a CAPITAL-PROTECTION + UI layer, independent of the detection-measurement
+loop — it can be built in parallel once the owner confirms priority. Layer 5
+(Risk Approval consolidation) + Position Size panel are the highest-value,
+doctrine-core pieces; layers 7/8 (User Confirm + active-trade tracker) next.
+Do NOT auto-build; each ships only if it measurably cuts risk or decision-time.
