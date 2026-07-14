@@ -118,7 +118,10 @@ def run_cycle(force: bool = False) -> dict[str, Any]:
         _state["activity"] = f"Last: {human.rstrip('…')} ✓ — next job queued."
     else:
         _state["last_error"] = res.get("error") or res.get("reason")
-        _state["status"] = "ERROR" if not res.get("capped") else "CAPPED"
+        # a transient upstream 503/429 (AI busy) is NOT a fault — don't flag it
+        # as ERROR (which falsely degrades System Verify); it auto-retries.
+        _state["status"] = ("CAPPED" if res.get("capped")
+                            else "BUSY" if res.get("transient") else "ERROR")
         _state["activity"] = _state["last_error"] or "Weekend AI paused."
     return status()
 
