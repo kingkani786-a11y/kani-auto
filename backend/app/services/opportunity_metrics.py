@@ -33,6 +33,9 @@ from ..core.clock import IST
 # ── declared thresholds (tune from evidence, never silently) ────────────────
 STIR_PCT = 5.0        # +5% from base = the move has "started" (move_start)
 RUNNER_PCT = 30.0     # +30% from base = a real runner (owner's macro-phase)
+MIN_RUNNER_PTS = 5.0  # …AND ≥5 absolute pts — a +33% penny wiggle (₹0.6→₹0.8)
+#                       is not a real opportunity; this stops penny options from
+#                       inflating the runner count and printing absurd % (2422%)
 EARLY_MAX_PCT = 15.0  # alerted while still < +15% = caught EARLY, else LATE
 REAL_MOVE_PCT = 10.0  # an alert is FALSE if the strike never reaches +10%…
 FALSE_WINDOW_S = 300  # …within 5 min of the alert
@@ -121,7 +124,7 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["alert_ts"], ep["alert_prem"], ep["alert_rise"] = now, premium, rise
         ep["reason"] = {"velocity": round(velocity, 2), "volume": vol_delta > 0,
                         "oi_pct": round(oi_pct, 1), "accel": accel > 0}
-    if ep["runner_ts"] is None and rise >= RUNNER_PCT:
+    if ep["runner_ts"] is None and rise >= RUNNER_PCT and (premium - ep["base"]) >= MIN_RUNNER_PTS:
         ep["runner_ts"], ep["runner_prem"] = now, premium
         ep["snap_run"] = _engine_snapshot()     # what did the engine see when it ran?
     if ep["exhaust_ts"] is None and premium <= ep["peak"] * EXHAUST_OFF_PEAK \
@@ -235,7 +238,8 @@ def _stability(traj: list[int]) -> int | None:
 
 def _classify(ep: dict[str, Any]) -> dict[str, Any]:
     peak_rise = (ep["peak"] - ep["base"]) / ep["base"] * 100 if ep["base"] else 0.0
-    is_runner = peak_rise >= RUNNER_PCT or ep["runner_ts"] is not None
+    is_runner = (peak_rise >= RUNNER_PCT and (ep["peak"] - ep["base"]) >= MIN_RUNNER_PTS) \
+        or ep["runner_ts"] is not None
     alerted = ep["alert_ts"] is not None
     if is_runner:
         cap = "MISSED" if not alerted else ("EARLY" if (ep["alert_rise"] or 0) < EARLY_MAX_PCT else "LATE")
@@ -305,7 +309,11 @@ def _row_from_bb(bb: dict[str, Any]) -> dict[str, Any]:
     cap = bb.get("capture")
     outcome = bb.get("outcome")
     peak_rise = bb.get("peak_rise") or 0.0
-    is_runner = cap in ("EARLY", "LATE", "MISSED") or outcome == "SUCCESS" or peak_rise >= RUNNER_PCT
+    pts = (bb.get("potential") or 0.0)
+    # apply the points floor uniformly so historical lines re-clean to the new
+    # definition too (old code tagged penny wiggles as runners; drop them now)
+    is_runner = pts >= MIN_RUNNER_PTS and (
+        cap in ("EARLY", "LATE", "MISSED") or outcome == "SUCCESS" or peak_rise >= RUNNER_PCT)
     alerted = bb.get("alert_prem") is not None or bool(bb.get("t_ignite"))
     return {"strike": bb.get("strike"), "type": bb.get("type"), "peak_rise": peak_rise,
             "is_runner": is_runner, "alerted": alerted, "capture": cap,

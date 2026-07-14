@@ -93,7 +93,7 @@ export function PremiumRadar() {
                       <span className={`px-1 rounded border ${badge.c}`}>{badge.t}</span>
                       <span className="text-white">{m.strike} {m.type}</span>
                       <span className="tabular-nums">₹{m.from_low} → ₹{m.peak_premium}</span>
-                      <span className="text-terminal-muted tabular-nums">+{m.missed_points} pts ({m.peak_rise_pct}%)</span>
+                      <span className="text-terminal-muted tabular-nums">+{m.missed_points} pts ({m.peak_rise_pct > 300 && m.from_low > 0 ? `${(m.peak_premium / m.from_low).toFixed(1)}×` : `${m.peak_rise_pct}%`})</span>
                     </div>
                   );
                 })}

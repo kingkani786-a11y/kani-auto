@@ -23,6 +23,11 @@ from typing import Any
 
 _LOOKBACK = 300.0          # 5-min rolling window per strike
 _N_STRIKES = 4             # ATM ± 4 on each side, both CE and PE
+# A "big mover" needs a real ABSOLUTE move, not just a big % off a penny base:
+# ₹0.6→₹0.8 is +33% but only +0.2 pts of noise, while ₹0.9→₹22.7 is +21.8 real
+# pts. Filtering on points (declared, tunable) keeps real runners, drops lottery
+# wiggle that was inflating the runner count and printing absurd % (2422%).
+_MIN_MOVE_PTS = 5.0
 _tracks: dict[str, dict[str, Any]] = {}
 
 
@@ -383,7 +388,8 @@ def radar(top: int = 8) -> dict[str, Any]:
             "coil": {**coil, "secs": coil_secs},
         })
         # Missed Opportunity: strike ran a big move today (peak ≥ 30%)
-        if t.get("peak_rise", 0) >= 30:
+        _sess_low0 = t.get("sess_low", m["low"])
+        if t.get("peak_rise", 0) >= 30 and (t["peak_prem"] - _sess_low0) >= _MIN_MOVE_PTS:
             reasons = []
             if t.get("vol_confirm"):
                 reasons.append("Volume confirmation")
