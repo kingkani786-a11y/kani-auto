@@ -14,3 +14,4 @@ android/
 ios/
 *.keystore
 data/opportunity_log/
+frontend/public/version.json
