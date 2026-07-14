@@ -100,10 +100,19 @@ def _coil(m: dict[str, Any]) -> dict[str, Any]:
     energy = (1 if vol_energy else 0) + (1 if oi_energy else 0)
     # strength 0–100: energy sources + how much OI is piling in (capped)
     strength = int(min(100, energy * 35 + min(30, max(0, m["oi_pct"]) * 3)))
-    # ignition: compression just broke on stored energy, still early (catchable)
+    # ignition path 1: a velocity SPIKE on stored energy, still early (catchable)
     if m["rise_pct"] < 18 and m["velocity"] >= 2 and m["accel"] > 0 and energy >= 1:
         return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 60),
                 "note": "Coil breaking — energy releasing, move starting NOW. Earliest entry window."}
+    # ignition path 2 — the slow-runner breakout (evidence 2026-07-14: of 21
+    # MISSED runners, 19 were COILED but NEVER ignited because they climbed
+    # WITHOUT a velocity≥2 spike). A loaded coil that has now crossed the stir
+    # (+5%) and is still rising on its stored energy IS the breakout — alert it
+    # while still catchable (<20%), even without the spike. Declared/tunable;
+    # measured by the Black Box (capture ↑ vs false-positive ↑).
+    if 5 <= m["rise_pct"] < 20 and m["velocity"] > 0 and energy >= 1:
+        return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 55),
+                "note": "Coil breakout — loaded spring released, premium climbing on volume/OI. Early entry window."}
     if compressed and energy >= 1:
         bits = []
         if vol_energy:
