@@ -39,7 +39,11 @@ MIN_RUNNER_PTS = 5.0  # …AND ≥5 absolute pts — a +33% penny wiggle (₹0.6
 EARLY_MAX_PCT = 15.0  # alerted while still < +15% = caught EARLY, else LATE
 REAL_MOVE_PCT = 10.0  # an alert is FALSE if the strike never reaches +10%…
 FALSE_WINDOW_S = 300  # …within 5 min of the alert
-CLOSE_GAP_S = 120     # episode closes after it retraces + 2 min of quiet
+CLOSE_GAP_S = 300     # episode closes only after 5 min quiet past the peak
+GIVEBACK_CLOSE = 0.70 # …AND only once it has given back ≥70% of the run. A
+#                       normal pullback that holds is the SAME opportunity, not
+#                       a new one — this stops one oscillating strike from being
+#                       chopped into 20+ phantom episodes (measurement integrity)
 EXHAUST_OFF_PEAK = 0.90  # premium ≤ 90% of peak after the peak = exhaustion
 LAYER_CONFIRM = 55.0  # a decision-engine layer "confirms" at ≥55 (matches the
 #                       dashboard checklist, e.g. "OI 39 < 55") — declared, tune from evidence
@@ -137,9 +141,14 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         if len(ep["traj"]) > 60:
             ep["traj"] = ep["traj"][-60:]
 
-    # close the episode once it has moved and then retraced to near the base
+    # close the episode only on TRUE exhaustion — the run gave back ≥70% of its
+    # gain AND has been quiet 5 min past the peak. Pullbacks that hold stay the
+    # same opportunity (one coherent run = one episode), so an intraday-
+    # oscillating strike is no longer chopped into dozens of phantom episodes.
     moved = ep["peak"] > ep["base"] * (1 + STIR_PCT / 100)
-    if moved and premium <= ep["base"] * 1.05 and now - ep["peak_ts"] > CLOSE_GAP_S:
+    gain = ep["peak"] - ep["base"]
+    exhausted = premium <= ep["base"] + (1 - GIVEBACK_CLOSE) * gain
+    if moved and exhausted and now - ep["peak_ts"] > CLOSE_GAP_S:
         _close_episode(ep)
         _eps[key] = _new_ep(strike, typ, premium, now)
 
