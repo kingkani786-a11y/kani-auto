@@ -38,6 +38,21 @@ REAL_MOVE_PCT = 10.0  # an alert is FALSE if the strike never reaches +10%…
 FALSE_WINDOW_S = 300  # …within 5 min of the alert
 CLOSE_GAP_S = 120     # episode closes after it retraces + 2 min of quiet
 EXHAUST_OFF_PEAK = 0.90  # premium ≤ 90% of peak after the peak = exhaustion
+LAYER_CONFIRM = 55.0  # a decision-engine layer "confirms" at ≥55 (matches the
+#                       dashboard checklist, e.g. "OI 39 < 55") — declared, tune from evidence
+
+# ── Root-cause enumeration — WHY an opportunity was missed / faded / fired ──────
+# Fixed tags so a whole day auto-classifies into a breakdown ("8 late-confirm, 6
+# kill-switch, 4 OI-missing…"). Some tags need indicators not yet computed
+# (RSI/EFI/CPR/Bollinger — IEIE Phase 1); those simply never fire until Phase 1
+# fills the snapshot. The classifier only ever assigns a cause it has evidence for.
+ROOT_CAUSE = (
+    "NO_CONFIRMATION", "LATE_CONFIRMATION", "LOW_VOLUME", "LOW_OI",
+    "VWAP_FAIL", "CPR_RESISTANCE", "CPR_SUPPORT", "RSI_OVERBOUGHT", "RSI_OVERSOLD",
+    "ADX_WEAK", "ATR_LOW", "EFI_NEGATIVE", "PCR_CONFLICT", "IV_HIGH", "IV_CRUSH",
+    "CHAIN_FAIL", "COIL_FAIL", "WAVE_FAIL", "EXECUTION_BLOCK", "KILL_SWITCH",
+    "USER_SKIP", "SL_HIT", "TARGET_HIT",
+)
 
 _LOG_DIR = pathlib.Path(__file__).resolve().parents[3] / "data" / "opportunity_log"
 
@@ -71,7 +86,11 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
             "coil_ts": None, "move_start_ts": None, "move_start_prem": None,
             "alert_ts": None, "alert_prem": None, "alert_rise": None,
             "runner_ts": None, "runner_prem": None, "exhaust_ts": None,
-            "reason": None, "traj": [], "last_traj_ts": 0.0, "started": now}
+            "reason": None, "traj": [], "last_traj_ts": 0.0, "started": now,
+            # decision-engine + indicator context, snapshotted at the two moments
+            # that answer "why": when the move was born (+5%) and when it became a
+            # real runner (+30%). This is the JOIN the black box was missing.
+            "snap_start": None, "snap_run": None}
 
 
 def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
@@ -97,12 +116,14 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["coil_ts"] = now
     if ep["move_start_ts"] is None and rise >= STIR_PCT:
         ep["move_start_ts"], ep["move_start_prem"] = now, premium
+        ep["snap_start"] = _engine_snapshot()   # what did the engine see at birth?
     if ep["alert_ts"] is None and coil_state == "IGNITING":
         ep["alert_ts"], ep["alert_prem"], ep["alert_rise"] = now, premium, rise
         ep["reason"] = {"velocity": round(velocity, 2), "volume": vol_delta > 0,
                         "oi_pct": round(oi_pct, 1), "accel": accel > 0}
     if ep["runner_ts"] is None and rise >= RUNNER_PCT:
         ep["runner_ts"], ep["runner_prem"] = now, premium
+        ep["snap_run"] = _engine_snapshot()     # what did the engine see when it ran?
     if ep["exhaust_ts"] is None and premium <= ep["peak"] * EXHAUST_OFF_PEAK \
             and ep["peak"] > ep["base"] * (1 + STIR_PCT / 100):
         ep["exhaust_ts"] = now
@@ -118,6 +139,89 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
     if moved and premium <= ep["base"] * 1.05 and now - ep["peak_ts"] > CLOSE_GAP_S:
         _close_episode(ep)
         _eps[key] = _new_ep(strike, typ, premium, now)
+
+
+def _engine_snapshot() -> dict[str, Any]:
+    """Read-only snapshot of the live Decision Engine + indicators at this instant.
+
+    This is the JOIN that lets the black box say *why* a runner was not taken —
+    "kill switch active", "OI layer 39 < 55", "institutional against". Purely
+    reads the shared state singleton; never mutates it, never decides. Anything
+    it can't see (RSI/EFI/CPR — IEIE Phase 1 not built yet) stays null.
+    """
+    try:
+        from ..core.state import state
+        dec = state.decision or {}
+        ks = state.kill_switch or {}
+        sig = state.signal or {}
+        tech = sig.get("tech") or {}
+        an = state.analytics or {}
+        rows = ((state.intelligence or {}).get("layers", {}).get("intelligence", {})
+                .get("rows", []))
+        layers = {r.get("layer"): r.get("score") for r in rows if r.get("layer")}
+        return {
+            "decision": dec.get("primary_action"),
+            "grade": dec.get("grade"),
+            "confidence": sig.get("confidence"),
+            "kill_switch": bool(ks.get("active")),
+            "ks_reasons": ks.get("reasons") or [],
+            "pcr": an.get("pcr"),
+            "vwap": tech.get("vwap"),
+            "adx": tech.get("adx"),
+            "atr": tech.get("atr"),
+            "underlying": (state.spot or {}).get("ltp"),
+            "layers": layers,          # {"Trend":70,"OI":39,"Institutional":30,…}
+            "rsi": None, "efi": None, "cpr": None,   # IEIE Phase 1 — filled later
+        }
+    except Exception:
+        return {}
+
+
+def _root_cause(ep: dict[str, Any], c: dict[str, Any]) -> str | None:
+    """Assign the single most-likely cause from AVAILABLE evidence — a ROOT_CAUSE
+    tag or None. Priority ladder; only fires a tag it has data for."""
+    snap = ep.get("snap_run") or ep.get("snap_start") or {}
+    layers = snap.get("layers") or {}
+
+    def layer(name: str) -> float | None:
+        v = layers.get(name)
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    # a runner we failed to catch early (never alerted = MISSED, or alerted LATE)
+    if c["is_runner"] and c["capture"] in ("MISSED", "LATE"):
+        if snap.get("kill_switch"):
+            return "KILL_SWITCH"
+        oi = layer("OI")
+        if oi is not None and oi < LAYER_CONFIRM:
+            return "LOW_OI"
+        inst = layer("Institutional")
+        if inst is not None and inst < LAYER_CONFIRM:
+            return "PCR_CONFLICT"
+        liq = layer("Liquidity")
+        if liq is not None and liq < LAYER_CONFIRM:
+            return "NO_CONFIRMATION"
+        if c["delay_s"] and c["delay_s"] > 10:
+            return "LATE_CONFIRMATION"
+        return "NO_CONFIRMATION" if not c["alerted"] else "LATE_CONFIRMATION"
+
+    # an alert that fizzled (fired but never became a real move)
+    if c["false_pos"]:
+        r = ep.get("reason") or {}
+        if not r.get("volume"):
+            return "LOW_VOLUME"
+        if (r.get("oi_pct") or 0) <= 0:
+            return "LOW_OI"
+        adx = snap.get("adx")
+        if adx is not None and adx < 20:
+            return "ADX_WEAK"
+        return "NO_CONFIRMATION"
+
+    if c["outcome"] == "SUCCESS":
+        return "TARGET_HIT"
+    return None
 
 
 def _stability(traj: list[int]) -> int | None:
@@ -167,6 +271,8 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         "peak_rise": c["peak_rise"], "delay_s": c["delay_s"],
         "reason": ep["reason"], "stability": c["stability"],
         "traj": ep["traj"], "capture": c["capture"], "outcome": c["outcome"],
+        "root_cause": _root_cause(ep, c),        # WHY — the Evidence-Layer verdict
+        "engine": ep.get("snap_run") or ep.get("snap_start"),  # decision context join
     }
 
 
@@ -201,6 +307,18 @@ def report() -> dict[str, Any]:
     cap_sum = sum(max(0.0, r["captured"]) for r in runners)
     recovered = round(cap_sum / pot_sum * 100, 1) if pot_sum > 0 else None
 
+    # ── root-cause breakdown — the actionable "why" over every miss + false ──
+    causes: dict[str, int] = {}
+    for e in eps:
+        cc = _classify(e)
+        is_miss = cc["is_runner"] and cc["capture"] in ("MISSED", "LATE")
+        if not (is_miss or cc["false_pos"]):
+            continue
+        rc = _root_cause(e, cc)
+        if rc:
+            causes[rc] = causes.get(rc, 0) + 1
+    root_causes = dict(sorted(causes.items(), key=lambda kv: kv[1], reverse=True))
+
     return {
         "day": _day,
         "capture_rate": round(len(early) / len(runners) * 100, 1) if runners else None,
@@ -212,6 +330,7 @@ def report() -> dict[str, Any]:
         "avg_detection_delay_s": round(sum(delays) / len(delays), 1) if delays else None,
         "recovered_pct": recovered,
         "lost_pct": round(100 - recovered, 1) if recovered is not None else None,
+        "root_causes": root_causes,   # {"KILL_SWITCH":6,"LOW_OI":4,…} — the "why" breakdown
         "avg_stability": int(round(sum(stabs) / len(stabs))) if stabs else None,
         "missed_money": [
             {"strike": r["strike"], "type": r["type"], "potential": r["potential"],
@@ -227,6 +346,21 @@ def report() -> dict[str, Any]:
                  f"{FALSE_WINDOW_S // 60}m) — tune from evidence. Measurement only."),
         "as_of": int(time.time()),
     }
+
+
+def capture_status(strike: int, typ: str) -> str | None:
+    """Best-known capture verdict (EARLY / LATE / MISSED) for a strike's current
+    or last episode today — lets the radar's 'Missed' panel label big movers by
+    whether we ACTUALLY caught them, reconciling that panel with the black box.
+    None = not a runner / unknown."""
+    _roll_day()
+    for e in _eps.values():                       # live episode first
+        if e["strike"] == strike and e["type"] == typ:
+            return _classify(e)["capture"]
+    for e in reversed(_closed):                   # else last closed today
+        if e["strike"] == strike and e["type"] == typ:
+            return _classify(e)["capture"]
+    return None
 
 
 def black_box_log(limit: int = 50) -> dict[str, Any]:

@@ -388,12 +388,21 @@ def radar(top: int = 8) -> dict[str, Any]:
             if t.get("oi_confirm"):
                 reasons.append("OI breakout")
             sess_low = t.get("sess_low", m["low"])
+            # reconcile with the black box: a strike shown here ran ≥30%, but that
+            # does NOT mean we missed it — the radar may have caught it EARLY. Tag
+            # each row with its real capture so "big mover" ≠ "missed opportunity".
+            try:
+                from . import opportunity_metrics as _om
+                caught = _om.capture_status(t["strike"], t["type"])
+            except Exception:
+                caught = None
             missed.append({
                 "symbol": t["symbol"], "strike": t["strike"], "type": t["type"],
                 "from_low": round(sess_low, 2), "peak_premium": round(t["peak_prem"], 2),
                 "peak_rise_pct": round(t["peak_rise"], 1),
                 "missed_points": round(t["peak_prem"] - sess_low, 2),
                 "reasons": reasons or ["Premium velocity"],
+                "caught": caught,   # EARLY = radar caught it · LATE/MISSED = truly missed
             })
 
     rows.sort(key=lambda r: r["runner_score"], reverse=True)
