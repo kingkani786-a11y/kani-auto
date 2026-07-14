@@ -241,7 +241,9 @@ def _thinking(rows: list[dict]) -> dict[str, Any] | None:
     if r["rise_pct"] >= 70:
         expect = "Runner confirmed — continuation while volume/OI hold; watch for exhaustion."
     elif r["checks_met"] >= 3 and r["accel"] > 0:
-        expect = "Runner continuation likely WHILE the missing checks confirm and OI stays positive."
+        expect = ("Runner continuation likely WHILE the remaining checks confirm and OI stays positive."
+                  if missing else
+                  "All checks confirmed — runner continuation likely while volume/OI stay positive.")
     elif r["checks_met"] >= 2:
         expect = "Building — needs the remaining checks to become a runner."
     else:

@@ -76,18 +76,27 @@ export function PremiumRadar() {
               </div>
             )}
 
-            {/* ❌ MISSED TODAY — strikes that ran a big move */}
+            {/* 🏁 BIG MOVERS (ran ≥30%) — each tagged by whether the radar
+                actually caught it EARLY, caught it LATE, or truly missed it.
+                This reconciles with the Capture Score (only ✗ = a real miss). */}
             {missed.length > 0 && (
               <div className="border border-terminal-border rounded p-2 space-y-1">
-                <div className="text-[11px] font-semibold text-terminal-bear">❌ MISSED TODAY (ran ≥30%)</div>
-                {missed.map((m, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
-                    <span className="text-white">{m.strike} {m.type}</span>
-                    <span className="tabular-nums">₹{m.from_low} → ₹{m.peak_premium}</span>
-                    <span className="text-terminal-bear tabular-nums">+{m.missed_points} pts ({m.peak_rise_pct}%)</span>
-                    <span className="text-terminal-muted">{m.reasons.join(" · ")}</span>
-                  </div>
-                ))}
+                <div className="text-[11px] font-semibold text-white">🏁 BIG MOVERS TODAY <span className="text-terminal-muted font-normal">(ran ≥30% — caught or missed)</span></div>
+                {missed.map((m, i) => {
+                  const badge = m.caught === "EARLY"
+                    ? { t: "✓ caught early", c: "text-terminal-bull border-terminal-bull/40" }
+                    : m.caught === "LATE"
+                    ? { t: "◐ caught late", c: "text-terminal-warn border-terminal-warn/40" }
+                    : { t: "✗ missed", c: "text-terminal-bear border-terminal-bear/40" };
+                  return (
+                    <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                      <span className={`px-1 rounded border ${badge.c}`}>{badge.t}</span>
+                      <span className="text-white">{m.strike} {m.type}</span>
+                      <span className="tabular-nums">₹{m.from_low} → ₹{m.peak_premium}</span>
+                      <span className="text-terminal-muted tabular-nums">+{m.missed_points} pts ({m.peak_rise_pct}%)</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
