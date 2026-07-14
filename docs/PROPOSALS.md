@@ -785,3 +785,18 @@ first. Path A (full hold) vs Path B (minimal snapshot tonight) — owner's call.
 Also captured for later: AI Confidence Breakdown (86% = Trend24+Momentum18+
 Volume15+OI16+Greeks11+PriceAction16 — mostly EXISTS via WHY CONFIDENCE) and
 chart AI-overlay (clean chart + AI annotations, not drawn indicators).
+
+### IEIOS umbrella + 3-section layout (owner, 2026-07-13)
+Owner's consolidation name for the whole north star: "Institutional Entry
+Intelligence Operating System". Its 12 layers map to EXISTING work + #017 + #018
+— nothing new except Layer 4 Indicator Consensus (already #018 Phase 2, evidence-
+gated) and the momentum indicators (RSI/EFI/Bollinger/Stochastic/CPR — #018
+Phase 1). One genuinely useful NEW idea = collapse the 12 widgets into 3 sections
+so the dashboard drives a decision, not a data dump:
+  1. Market Context  — CPR/VWAP/RSI/ADX/ATR/EFI/Bollinger/OI/PCR/IV
+  2. Opportunity Intelligence — Premium Radar/Chain Wave/Entry Window/Ranking/
+     Point Catch/HOT NOW
+  3. Decision Center — Consensus/BUY-SELL/Entry-SL-Targets/WHY-WHYNOT/Narrator
+LTS gate stands (owner cited it): each section ships only if it measurably lifts
+win-rate, cuts risk, or cuts decision-time — proven by Black Box evidence, not
+assumed. See [[cat-lts-freeze-rule]]. TradingView AI-context panel = later.
