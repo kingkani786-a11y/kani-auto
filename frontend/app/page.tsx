@@ -28,6 +28,7 @@ import { PremiumRadar } from "@/components/PremiumRadar";
 import { HotNow } from "@/components/HotNow";
 import { EarlyWarning } from "@/components/EarlyWarning";
 import { CaptureScore } from "@/components/CaptureScore";
+import { RiskApproval } from "@/components/RiskApproval";
 import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { BuildVersion } from "@/components/BuildVersion";
@@ -186,6 +187,11 @@ export default function Dashboard() {
       {/* AI Thinking Now — the engine's live reasoning made visible */}
       <SafeBoundary name="AI Thinking">
         <AIThinkingPanel />
+      </SafeBoundary>
+
+      {/* 🔒 Risk Approval — V5 layer 5: capital & market safety gate before any BUY */}
+      <SafeBoundary name="Risk Approval">
+        <RiskApproval />
       </SafeBoundary>
 
       {/* AI Analysis — Gemini explains the live decision (cost-cached) */}

@@ -77,6 +77,7 @@ export const api = {
   aiTimeline: (limit = 60) => req<any>(`/api/ai-timeline?limit=${limit}`),
   premiumRadar: (top = 8) => req<any>(`/api/premium-radar?top=${top}`),
   opportunityMetrics: () => req<any>(`/api/opportunity-metrics`),
+  riskApproval: () => req<any>(`/api/risk-approval`),
   version: () => req<any>("/api/version"),
   systemVerify: () => req<any>("/api/system-verify"),
   aiChangelog: (limit = 30) => req<any>(`/api/ai-changelog?limit=${limit}`),

@@ -377,6 +377,14 @@ async def opportunity_metrics_ep():
     return opportunity_metrics.report()
 
 
+@router.get("/risk-approval")
+async def risk_approval_ep():
+    """Risk Approval Engine (V5 layer 5) — consolidated capital & market safety
+    gate + risk-based position size. Read-only; never places an order."""
+    from ..services import risk_approval
+    return risk_approval.approve()
+
+
 @router.get("/opportunity-log")
 async def opportunity_log_ep(limit: int = 50):
     """Opportunity Black Box — the durable per-opportunity learning log (today).
