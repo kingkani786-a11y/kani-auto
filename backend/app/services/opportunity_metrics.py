@@ -287,12 +287,43 @@ def _close_episode(ep: dict[str, Any]) -> None:
         pass
 
 
+def _read_disk_today() -> list[dict[str, Any]]:
+    """All persisted black-box lines for today (survives restarts)."""
+    try:
+        p = _LOG_DIR / f"{_day}.jsonl"
+        if p.exists():
+            return [json.loads(ln) for ln in p.read_text().splitlines() if ln.strip()]
+    except Exception:
+        pass
+    return []
+
+
+def _row_from_bb(bb: dict[str, Any]) -> dict[str, Any]:
+    """Map a persisted black-box line back to an aggregation row, so report()
+    reflects the WHOLE day (disk) — not just what's in memory since the last
+    restart. Old-format lines simply lack root_cause/engine (stay None)."""
+    cap = bb.get("capture")
+    outcome = bb.get("outcome")
+    peak_rise = bb.get("peak_rise") or 0.0
+    is_runner = cap in ("EARLY", "LATE", "MISSED") or outcome == "SUCCESS" or peak_rise >= RUNNER_PCT
+    alerted = bb.get("alert_prem") is not None or bool(bb.get("t_ignite"))
+    return {"strike": bb.get("strike"), "type": bb.get("type"), "peak_rise": peak_rise,
+            "is_runner": is_runner, "alerted": alerted, "capture": cap,
+            "false_pos": outcome == "FALSE", "delay_s": bb.get("delay_s"),
+            "potential": bb.get("potential") or 0.0, "captured": bb.get("captured") or 0.0,
+            "lost": bb.get("lost") or 0.0, "stability": bb.get("stability"),
+            "root_cause": bb.get("root_cause")}
+
+
 def report() -> dict[str, Any]:
-    """The live KPI scorecard — closed + still-open episodes that have moved."""
+    """The live KPI scorecard — restart-proof: aggregates every persisted
+    opportunity today (disk) plus still-open episodes in memory. This is what
+    makes the day's measurement survive a backend reload (historical-aware)."""
     _roll_day()
-    eps = list(_closed) + [e for e in _eps.values()
-                           if e["peak"] > e["base"] * (1 + STIR_PCT / 100)]
-    rows = [_classify(e) for e in eps]
+    disk_rows = [_row_from_bb(b) for b in _read_disk_today()]        # all closed today
+    open_eps = [e for e in _eps.values() if e["peak"] > e["base"] * (1 + STIR_PCT / 100)]
+    open_rows = [{**_classify(e), "root_cause": _root_cause(e, _classify(e))} for e in open_eps]
+    rows = disk_rows + open_rows                                     # closed(disk) + open(live)
 
     runners = [r for r in rows if r["is_runner"]]
     early = [r for r in runners if r["capture"] == "EARLY"]
@@ -309,12 +340,11 @@ def report() -> dict[str, Any]:
 
     # ── root-cause breakdown — the actionable "why" over every miss + false ──
     causes: dict[str, int] = {}
-    for e in eps:
-        cc = _classify(e)
-        is_miss = cc["is_runner"] and cc["capture"] in ("MISSED", "LATE")
-        if not (is_miss or cc["false_pos"]):
+    for r in rows:
+        is_miss = r["is_runner"] and r["capture"] in ("MISSED", "LATE")
+        if not (is_miss or r["false_pos"]):
             continue
-        rc = _root_cause(e, cc)
+        rc = r.get("root_cause")
         if rc:
             causes[rc] = causes.get(rc, 0) + 1
     root_causes = dict(sorted(causes.items(), key=lambda kv: kv[1], reverse=True))
