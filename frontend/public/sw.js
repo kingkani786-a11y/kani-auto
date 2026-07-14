@@ -5,7 +5,7 @@
  */
 // Bump this on every deploy-visibility change; the activate handler purges
 // older caches so clients pick up new builds instead of a stale shell.
-const CACHE = "cat-shell-ecf7d82";
+const CACHE = "cat-shell-98703e1";
 const SHELL = ["/manifest.webmanifest", "/icons/icon.svg", "/offline.html"];
 
 self.addEventListener("install", (e) => {
