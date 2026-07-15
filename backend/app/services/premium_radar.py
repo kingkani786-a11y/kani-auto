@@ -43,11 +43,18 @@ def _series_metrics(series) -> dict[str, Any]:
     older = [p for ts, p, _v, _o in series if ts <= t0]
     base_p = older[-1] if older else series[0][1]
     vel = (prem - base_p)  # pts in last ~60s ≈ pts/min
-    # acceleration: last-60s rise vs prior-60s rise
+    # acceleration: last-60s rise vs the PRIOR 60s rise. Honest only when the
+    # prior window actually has data — at session start it doesn't, and
+    # subtracting a phantom 0 made accel == velocity, so `accel > 0` was
+    # trivially true and every rising strike "ignited" (opening false-alert
+    # storm: 5 simultaneous IGNITEs, 3/3 alerts false). No prior window ⇒
+    # acceleration is UNKNOWN ⇒ 0.0, never a free pass.
     def _rise_between(a, b):
         pts = [p for ts, p, _v, _o in series if a <= ts <= b]
         return (pts[-1] - pts[0]) if len(pts) >= 2 else 0.0
-    accel = _rise_between(now - 60, now) - _rise_between(now - 120, now - 60)
+    _prior_pts = [1 for ts, _p, _v, _o in series if now - 120 <= ts <= now - 60]
+    accel = (_rise_between(now - 60, now) - _rise_between(now - 120, now - 60)
+             if len(_prior_pts) >= 2 else 0.0)
     vol_now = series[-1][2]
     vol_start = series[0][2]
     oi_now = series[-1][3]
@@ -83,7 +90,7 @@ def _stage(m: dict[str, Any]) -> str:
     return "EXPANSION"
 
 
-def _coil(m: dict[str, Any]) -> dict[str, Any]:
+def _coil(m: dict[str, Any], was_coiled: bool = False) -> dict[str, Any]:
     """Pre-breakout 'loaded spring' — the EARLIEST honest catch.
 
     Every other signal (runner-score, stage, phase) needs the premium to have
@@ -108,9 +115,11 @@ def _coil(m: dict[str, Any]) -> dict[str, Any]:
     # MISSED runners, 19 were COILED but NEVER ignited because they climbed
     # WITHOUT a velocity≥2 spike). A loaded coil that has now crossed the stir
     # (+5%) and is still rising on its stored energy IS the breakout — alert it
-    # while still catchable (<20%), even without the spike. Declared/tunable;
-    # measured by the Black Box (capture ↑ vs false-positive ↑).
-    if 5 <= m["rise_pct"] < 20 and m["velocity"] > 0 and energy >= 1:
+    # while still catchable (<20%), even without the spike.
+    # REQUIRES was_coiled: the evidence was about strikes that ACTUALLY coiled
+    # first. Without this gate it fired on any 5-20% riser and caused an
+    # opening false-alert storm. Declared/tunable; measured by the Black Box.
+    if was_coiled and 5 <= m["rise_pct"] < 20 and m["velocity"] > 0 and energy >= 1:
         return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 55),
                 "note": "Coil breakout — loaded spring released, premium climbing on volume/OI. Early entry window."}
     if compressed and energy >= 1:
@@ -209,11 +218,16 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 t["oi_confirm"] = now
             # coil clock: when did this strike first start loading? (evidence:
             # "coiling 45s") — reset once it stops coiling so it's always fresh.
-            cs = _coil(m)["state"]
+            cs = _coil(m, bool(t.get("ever_coiled")))["state"]
             if cs == "COILED":
                 t.setdefault("coil_since", now)
+                t["ever_coiled"] = True      # remember: this spring WAS loaded
             elif cs != "IGNITING":
                 t.pop("coil_since", None)
+                # the move resolved (ran away or went quiet) — forget the coil so
+                # a later unrelated rise can't claim a stale breakout
+                if m["rise_pct"] >= 20 or m["velocity"] <= 0:
+                    t.pop("ever_coiled", None)
             # feed the measurement layer (read-only KPI + black-box instrumentation)
             try:
                 from . import opportunity_metrics as _om
@@ -383,7 +397,7 @@ def radar(top: int = 8) -> dict[str, Any]:
         m = _series_metrics(t["series"])
         score = _runner_score(m)
         chk = _checklist(m)
-        coil = _coil(m)
+        coil = _coil(m, bool(t.get("ever_coiled")))
         coil_secs = int(time.time() - t["coil_since"]) if t.get("coil_since") else 0
         rows.append({
             "symbol": t["symbol"], "strike": t["strike"], "type": t["type"],
