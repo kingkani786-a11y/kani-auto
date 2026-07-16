@@ -103,7 +103,7 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
 def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
            coil_state: str, score: int = 0, velocity: float = 0.0,
            vol_delta: float = 0.0, oi_pct: float = 0.0, accel: float = 0.0,
-           now: float | None = None) -> None:
+           now: float | None = None, symbol: str = "", wave_n: int = 0) -> None:
     """Feed one radar tick. Called from premium_radar.scan (per option tick)."""
     if premium <= 0:
         return
@@ -112,6 +112,8 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
     ep = _eps.get(key)
     if ep is None:
         ep = _eps[key] = _new_ep(strike, typ, premium, now)
+    if symbol:
+        ep["symbol"] = symbol
 
     if ep["move_start_ts"] is None and premium < ep["base"]:
         ep["base"], ep["base_ts"] = premium, now  # track the true pre-move low
@@ -126,8 +128,12 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["snap_start"] = _engine_snapshot()   # what did the engine see at birth?
     if ep["alert_ts"] is None and coil_state == "IGNITING":
         ep["alert_ts"], ep["alert_prem"], ep["alert_rise"] = now, premium, rise
+        # wave_n = same-type strikes loaded at ignite — recorded so tomorrow's
+        # data can answer whether chain-wave corroboration separates false
+        # alerts from real earlies (2026-07-16 showed OI alone does NOT).
         ep["reason"] = {"velocity": round(velocity, 2), "volume": vol_delta > 0,
-                        "oi_pct": round(oi_pct, 1), "accel": accel > 0}
+                        "oi_pct": round(oi_pct, 1), "accel": accel > 0,
+                        "wave_n": int(wave_n)}
     if ep["runner_ts"] is None and rise >= RUNNER_PCT and (premium - ep["base"]) >= MIN_RUNNER_PTS:
         ep["runner_ts"], ep["runner_prem"] = now, premium
         ep["snap_run"] = _engine_snapshot()     # what did the engine see when it ran?
@@ -202,22 +208,17 @@ def _root_cause(ep: dict[str, Any], c: dict[str, Any]) -> str | None:
         except (TypeError, ValueError):
             return None
 
-    # a runner we failed to catch early (never alerted = MISSED, or alerted LATE)
+    # a runner we failed to catch early (never alerted = MISSED, or alerted LATE).
+    # DETECTION-layer causes only: the radar is independent of the engine gate,
+    # so KILL_SWITCH/OI-layer can never explain a radar miss — that priority
+    # masked 11/12 miss diagnoses on 2026-07-16 (all were really cold-start /
+    # no-ignite). Engine context is still preserved in the 'engine' snapshot.
     if c["is_runner"] and c["capture"] in ("MISSED", "LATE"):
-        if snap.get("kill_switch"):
-            return "KILL_SWITCH"
-        oi = layer("OI")
-        if oi is not None and oi < LAYER_CONFIRM:
-            return "LOW_OI"
-        inst = layer("Institutional")
-        if inst is not None and inst < LAYER_CONFIRM:
-            return "PCR_CONFLICT"
-        liq = layer("Liquidity")
-        if liq is not None and liq < LAYER_CONFIRM:
-            return "NO_CONFIRMATION"
-        if c["delay_s"] and c["delay_s"] > 10:
-            return "LATE_CONFIRMATION"
-        return "NO_CONFIRMATION" if not c["alerted"] else "LATE_CONFIRMATION"
+        if not c["alerted"]:
+            # never ignited: no coil seen at all (e.g. symbol-switch cold start,
+            # move already underway) vs coiled but the ignite gate never confirmed
+            return "COIL_FAIL" if not ep.get("coil_ts") else "NO_CONFIRMATION"
+        return "LATE_CONFIRMATION"
 
     # an alert that fizzled (fired but never became a real move)
     if c["false_pos"]:
@@ -275,7 +276,8 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
     _seq += 1
     c = _classify(ep)
     return {
-        "n": _seq, "day": _day, "strike": ep["strike"], "type": ep["type"],
+        "n": _seq, "day": _day, "symbol": ep.get("symbol", ""),
+        "strike": ep["strike"], "type": ep["type"],
         "t_coil": _hhmmss(ep["coil_ts"]), "t_move_start": _hhmmss(ep["move_start_ts"]),
         "t_ignite": _hhmmss(ep["alert_ts"]), "t_runner": _hhmmss(ep["runner_ts"]),
         "t_peak": _hhmmss(ep["peak_ts"]), "t_exhaust": _hhmmss(ep["exhaust_ts"]),

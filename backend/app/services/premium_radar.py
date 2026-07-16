@@ -231,9 +231,17 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
             # feed the measurement layer (read-only KPI + black-box instrumentation)
             try:
                 from . import opportunity_metrics as _om
+                # wave_n only matters at ignite: how many same-type strikes are
+                # loaded right now (chain-wave corroboration evidence)
+                wave_n = 0
+                if cs == "IGNITING":
+                    wave_n = sum(1 for k2, t2 in _tracks.items()
+                                 if t2.get("symbol") == symbol and t2.get("type") == typ
+                                 and t2.get("ever_coiled"))
                 _om.record(key, int(strike), typ, prem, m["rise_pct"], cs,
                            score=sc, velocity=m["velocity"], vol_delta=m["vol_delta"],
-                           oi_pct=m["oi_pct"], accel=m["accel"], now=now)
+                           oi_pct=m["oi_pct"], accel=m["accel"], now=now,
+                           symbol=symbol, wave_n=wave_n)
             except Exception:
                 pass  # measurement must never affect the radar
     # drop stale tracks (strike left the ATM window long ago)
