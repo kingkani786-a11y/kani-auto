@@ -842,3 +842,33 @@ loop — it can be built in parallel once the owner confirms priority. Layer 5
 (Risk Approval consolidation) + Position Size panel are the highest-value,
 doctrine-core pieces; layers 7/8 (User Confirm + active-trade tracker) next.
 Do NOT auto-build; each ships only if it measurably cuts risk or decision-time.
+
+---
+
+## #019 — Best Entry Engine (BEE) (owner, 2026-07-16) — EVIDENCE-GATED
+
+Vision: a layer above Early Entry — COIL → EARLY ENTRY → WAIT FOR RETEST →
+BEST ENTRY → STRONG ENTRY. Entry-state card (Watching/Early/Retest/BEST/Late),
+Best-Entry Score /100 (coil20 wave20 vwap15 adx10 volburst10 oi10 pullback10
+atr5), entry-quality meter, late-entry warning ("don't chase"), voice two-stage
+("Early detected — wait, possible better price" → "Best Entry ready — execute"),
+chart ⭐ ideal-entry marker.
+
+### The gate (owner's own discipline): BEE's premise is itself a HYPOTHESIS —
+"after the early alert the premium retests, and THAT is the best entry."
+The Ideal-Entry recorder (shipped 2026-07-16 night) measures exactly this:
+per alert, the lowest premium before the final peak → entry_edge (alert −
+ideal) and report-level retest_rate / avg_entry_edge.
+- retest_rate HIGH (say ≥60%) + avg edge meaningful (≥ a few ₹) ⇒ BEE justified;
+  build the WAIT-FOR-RETEST stage with data-derived retest depth/timeout.
+- retest_rate LOW ⇒ premiums mostly run straight from the alert ⇒ a "wait"
+  stage would systematically COST money ⇒ reject BEE, alert stays the entry.
+Decide on Friday 2026-07-18 data (+1-2 more sessions if borderline).
+Also needed before BEE UI: user-entry tracking (V5 L7) to measure the owner's
+ACTUAL entry vs ideal (today we can only measure alert vs ideal).
+
+### Owner-frozen status (2026-07-16 review, 9.5/10)
+Detection Engine FROZEN (capture 81.1%, delay 4.5s goal met) · Kill Switch
+FROZEN (session-scoped) · Wave recording COLLECT · Cold start OBSERVE (+ owner
+recommends 15-min premium-history seed on symbol switch as the eventual fix) ·
+Ideal-Entry metric RECORD (shipped) · Indicator Consensus STILL NO (evidence first).

@@ -94,6 +94,13 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
             "coil_ts": None, "move_start_ts": None, "move_start_prem": None,
             "alert_ts": None, "alert_prem": None, "alert_rise": None,
             "runner_ts": None, "runner_prem": None, "exhaust_ts": None,
+            # ideal-entry tracking (owner's missing KPI): after the alert, the
+            # lowest premium BEFORE the final peak = the best entry that was
+            # actually available. entry_edge = alert_prem − ideal_prem
+            # (>0 ⇒ a retest gave a better price than the alert moment — the
+            # evidence that decides the Best Entry Engine proposal #019).
+            "ideal_prem": None, "ideal_ts": None,
+            "_low_since_alert": None, "_low_ts": None,
             "reason": None, "traj": [], "last_traj_ts": 0.0, "started": now,
             # decision-engine + indicator context, snapshotted at the two moments
             # that answer "why": when the move was born (+5%) and when it became a
@@ -134,6 +141,13 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
     rise = (premium - ep["base"]) / ep["base"] * 100 if ep["base"] else 0.0
     if premium > ep["peak"]:
         ep["peak"], ep["peak_ts"] = premium, now
+        # a new peak: the post-alert low that PRECEDED it is the ideal entry
+        if ep["alert_ts"] is not None and ep["_low_since_alert"] is not None:
+            ep["ideal_prem"], ep["ideal_ts"] = ep["_low_since_alert"], ep["_low_ts"]
+    # running post-alert low (candidate ideal entry for the NEXT peak)
+    if ep["alert_ts"] is not None and (
+            ep["_low_since_alert"] is None or premium < ep["_low_since_alert"]):
+        ep["_low_since_alert"], ep["_low_ts"] = premium, now
     if ep["coil_ts"] is None and coil_state == "COILED":
         ep["coil_ts"] = now
     if ep["move_start_ts"] is None and rise >= STIR_PCT:
@@ -147,6 +161,9 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["reason"] = {"velocity": round(velocity, 2), "volume": vol_delta > 0,
                         "oi_pct": round(oi_pct, 1), "accel": accel > 0,
                         "wave_n": int(wave_n)}
+        # seed ideal-entry at the alert itself: straight-up runs get edge 0
+        ep["ideal_prem"], ep["ideal_ts"] = premium, now
+        ep["_low_since_alert"], ep["_low_ts"] = premium, now
     if ep["runner_ts"] is None and rise >= RUNNER_PCT and (premium - ep["base"]) >= MIN_RUNNER_PTS:
         ep["runner_ts"], ep["runner_prem"] = now, premium
         ep["snap_run"] = _engine_snapshot()     # what did the engine see when it ran?
@@ -300,6 +317,13 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         "peak_rise": c["peak_rise"], "delay_s": c["delay_s"],
         "reason": ep["reason"], "stability": c["stability"],
         "traj": ep["traj"], "capture": c["capture"], "outcome": c["outcome"],
+        # ideal-entry KPI: the best price actually available after the alert
+        "ideal_prem": round(ep["ideal_prem"], 2) if ep.get("ideal_prem") else None,
+        "t_ideal": _hhmmss(ep.get("ideal_ts")),
+        "entry_edge": (round(ep["alert_prem"] - ep["ideal_prem"], 2)
+                       if ep.get("alert_prem") and ep.get("ideal_prem") else None),
+        "ideal_wait_s": (round(ep["ideal_ts"] - ep["alert_ts"], 1)
+                         if ep.get("ideal_ts") and ep.get("alert_ts") else None),
         "root_cause": _root_cause(ep, c),        # WHY — the Evidence-Layer verdict
         "engine": ep.get("snap_run") or ep.get("snap_start"),  # decision context join
     }
@@ -345,6 +369,7 @@ def _row_from_bb(bb: dict[str, Any]) -> dict[str, Any]:
             "false_pos": outcome == "FALSE", "delay_s": bb.get("delay_s"),
             "potential": bb.get("potential") or 0.0, "captured": bb.get("captured") or 0.0,
             "lost": bb.get("lost") or 0.0, "stability": bb.get("stability"),
+            "entry_edge": bb.get("entry_edge"), "ideal_wait_s": bb.get("ideal_wait_s"),
             "root_cause": bb.get("root_cause")}
 
 
@@ -393,6 +418,13 @@ def report() -> dict[str, Any]:
         "avg_detection_delay_s": round(sum(delays) / len(delays), 1) if delays else None,
         "recovered_pct": recovered,
         "lost_pct": round(100 - recovered, 1) if recovered is not None else None,
+        # ideal-entry KPI (decides Best Entry Engine #019): how often a retest
+        # gave a better price than the alert, and by how much on average
+        "retest_rate": (lambda edges: round(
+            sum(1 for e in edges if e > 0.5) / len(edges) * 100, 1) if edges else None)(
+            [r.get("entry_edge") for r in rows if r.get("entry_edge") is not None]),
+        "avg_entry_edge": (lambda edges: round(sum(edges) / len(edges), 2) if edges else None)(
+            [r.get("entry_edge") for r in rows if r.get("entry_edge") is not None]),
         "root_causes": root_causes,   # {"KILL_SWITCH":6,"LOW_OI":4,…} — the "why" breakdown
         "avg_stability": int(round(sum(stabs) / len(stabs))) if stabs else None,
         "missed_money": [
