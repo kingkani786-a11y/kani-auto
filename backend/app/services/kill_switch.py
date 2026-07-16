@@ -48,9 +48,21 @@ def evaluate(data_quality: str, atr_pct: float, regime_score: float,
     if calibration_score is not None and calibration_score < MIN_CALIBRATION:
         reasons.append(f"Calibration {calibration_score:.0f} (< {MIN_CALIBRATION}) — forecasts mis-tuned")
         recovery.append(f"Calibration recovers to ≥ {MIN_CALIBRATION}")
-    # consecutive losses
-    tail = list(outcomes)[-MAX_CONSECUTIVE_LOSSES:]
-    if len(tail) >= MAX_CONSECUTIVE_LOSSES and all(o.get("win") == 0 for o in tail):
+    # consecutive losses — SESSION-SCOPED. The documented recovery is "next
+    # win, or new session", but the old check read the raw tail of a deque
+    # that persists across days, which deadlocked: the veto blocks new
+    # signals → no new outcomes → the stale 3-loss tail NEVER clears (it
+    # stayed tripped across 3 calendar days). Now only TODAY's settled
+    # outcomes count, so a new session genuinely resets it, exactly as the
+    # recovery text promised. Outcomes without a 'closed' ts (old rehydrated
+    # rows) count as previous-session and are excluded.
+    import datetime as _dt
+    from ..core.clock import IST as _IST
+    _day0 = _dt.datetime.now(_IST).replace(hour=0, minute=0, second=0,
+                                           microsecond=0).timestamp()
+    today_tail = [o for o in list(outcomes)
+                  if (o.get("closed") or 0) >= _day0][-MAX_CONSECUTIVE_LOSSES:]
+    if len(today_tail) >= MAX_CONSECUTIVE_LOSSES and all(o.get("win") == 0 for o in today_tail):
         reasons.append(f"{MAX_CONSECUTIVE_LOSSES} consecutive losses — step back")
         recovery.append("Next signal is a win, or new session")
 
