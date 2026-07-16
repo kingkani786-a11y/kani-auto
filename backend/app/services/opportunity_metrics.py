@@ -67,6 +67,7 @@ _eps: dict[str, dict[str, Any]] = {}     # live episode per strike key
 _closed: list[dict[str, Any]] = []       # completed episodes today (in-memory)
 _day: str | None = None
 _seq = 0                                 # opportunity number, per day
+_seen_keys: set[str] = set()             # keys tracked at least once today
 
 
 def _today() -> str:
@@ -77,7 +78,7 @@ def _roll_day() -> None:
     global _day, _seq
     d = _today()
     if d != _day:
-        _eps.clear(); _closed.clear(); _seq = 0
+        _eps.clear(); _closed.clear(); _seen_keys.clear(); _seq = 0
         _day = d
 
 
@@ -112,6 +113,18 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
     ep = _eps.get(key)
     if ep is None:
         ep = _eps[key] = _new_ep(strike, typ, premium, now)
+        # cold start: the radar began tracking this strike >15 min after IST
+        # open (symbol switch / ATM drift). Its "base" is whatever the premium
+        # happened to be at that moment — a move already underway can't coil
+        # and looks like a MISS. Flagged so the day report can separate
+        # cold-start artifacts from genuine detection misses (2026-07-16:
+        # all 12 misses were exactly this). Declared: 15 min.
+        if key not in _seen_keys:
+            _seen_keys.add(key)
+            ist = datetime.datetime.now(IST)
+            open_t = ist.replace(hour=9, minute=15, second=0, microsecond=0)
+            ep["cold_start"] = bool(ist > open_t and
+                                    (ist - open_t).total_seconds() > 15 * 60)
     if symbol:
         ep["symbol"] = symbol
 
@@ -277,6 +290,7 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
     c = _classify(ep)
     return {
         "n": _seq, "day": _day, "symbol": ep.get("symbol", ""),
+        "cold_start": bool(ep.get("cold_start")),
         "strike": ep["strike"], "type": ep["type"],
         "t_coil": _hhmmss(ep["coil_ts"]), "t_move_start": _hhmmss(ep["move_start_ts"]),
         "t_ignite": _hhmmss(ep["alert_ts"]), "t_runner": _hhmmss(ep["runner_ts"]),
