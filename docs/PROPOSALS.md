@@ -872,3 +872,39 @@ Detection Engine FROZEN (capture 81.1%, delay 4.5s goal met) · Kill Switch
 FROZEN (session-scoped) · Wave recording COLLECT · Cold start OBSERVE (+ owner
 recommends 15-min premium-history seed on symbol switch as the eventual fix) ·
 Ideal-Entry metric RECORD (shipped) · Indicator Consensus STILL NO (evidence first).
+
+---
+
+## #020 — IEIOS V2.0: Perfect Entry Intelligence Engine (owner, 2026-07-17)
+
+CANONICAL OBJECTIVE (owner's redefinition — supersedes "perfect entry = bottom"):
+an entry is PERFECT when it is (1) High-Probability, (2) Low-Risk (tight SL),
+(3) High Reward-to-Risk (≥1:2.5–1:3), (4) Timely (not late). Measured weekly by
+the Evidence Recorder — the engine self-evaluates and improves on these four.
+
+12-layer composite (weights): Market Context 20 · Price Action 20 · Smart Money
+20 · Indicator Consensus 15 · Entry Timing (BEE states WATCH/READY/IDEAL/LATE/
+MISS) 15 · + Move Prediction (SCALP/MEDIUM/BIG + prob) · Trade Plan (entry/
+ideal-entry/SL/T1-3/trail) · Entry Meter · Voice v2 ("BIG MOVE · Ideal Entry
+Zone ₹17.60 · window open · 91%") · Why-Buy · Why-Not · Outcome Recorder.
+
+### Honest map (2026-07-17)
+- L1 Market Context — EXISTS (regime/DNA/animal) → needs one composite % readout
+- L2 Price Action — PARTIAL (structure HH/HL, BOS exists; candle-pattern library
+  Engulf/Hammer/PinBar/3-Soldiers/Marubozu/Stars = NEW)
+- L3 Smart Money — EXISTS (OI/PCR/Greeks/gamma/chain-wave/coil/radar)
+- L4 Indicator Consensus — #018, STILL evidence-gated (false-rate + wave_n data)
+- L5 Entry Timing — BEE #019, gated on retest_rate/entry_edge (recorder live)
+- L6 Move Prediction (SCALP/MEDIUM/BIG + prob) — GENUINELY NEW; note: Expansion
+  Potential/Animal/Point-Capture ladder are cousins; a calibrated move-size
+  classifier needs the black-box move-size distribution (small/medium/big per
+  episode already derivable from `potential`) → buildable from evidence soon
+- L7-L11 — mostly EXIST (plan/meter/voice/why/whynot in various panels; V2 = 
+  consolidation into ONE decision view, per owner's earlier 3-section layout)
+- L12 Outcome Recorder — EXISTS (black box); weekly self-report = derivation
+
+### Gates (unchanged discipline)
+Nothing in V2.0 builds before its evidence gate: L4 needs false/wave data,
+L5 needs retest data, L6 needs move-size distribution from the black box.
+L2 candle library + L1 composite readout are deterministic/display and can be
+built next once the current evidence week concludes.
