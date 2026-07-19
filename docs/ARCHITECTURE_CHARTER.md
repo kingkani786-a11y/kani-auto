@@ -58,3 +58,35 @@ fabricated data. Informational only — not investment advice.
 ## Final mission
 Every module answers one question: **"Is this the highest-probability trade
 available right now, and if so, how should it be executed and managed?"**
+
+---
+
+# V2.1 Governance Charter (owner, 2026-07-17 evening)
+
+## The ten governance rules
+| # | Rule | Status map |
+|---|------|-----------|
+| 1 | **AI never guesses** — no data / poor quality / indicator conflict ⇒ WAIT; confidence never inflated | EXISTS (honest-UNKNOWN convention, data-quality gates, kill switch) |
+| 2 | **Every BUY earns its right** — Structure + Price Action + Institutional + Risk + Execution ALL PASS, else no BUY | EXISTS (11-layer checklist + final gate) — map to these 5 named pillars |
+| 3 | **Confidence is evidence** — 95% must decompose (Trend 19/20 + PA 18/20 + …= 95) | PARTIAL (WHY-CONFIDENCE has component weights → render as the /20 ledger) |
+| 4 | **Explain every BUY** | EXISTS (WHY panels) |
+| 5 | **Explain every WAIT** + expected wait (e.g. 2–4 candles) | EXISTS (WHY-NO-TRADE) + expected-wait estimate = NEW |
+| 6 | **Every miss teaches** — multi-question autopsy (late detection? wrong confirmation? liquidity? trap? human delay?) | PARTIAL (root_cause single tag → extend to autopsy checklist) |
+| 7 | **Perfect Entry Score** — A+…Reject with timing/risk/momentum/probability breakdown | PARTIAL (grades scattered → unify, = charter L7) |
+| 8 | **Entry Window Meter** — how long is this BUY valid, live countdown (OPEN 52s → Closing 12s) | NEW (window label exists; live seconds = new) |
+| 9 | **Confidence decay** — stale signal decays 95→91→87→81→WAIT; never hold an old BUY | PARTIAL (Signal-Aging/STALE exists → formalize the decay ramp) |
+| 10 | **Trade Personality** — SCALP / Momentum / Trend Runner / Expiry Gamma / Reversal per signal | EXISTS (Animal + regime playbook → surface as personality label) |
+
+## Decision Contract (the unifier — entry/hold/exit in ONE logic)
+Every BUY ships as a contract: action · confidence · risk · expected move ·
+expected holding time · RR · **pre-stated invalidations** (e.g. VWAP breakdown
+OR OI-support loss OR ADX<18) · and the standing instruction: invalidation ⇒
+EXIT immediately. The radar's AI-Thinking invalidation + decision SL/targets +
+exit intelligence merge into this single object. This is how the platform stops
+being a signal generator and becomes trade management (ties V5 L7 User-Confirm
+and L8 Trade Tracker together).
+
+## Mission statement (final)
+Not "what does this indicator say?" — but: "Combining ALL market evidence at
+this second, should a high-probability, low-risk, well-rewarded action be
+taken?" An Institutional Decision Engine.
