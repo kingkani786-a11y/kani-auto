@@ -87,6 +87,22 @@ def contract() -> dict[str, Any]:
                   "layer_breadth": round(breadth) if breadth is not None else None},
     }
 
+    # ── Evidence Ledger (C3, Rule 3): confidence decomposed into five named
+    # pillars, /20 each — confidence is EVIDENCE, not a number. Pillars map to
+    # published layer scores; a pillar with no data shows None, never 0.
+    def _p20(*names: str) -> int | None:
+        vals = [layers[n] for n in names if n in layers]
+        return round(sum(vals) / len(vals) / 100 * 20) if vals else None
+    ledger = [
+        {"pillar": "Trend", "score": _p20("Trend")},
+        {"pillar": "Price Action", "score": _p20("Structure", "MTF")},
+        {"pillar": "Institutional", "score": _p20("Institutional", "Smart Money", "OI")},
+        {"pillar": "Momentum/Flow", "score": _p20("Futures", "Liquidity", "Volume Profile")},
+        {"pillar": "Risk", "score": _p20("Risk")},
+    ]
+    known = [e["score"] for e in ledger if e["score"] is not None]
+    ledger_total = round(sum(known) / (len(known) * 20) * 100) if known else None
+
     exit_plan = {
         "stop_loss": dec.get("stop_loss"),
         "target1": dec.get("target1") or (dec.get("next_add_levels") or [None])[0],
@@ -99,6 +115,7 @@ def contract() -> dict[str, Any]:
         "confidence": conviction,
         "why": why,
         "entry_grade": entry_grade,
+        "ledger": ledger, "ledger_total": ledger_total,
         "risk": (state.risk or {}).get("capital_risk") or dec.get("grade"),
         "expected_move": dec.get("opportunity") or dec.get("market_state_label"),
         "reward_risk": dec.get("reward_risk"),

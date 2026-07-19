@@ -60,6 +60,26 @@ export function DecisionContract() {
         <div><div className="text-sm font-semibold tabular-nums text-white">{c.entry ?? "—"}</div><div className="text-[9px] text-terminal-muted">Entry ref</div></div>
       </div>
 
+      {/* Evidence Ledger — confidence decomposed (Rule 3) */}
+      {c.ledger_total != null && (
+        <div className="border-t border-terminal-border pt-2">
+          <div className="text-[10px] font-semibold text-terminal-muted uppercase tracking-wide mb-1">Evidence ledger</div>
+          <div className="space-y-0.5">
+            {(c.ledger || []).map((e: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-[11px]">
+                <span className="w-28 shrink-0 text-gray-200">{e.pillar}</span>
+                <div className="flex-1 h-1.5 bg-terminal-border rounded overflow-hidden">
+                  <div className={`h-full ${e.score == null ? "" : e.score >= 14 ? "bg-terminal-bull" : e.score >= 10 ? "bg-terminal-warn" : "bg-terminal-bear"}`}
+                    style={{ width: `${e.score == null ? 0 : (e.score / 20) * 100}%` }} />
+                </div>
+                <span className="w-10 text-right tabular-nums text-terminal-muted">{e.score == null ? "—" : `${e.score}/20`}</span>
+              </div>
+            ))}
+          </div>
+          <div className="text-[11px] text-white text-right mt-0.5 tabular-nums">Total <b>{c.ledger_total}/100</b></div>
+        </div>
+      )}
+
       {/* Invalidations — the pre-stated contract terms */}
       <div className="border border-terminal-bear/30 rounded p-2">
         <div className="text-[10px] font-semibold text-terminal-bear uppercase tracking-wide mb-0.5">Invalidation — exit IF</div>
