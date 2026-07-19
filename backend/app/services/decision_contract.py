@@ -103,6 +103,42 @@ def contract() -> dict[str, Any]:
     known = [e["score"] for e in ledger if e["score"] is not None]
     ledger_total = round(sum(known) / (len(known) * 20) * 100) if known else None
 
+    # ── Signal Aging (C4, Rule 9): stale signals decay — never hold an old BUY.
+    # Declared ramp: full strength ≤120s, then −2% per 30s. State labels:
+    # Fresh<2m · Good<5m · Old<10m · Weak<15m · STALE≥15m.
+    now = time.time()
+    sig_ts = sig.get("ts")
+    age_s = int(now - sig_ts) if sig_ts else None
+    decay_pct = 0.0
+    aged_conf = conviction
+    aging_state = None
+    if age_s is not None:
+        decay_pct = max(0.0, (age_s - 120) / 30.0 * 2.0)
+        if isinstance(conviction, (int, float)):
+            aged_conf = round(max(0.0, conviction * (1 - decay_pct / 100)), 1)
+        aging_state = ("Fresh" if age_s < 120 else "Good" if age_s < 300 else
+                       "Old" if age_s < 600 else "Weak" if age_s < 900 else "STALE")
+    aging = {"age_s": age_s, "state": aging_state,
+             "decay_pct": round(decay_pct, 1), "aged_confidence": aged_conf}
+
+    # ── Entry Window countdown (C5, Rule 8): seconds until the aged confidence
+    # crosses the 60% floor under the SAME declared ramp — derived, not invented.
+    # conf*(1-decay/100)=60 ⇒ decay*=(1-60/conf)*100 ⇒ age*=120+decay*/2*30.
+    window_s = None
+    if isinstance(conviction, (int, float)) and conviction > 0 and age_s is not None:
+        if conviction <= 60:
+            window_s = 0
+        else:
+            decay_star = (1 - 60.0 / conviction) * 100.0
+            age_star = 120 + decay_star / 2.0 * 30.0
+            window_s = max(0, int(age_star - age_s))
+    entry_window_live = {
+        "seconds_left": window_s,
+        "state": (None if window_s is None else
+                  "CLOSED" if window_s == 0 else
+                  "CLOSING" if window_s <= 30 else "OPEN"),
+    }
+
     exit_plan = {
         "stop_loss": dec.get("stop_loss"),
         "target1": dec.get("target1") or (dec.get("next_add_levels") or [None])[0],
@@ -116,6 +152,7 @@ def contract() -> dict[str, Any]:
         "why": why,
         "entry_grade": entry_grade,
         "ledger": ledger, "ledger_total": ledger_total,
+        "aging": aging, "entry_window_live": entry_window_live,
         "risk": (state.risk or {}).get("capital_risk") or dec.get("grade"),
         "expected_move": dec.get("opportunity") or dec.get("market_state_label"),
         "reward_risk": dec.get("reward_risk"),

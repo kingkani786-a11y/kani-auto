@@ -8,13 +8,19 @@ import { api } from "@/lib/api";
 
 export function DecisionContract() {
   const [c, setC] = useState<any>(null);
+  const [tick, setTick] = useState(0);          // 1s client tick for the countdown
   useEffect(() => {
-    const load = () => api.decisionContract().then(setC).catch(() => {});
+    const load = () => { api.decisionContract().then((d) => { setC(d); setTick(0); }).catch(() => {}); };
     load();
     const id = setInterval(load, 5000);
-    return () => clearInterval(id);
+    const t = setInterval(() => setTick((x) => x + 1), 1000);
+    return () => { clearInterval(id); clearInterval(t); };
   }, []);
   if (!c) return null;
+
+  const winLeft = c.entry_window_live?.seconds_left != null
+    ? Math.max(0, c.entry_window_live.seconds_left - tick) : null;
+  const winState = winLeft == null ? null : winLeft === 0 ? "CLOSED" : winLeft <= 30 ? "CLOSING" : "OPEN";
 
   const buy = c.is_trade;
   const head = buy
@@ -50,6 +56,31 @@ export function DecisionContract() {
             <div className="text-sm font-semibold tabular-nums text-white">{c.entry_grade.score}/100</div>
             <div className="text-[10px] text-terminal-muted">Entry Grade — conviction {c.entry_grade.parts?.conviction ?? "—"} · signal {c.entry_grade.parts?.signal_confidence ?? "—"} · breadth {c.entry_grade.parts?.layer_breadth ?? "—"}</div>
           </div>
+        </div>
+      )}
+
+      {/* Aging (Rule 9) + live Entry Window countdown (Rule 8) */}
+      {(c.aging?.state || winLeft != null) && (
+        <div className="flex flex-wrap items-center gap-2 text-[11px] border-t border-terminal-border pt-2">
+          {c.aging?.state && (
+            <span className={`px-1.5 py-0.5 rounded border ${
+              c.aging.state === "Fresh" ? "text-terminal-bull border-terminal-bull/40"
+              : c.aging.state === "STALE" ? "text-terminal-bear border-terminal-bear/40"
+              : "text-terminal-warn border-terminal-warn/40"}`}>
+              {c.aging.state}{c.aging.age_s != null ? ` · ${Math.floor(c.aging.age_s / 60)}m${c.aging.age_s % 60}s` : ""}
+            </span>
+          )}
+          {c.aging?.aged_confidence != null && c.aging?.decay_pct > 0 && (
+            <span className="text-terminal-muted">aged confidence <b className="text-white">{c.aging.aged_confidence}%</b> (−{c.aging.decay_pct}%)</span>
+          )}
+          {winLeft != null && (
+            <span className={`ml-auto font-bold tabular-nums px-1.5 py-0.5 rounded border ${
+              winState === "OPEN" ? "text-terminal-bull border-terminal-bull/40"
+              : winState === "CLOSING" ? "text-terminal-warn border-terminal-warn/40 animate-pulse"
+              : "text-terminal-bear border-terminal-bear/40"}`}>
+              ⏳ Entry window {winState}{winLeft > 0 ? ` · ${winLeft}s` : ""}
+            </span>
+          )}
         </div>
       )}
 
