@@ -38,6 +38,21 @@ export function DecisionContract() {
         </ul>
       </div>
 
+      {/* Unified Entry Grade — ONE grade, not five scores */}
+      {c.entry_grade?.score != null && (
+        <div className="flex items-center gap-3 border-t border-terminal-border pt-2">
+          <div className={`text-3xl font-bold ${
+            ["A+","A"].includes(c.entry_grade.grade) ? "text-terminal-bull"
+            : c.entry_grade.grade === "B" ? "text-terminal-warn" : "text-terminal-bear"}`}>
+            {c.entry_grade.grade}
+          </div>
+          <div>
+            <div className="text-sm font-semibold tabular-nums text-white">{c.entry_grade.score}/100</div>
+            <div className="text-[10px] text-terminal-muted">Entry Grade — conviction {c.entry_grade.parts?.conviction ?? "—"} · signal {c.entry_grade.parts?.signal_confidence ?? "—"} · breadth {c.entry_grade.parts?.layer_breadth ?? "—"}</div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center border-t border-terminal-border pt-2">
         <div><div className="text-sm font-semibold tabular-nums text-white">{c.confidence ?? "—"}{typeof c.confidence === "number" ? "%" : ""}</div><div className="text-[9px] text-terminal-muted">Confidence</div></div>
         <div><div className="text-sm font-semibold tabular-nums text-white">{c.reward_risk ? `1:${c.reward_risk}` : "—"}</div><div className="text-[9px] text-terminal-muted">R:R</div></div>

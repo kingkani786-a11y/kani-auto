@@ -67,6 +67,26 @@ def contract() -> dict[str, Any]:
                      key=lambda kv: kv[1], reverse=True)[:4]
         why = [f"{k} {int(v)}" for k, v in top] or ["No published reason — engine idle"]
 
+    # ── Unified Entry Grade (C2, charter L7): ONE grade instead of five
+    # scattered scores. Declared blend of already-published numbers — conviction
+    # (decision), signal confidence, and layer breadth. Not win-calibrated.
+    sig_conf = None
+    try:
+        sig_conf = float((sig.get("signal") or {}).get("confidence"))
+    except (TypeError, ValueError):
+        pass
+    breadth = (sum(1 for v in layers.values() if v >= 55) / len(layers) * 100) if layers else None
+    parts = [p for p in (conviction, sig_conf, breadth) if isinstance(p, (int, float))]
+    entry_score = round(sum(parts) / len(parts)) if parts else None
+    grade = (None if entry_score is None else
+             "A+" if entry_score >= 90 else "A" if entry_score >= 80 else
+             "B" if entry_score >= 70 else "C" if entry_score >= 60 else "D")
+    entry_grade = {
+        "grade": grade, "score": entry_score,
+        "parts": {"conviction": conviction, "signal_confidence": sig_conf,
+                  "layer_breadth": round(breadth) if breadth is not None else None},
+    }
+
     exit_plan = {
         "stop_loss": dec.get("stop_loss"),
         "target1": dec.get("target1") or (dec.get("next_add_levels") or [None])[0],
@@ -78,6 +98,7 @@ def contract() -> dict[str, Any]:
         "is_trade": is_trade,
         "confidence": conviction,
         "why": why,
+        "entry_grade": entry_grade,
         "risk": (state.risk or {}).get("capital_risk") or dec.get("grade"),
         "expected_move": dec.get("opportunity") or dec.get("market_state_label"),
         "reward_risk": dec.get("reward_risk"),
