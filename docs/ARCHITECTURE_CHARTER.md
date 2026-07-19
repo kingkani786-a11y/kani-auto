@@ -90,3 +90,9 @@ and L8 Trade Tracker together).
 Not "what does this indicator say?" — but: "Combining ALL market evidence at
 this second, should a high-probability, low-risk, well-rewarded action be
 taken?" An Institutional Decision Engine.
+
+## Rule 11 — Explain Before Execute (owner, 2026-07-19)
+The AI never outputs a bare BUY or NO TRADE. Every action ships with its
+because-clause (Trend + Institution + Momentum + Risk …), and every WAIT with
+its WHY. Implemented as the Decision Contract's mandatory `why` block —
+explainability is institutional table stakes.
