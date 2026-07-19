@@ -81,7 +81,7 @@ export function PremiumRadar() {
                 This reconciles with the Capture Score (only ✗ = a real miss). */}
             {missed.length > 0 && (
               <div className="border border-terminal-border rounded p-2 space-y-1">
-                <div className="text-[11px] font-semibold text-white">🏁 BIG MOVERS TODAY <span className="text-terminal-muted font-normal">(ran ≥30% — caught or missed)</span></div>
+                <div className="text-[11px] font-semibold text-white">🏁 BIG MOVERS TODAY <span className="text-terminal-muted font-normal">(ran ≥30% — badge = latest run; day totals in 🏆 Capture Score)</span></div>
                 {missed.map((m, i) => {
                   const badge = m.caught === "EARLY"
                     ? { t: "✓ caught early", c: "text-terminal-bull border-terminal-bull/40" }

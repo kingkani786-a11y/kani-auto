@@ -378,7 +378,10 @@ def run(
     rr_t1 = abs(targets[0] - spot) / risk_pts if risk_pts else 0.0
 
     # ---- Risk-Reward filter (V10): first target must clear 1:2 ----
-    if rr_t1 < 2.0:
+    # round to the displayed precision first: rr_t1 of 1.9999 printed as
+    # "2.00:1 — below the 1:2 minimum" (float artifact, owner-spotted 07-17);
+    # a ratio that DISPLAYS as 2.00 meets the minimum.
+    if round(rr_t1, 2) < 2.0:
         vetoes.append(f"reward:risk to T1 only {rr_t1:.2f}:1 — below the 1:2 minimum")
     # ---- strict entry completeness: every level must be present & sane ----
     levels_ok = all(x > 0 for x in (spot, abs(sl), *targets)) and risk_pts > 0
