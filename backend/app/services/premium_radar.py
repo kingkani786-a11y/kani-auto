@@ -224,9 +224,14 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 t["ever_coiled"] = True      # remember: this spring WAS loaded
             elif cs != "IGNITING":
                 t.pop("coil_since", None)
-                # the move resolved (ran away or went quiet) — forget the coil so
-                # a later unrelated rise can't claim a stale breakout
-                if m["rise_pct"] >= 20 or m["velocity"] <= 0:
+                # forget the coil ONLY on true resolution — the move ran away
+                # (≥20%) or genuinely faded back to base (<2% and falling).
+                # The old condition (any single velocity≤0 tick) erased the
+                # memory during normal pullbacks, so path-2 could never fire in
+                # the 5-20% window — Friday 2026-07-17 evidence: all 12 missed
+                # runners were coiled-but-never-ignited (~500 pts missed).
+                # Owner-approved detection change (the ONLY one this weekend).
+                if m["rise_pct"] >= 20 or (m["rise_pct"] < 2 and m["velocity"] < 0):
                     t.pop("ever_coiled", None)
             # feed the measurement layer (read-only KPI + black-box instrumentation)
             try:
