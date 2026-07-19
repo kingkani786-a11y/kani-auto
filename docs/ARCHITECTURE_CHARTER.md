@@ -96,3 +96,47 @@ The AI never outputs a bare BUY or NO TRADE. Every action ships with its
 because-clause (Trend + Institution + Momentum + Risk …), and every WAIT with
 its WHY. Implemented as the Decision Contract's mandatory `why` block —
 explainability is institutional table stakes.
+
+---
+
+# IEIOS V3.0 — Evidence Intelligence OS (owner, 2026-07-19) — PERMANENT VISION
+
+V2.1 foundations + five new evidence systems. Governance unchanged and absolute:
+AI may learn/analyse/compare/recommend/rank/measure/calibrate/hypothesise;
+AI must NOT modify rules, rewrite thresholds, change execution logic, deploy
+code, execute trades, or bypass human approval.
+
+## New systems over V2.1 (all evidence-gated, none built yet)
+1. **Historical Market Intelligence** — ~100 trading days via Dhan API (spot,
+   futures, chains, OI, premium, IV, greeks, VWAP, breadth, VIX, expiry/gap/
+   trend/range behaviour) → the Market Memory.
+   ⚠ HONEST CONSTRAINT (verify before promising): Dhan provides historical
+   CANDLES (spot/futures/index — 100d likely fine) but historical OPTION-CHAIN
+   SNAPSHOTS (per-day OI/IV/premium ladders) are generally NOT retro-fetchable.
+   Chain-history depth must be accumulated FORWARD (daily EOD snapshot job,
+   like the black box) — Market Memory matures over weeks, not on day one.
+2. **Market Memory Engine** — today vs history: "seen this before? N sessions
+   resemble → continuation 68% / range 21% / false-break 11%." PARTIAL today:
+   Market DNA (Phase 20) already does historical-similarity matching — V3.0
+   deepens it with the forward-accumulated chain library.
+3. **Strategy Ranking Engine** — Coil, Path-2, Wave, Momentum, Flow, PA, False-
+   Breakout, Liquidity-Sweep ranked ONLY by measured performance.
+   RECORD-OR-LOSE: the black box does not yet tag WHICH ignite path/strategy
+   fired each alert — that tag must be recorded before ranking is possible.
+4. **Confidence Calibration** — shown % auto-adjusted statistically from
+   realized outcomes (92% shown → 64% real ⇒ future display corrected).
+   Agreed sequencing: build after 2–3 weeks of black-box data.
+5. **Research AI** — continuous hypothesis generation ("VWAP delay may cut
+   false signals, expected +7%, evidence 2 days, confidence 81%") — every
+   hypothesis needs human approval (extends Weekend AI; Knowledge Law applies).
+
+## Success metrics (continuous)
+Capture Rate · Detection Delay · False Rate · Money Recovered · Missed Rate ·
+Entry-Grade Success · Calibration Error · Pattern Accuracy · Regime Accuracy ·
+Decision Consistency.
+
+## Sequencing note (validation lock, 2026-07-19)
+Monday = VALIDATE ONLY (C6 + V2.1 live). V3.0 systems build in evidence order:
+(a) forward chain-snapshot recorder + strategy-tag recorder (record-or-lose
+instrumentation — the raw material for 1/2/3/4), (b) then Market Memory
+derivations, (c) calibration after data depth, (d) Research AI last.
