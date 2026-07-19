@@ -29,6 +29,7 @@ import { HotNow } from "@/components/HotNow";
 import { EarlyWarning } from "@/components/EarlyWarning";
 import { CaptureScore } from "@/components/CaptureScore";
 import { RiskApproval } from "@/components/RiskApproval";
+import { DecisionContract } from "@/components/DecisionContract";
 import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { BuildVersion } from "@/components/BuildVersion";
@@ -187,6 +188,11 @@ export default function Dashboard() {
       {/* AI Thinking Now — the engine's live reasoning made visible */}
       <SafeBoundary name="AI Thinking">
         <AIThinkingPanel />
+      </SafeBoundary>
+
+      {/* 📜 Decision Contract — V2.1: entry/hold/exit as one object */}
+      <SafeBoundary name="Decision Contract">
+        <DecisionContract />
       </SafeBoundary>
 
       {/* 🔒 Risk Approval — V5 layer 5: capital & market safety gate before any BUY */}

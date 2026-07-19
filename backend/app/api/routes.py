@@ -385,6 +385,13 @@ async def risk_approval_ep():
     return risk_approval.approve()
 
 
+@router.get("/decision-contract")
+async def decision_contract_ep():
+    """Decision Contract (V2.1) — entry/hold/exit as one object. Read-only."""
+    from ..services import decision_contract
+    return decision_contract.contract()
+
+
 @router.get("/opportunity-log")
 async def opportunity_log_ep(limit: int = 50):
     """Opportunity Black Box — the durable per-opportunity learning log (today).

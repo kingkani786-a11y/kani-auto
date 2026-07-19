@@ -78,6 +78,7 @@ export const api = {
   premiumRadar: (top = 8) => req<any>(`/api/premium-radar?top=${top}`),
   opportunityMetrics: () => req<any>(`/api/opportunity-metrics`),
   riskApproval: () => req<any>(`/api/risk-approval`),
+  decisionContract: () => req<any>(`/api/decision-contract`),
   version: () => req<any>("/api/version"),
   systemVerify: () => req<any>("/api/system-verify"),
   aiChangelog: (limit = 30) => req<any>(`/api/ai-changelog?limit=${limit}`),
