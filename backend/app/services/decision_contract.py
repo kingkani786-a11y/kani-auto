@@ -65,6 +65,7 @@ def contract() -> dict[str, Any]:
                 "risk": None, "expected_move": None, "reward_risk": None,
                 "entry": None, "entry_window": None,
                 "exit_plan": {}, "trade_readiness": {"wave_direction": None, "premium_strength": None, "risk_approved": None},
+                "trade_light": {"color": "RED", "dot": "🔴", "label": "NO TRADE"},
                 "invalidations": [], "instruction": "Standing aside.",
                 "signal_ts": None, "as_of": int(time.time()),
                 "note": "Degraded honest fallback — display layer only."}
@@ -207,6 +208,23 @@ def _contract() -> dict[str, Any]:
         "risk_approved": risk_ok,                  # True/False/None(unknown)
     }
 
+    # ── AI Trade Light (owner, 2026-07-21 — a traffic signal a trader reads
+    # without parsing anything): pure lookup over the decision engine's own
+    # already-computed 9-state `primary_action` (decision.py) — no new state,
+    # no new gate, just a color name for a state that already exists.
+    _LIGHT = {
+        "FULL EXIT": ("BLACK", "⚫", "EXIT"),
+        "PARTIAL EXIT": ("BLUE", "🔵", "RUNNING"),
+        "TRAIL": ("BLUE", "🔵", "RUNNING"),
+        "HOLD": ("BLUE", "🔵", "RUNNING"),
+        "ENTER": ("GREEN", "🟢", "BUY"),
+        "PREPARE": ("YELLOW", "🟡", "PREPARE"),
+        "WATCH": ("YELLOW", "🟡", "PREPARE"),
+        "WAIT": ("RED", "🔴", "NO TRADE"),
+    }
+    _color, _dot, _label = _LIGHT.get(dec.get("primary_action"), ("RED", "🔴", "NO TRADE"))
+    trade_light = {"color": _color, "dot": _dot, "label": _label}
+
     return {
         "action": action,
         "is_trade": is_trade,
@@ -222,6 +240,7 @@ def _contract() -> dict[str, Any]:
         "entry_window": dec.get("entry_window"),
         "exit_plan": exit_plan,
         "trade_readiness": trade_readiness,
+        "trade_light": trade_light,
         "invalidations": _invalidations(dec, tech),
         "instruction": ("If ANY invalidation occurs → EXIT immediately."
                         if is_trade else

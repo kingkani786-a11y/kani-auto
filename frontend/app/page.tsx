@@ -196,7 +196,7 @@ export default function Dashboard() {
 
       {/* Premium Radar — the option buyer's live premium view (always-on) */}
       <SafeBoundary name="Premium Radar">
-        <PremiumRadar />
+        <PremiumRadar advanced={showAdvanced} />
       </SafeBoundary>
 
       {/* 🏆 Capture Score — dashboard health KPI (Missed/Late/Capture%), NOT a

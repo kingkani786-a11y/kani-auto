@@ -140,10 +140,48 @@ def _stars(score: int) -> int:
 # Owner's 3 macro-phases by %-rise from the session low.
 def _phase(rise_pct: float) -> dict[str, str]:
     if rise_pct >= 70:
-        return {"code": "RUNNER_CONFIRMED", "label": "RUNNER CONFIRMED", "dot": "🔴"}
+        return {"code": "RUNNER_CONFIRMED", "label": "EXPLODING", "dot": "🔴"}
     if rise_pct >= 30:
-        return {"code": "RUNNER_BUILDING", "label": "RUNNER BUILDING", "dot": "🟠"}
-    return {"code": "BUILDING", "label": "PREMIUM BUILDING", "dot": "🟢"}
+        return {"code": "RUNNER_BUILDING", "label": "GROWING", "dot": "🟠"}
+    return {"code": "BUILDING", "label": "BUILDING", "dot": "🟢"}
+
+
+# Owner's Runner-score interpretation bands (2026-07-21 UX review) — a pure
+# label over the already-computed runner_score, never a second decision gate.
+def _runner_band(score: int) -> str:
+    if score >= 80:
+        return "Institutional Runner"
+    if score >= 60:
+        return "BUY Candidate"
+    if score >= 40:
+        return "Ready"
+    if score >= 25:
+        return "Prepare"
+    return "Observe"
+
+
+# Owner's star-count meaning (2026-07-21) — label only, stars still from _stars().
+_STAR_LABEL = {1: "Observe", 2: "Watch", 3: "Prepare", 4: "Ready", 5: "Institutional"}
+
+
+def _star_label(n: int) -> str:
+    return _STAR_LABEL.get(n, "Observe")
+
+
+# Owner's 4-zone grouping (2026-07-21) — collapses "same strike shown in 6
+# places" into one bucket per strike. Same thresholds as her own worked
+# examples (Runner 82→BUY, 52→PREPARE, 31→WATCH). Zone, like runner_band, is
+# a pure relabel of runner_score — it groups the radar's existing opportunity
+# list, it is NOT a trade authorization; only the Decision Contract + Risk
+# Approval gate ever say BUY.
+def _zone(score: int) -> dict[str, str]:
+    if score >= 60:
+        return {"code": "BUY_CANDIDATE", "label": "BUY ZONE", "dot": "🟢"}
+    if score >= 40:
+        return {"code": "PREPARE", "label": "PREPARE ZONE", "dot": "🟠"}
+    if score >= 25:
+        return {"code": "WATCH", "label": "WATCH ZONE", "dot": "🟡"}
+    return {"code": "IGNORE", "label": "IGNORE", "dot": "⚪"}
 
 
 def _ladder(series) -> list[dict[str, Any]]:
@@ -417,6 +455,8 @@ def radar(top: int = 8) -> dict[str, Any]:
             "premium": m["premium"], "from_low": m["low"], "rise_pct": m["rise_pct"],
             "velocity": m["velocity"], "accel": m["accel"], "oi_pct": m["oi_pct"],
             "vol_delta": m["vol_delta"], "runner_score": score, "stars": _stars(score),
+            "runner_band": _runner_band(score), "star_label": _star_label(_stars(score)),
+            "zone": _zone(score),
             "stage": _stage(m), "phase": _phase(m["rise_pct"]),
             "ladder": _ladder(t["series"]), "checklist": chk,
             "checks_met": sum(chk.values()),
@@ -469,10 +509,23 @@ def radar(top: int = 8) -> dict[str, Any]:
     wave_types = {w["type"] for w in waves}
     for r in early:
         r["in_wave"] = r["type"] in wave_types
+
+    # ── Owner's 4-zone consolidation (2026-07-21): one bucket per strike
+    # instead of the same strike repeated across Leaders/Watchlist/Table.
+    # Grouped from the same `rows` (already scored) — no new computation.
+    _active = [r for r in rows if r["runner_score"] > 0]
+    zones = {
+        "buy": [r for r in _active if r["zone"]["code"] == "BUY_CANDIDATE"][:top],
+        "prepare": [r for r in _active if r["zone"]["code"] == "PREPARE"][:top],
+        "watch": [r for r in _active if r["zone"]["code"] == "WATCH"][:top],
+        "ignore_count": sum(1 for r in _active if r["zone"]["code"] == "IGNORE"),
+    }
+
     return {
         "movers": rows[:top],            # full radar table (kept)
         "leaders": leaders,              # 🔴/🟠 running now
         "watchlist": watchlist[:6],      # 🟢 building — watch before it runs
+        "zones": zones,                  # 🟢🟠🟡⚪ one-card-per-strike grouping
         "missed": missed[:6],            # peaked ≥30% today
         "early_warning": early[:5],      # ⚡ loading/igniting — catch it at birth
         "chain_wave": waves,             # 🌊 3+ same-type strikes = real direction

@@ -32,8 +32,25 @@ export function TradeNowCard() {
   const headBg = buy ? "border-terminal-bull/60 bg-terminal-bull/10" : "border-terminal-warn/40 bg-terminal-warn/5";
   const headIcon = buy ? "🟢" : c.action === "EXIT" ? "🔴" : "⏸";
 
+  // 🚦 AI Trade Light (owner, 2026-07-21) — one color, read without parsing
+  // anything. Pure lookup already computed server-side over the engine's own
+  // 9-state primary_action; not a second gate.
+  const light = c.trade_light || { color: "RED", dot: "🔴", label: "NO TRADE" };
+  const lightTone: Record<string, string> = {
+    RED: "bg-terminal-bear/15 text-terminal-bear border-terminal-bear/40",
+    YELLOW: "bg-terminal-warn/15 text-terminal-warn border-terminal-warn/40",
+    GREEN: "bg-terminal-bull/15 text-terminal-bull border-terminal-bull/40",
+    BLUE: "bg-sky-500/15 text-sky-400 border-sky-500/40",
+    BLACK: "bg-white/10 text-white border-white/30",
+  };
+
   return (
     <section className={`panel border-2 ${headBg} space-y-3`}>
+      <div className={`flex items-center justify-center gap-2 rounded border py-1 text-sm font-bold tracking-wide ${lightTone[light.color] || lightTone.RED}`}>
+        <span className="text-base">{light.dot}</span>
+        <span>{light.label}</span>
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="text-xl sm:text-2xl font-bold flex items-center gap-2">
           <span>{headIcon}</span>
