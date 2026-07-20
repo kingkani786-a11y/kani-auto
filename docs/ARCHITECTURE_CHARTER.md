@@ -238,3 +238,68 @@ A new AI layer ships ONLY if it is simultaneously:
    scores), and
 3. **Governed** (subject to human approval before any rule/threshold changes).
 Fail any one → do not build, regardless of how compelling the idea sounds.
+
+---
+
+# IEIOS V4.2 — Institutional Decision Governance (Final Governance Layer, owner 2026-07-20 night)
+
+## Rules
+1. **Decision ID** — every BUY/WAIT/EXIT gets a unique ID (timestamp-based),
+   carrying confidence/EV/RR/regime/supporting-evidence/outcome=Pending — full
+   audit trail per decision.
+2. **Confidence Calibration** — shown-% vs realized-win-% by confidence band
+   (92-100 → actual 91% ✓ / 80-90 → actual 64% ✗) — ties to V3/V4 calibration,
+   same 2-3wk data gate.
+3. **Expected Value on every recommendation** — EV(+1.87R)/RR/holding-time/
+   failure-probability alongside confidence, not confidence alone.
+4. **AI Self-Challenge MANDATORY** — Challenger AI (V4 layer 5) must run on
+   EVERY decision, not opportunistically — this hardens layer 5 from "exists"
+   to "always-on."
+5. **Decision Replay** — replay a single trade's own timeline (coil→volume-up→
+   trail-start→exit) so the AI can inspect "what did I know, when."
+6. **Strategy Lifecycle** — Created→Validated→Active→Weak→Retired; no strategy
+   is permanent, evidence-triggered retirement (ties to V4 Strategy Ranking).
+7. **Human Override Log** — record AI-said-X/user-did-Y/result-Z (both
+   directions: overridden-and-lost, overridden-and-won) to measure the AI
+   recommendation's own value net of the human's judgment.
+8. **Weekly Learning Report** — auto-generated: signal count, best/worst
+   strategy, accuracy, EV, new pattern, retire-candidate.
+
+## Final Institutional Rule (mission statement, supersedes prior phrasing)
+> "The AI's objective is not to predict the market. Its objective is to
+> maximize long-term risk-adjusted expected value through explainable,
+> evidence-backed, governed decisions."
+
+## Honest categorization against the Universal Build Gate (V4.1)
+Applying Measurable+Explainable+Governed to these 8, split by data-dependency
+(the same lens used for V4's 9 layers):
+
+**Buildable now (bookkeeping/architecture, NOT blocked on data maturity):**
+- Rule 1 (Decision ID) — pure tagging, strengthens the audit trail Monday's
+  own validation report needed (episodes already lack a stable ID across restarts).
+- Rule 4 (mandatory self-challenge) — formalizing an always-on requirement is
+  architecture, not history.
+- Rule 5 (Decision Replay) — the black box ALREADY carries coil/ignite/peak/
+  exhaust timestamps + score trajectory per episode; a replay view is a pure
+  derivation of data already captured, not new history.
+
+**Data-hungry (blocked until the stated gates clear):**
+- Rule 2 (Calibration) — needs 2-3wk (owner's own timeline, V3/V4).
+- Rule 3 (EV number) — a REAL expected-value figure needs realized win-rate
+  history; until then it would be a fabricated number wearing an EV label —
+  violates Rule 1 (AI never guesses). Defer with Calibration.
+- Rule 6 (Strategy Lifecycle) — needs the strategy-tag recorder (flagged
+  2026-07-17, still pending) before any strategy can be ranked or retired.
+- Rule 8 (Weekly Report) — needs a full week of clean post-C6 data.
+
+**Blocked on a DIFFERENT gap (not data-hungry, but missing a prerequisite):**
+- Rule 7 (Override Log) — needs V5 Layer 7 (User Confirm / actual-entry
+  tracking, noted since the V5 charter) to know what the user actually did;
+  the system cannot log an override it never observes.
+
+## Sequencing note (this section is the last vision addition per owner)
+No further architecture layers after V4.2 — the owner has closed the vision
+phase. All future work executes existing charter layers in evidence order,
+inside the validation discipline already governing C6 (3-day window) and
+calibration (2-3wk). The "buildable now" items above are NOTED, not started,
+absent a separate explicit go-ahead — they do not override the Tuesday lock.
