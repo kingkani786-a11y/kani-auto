@@ -64,7 +64,8 @@ def contract() -> dict[str, Any]:
                 "entry_window_live": {"seconds_left": None, "state": None},
                 "risk": None, "expected_move": None, "reward_risk": None,
                 "entry": None, "entry_window": None,
-                "exit_plan": {}, "invalidations": [], "instruction": "Standing aside.",
+                "exit_plan": {}, "trade_readiness": {"wave_direction": None, "premium_strength": None, "risk_approved": None},
+                "invalidations": [], "instruction": "Standing aside.",
                 "signal_ts": None, "as_of": int(time.time()),
                 "note": "Degraded honest fallback — display layer only."}
 
@@ -178,7 +179,32 @@ def _contract() -> dict[str, Any]:
     exit_plan = {
         "stop_loss": dec.get("stop_loss"),
         "target1": dec.get("target1") or (dec.get("next_add_levels") or [None])[0],
+        "target2": dec.get("target2"),
+        "target3": dec.get("target3"),
         "trail": "After T1 — trail to cost, then EMA/structure" if is_trade else None,
+    }
+
+    # ── Trade Readiness (owner, 2026-07-21 — the "Simple Mode" hero fields):
+    # a display-only alignment check over signals ALREADY computed elsewhere
+    # (premium_radar's chain-wave + phase, Risk Approval's gate). NEVER a
+    # second decision gate — the real gate stays Kill Switch/Risk Approval;
+    # this only explains, in plain words, what's already true.
+    try:
+        from . import premium_radar as _radar, risk_approval as _ra
+        _rr = _radar.radar(top=1)
+        _waves = _rr.get("chain_wave") or []
+        wave_dir = _waves[0]["direction"] if _waves else None
+        _leaders = (_rr.get("leaders") or []) + (_rr.get("watchlist") or [])
+        _phase_code = _leaders[0].get("phase", {}).get("code") if _leaders else None
+        premium_strength = ({"BUILDING": "Weak", "RUNNER_BUILDING": "Moderate",
+                             "RUNNER_CONFIRMED": "Strong"}.get(_phase_code))
+        risk_ok = _ra.approve().get("status") == "APPROVED"
+    except Exception:
+        wave_dir, premium_strength, risk_ok = None, None, None
+    trade_readiness = {
+        "wave_direction": wave_dir,               # "up" | "down" | None
+        "premium_strength": premium_strength,      # Weak/Moderate/Strong | None
+        "risk_approved": risk_ok,                  # True/False/None(unknown)
     }
 
     return {
@@ -195,6 +221,7 @@ def _contract() -> dict[str, Any]:
         "entry": dec.get("entry"),
         "entry_window": dec.get("entry_window"),
         "exit_plan": exit_plan,
+        "trade_readiness": trade_readiness,
         "invalidations": _invalidations(dec, tech),
         "instruction": ("If ANY invalidation occurs → EXIT immediately."
                         if is_trade else
