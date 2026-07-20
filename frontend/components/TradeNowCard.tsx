@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { BuyChecklist } from "@/components/BuyChecklist";
 
 const GRADE_STARS: Record<string, number> = { "A+": 5, A: 4, B: 3, C: 2, D: 1 };
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
@@ -28,9 +29,7 @@ export function TradeNowCard() {
   const n = grade ? GRADE_STARS[grade] ?? 0 : 0;
   const tr = c.trade_readiness || {};
 
-  const headColor = buy ? "text-terminal-bull" : "text-terminal-warn";
   const headBg = buy ? "border-terminal-bull/60 bg-terminal-bull/10" : "border-terminal-warn/40 bg-terminal-warn/5";
-  const headIcon = buy ? "🟢" : c.action === "EXIT" ? "🔴" : "⏸";
 
   // 🚦 AI Trade Light (owner, 2026-07-21) — one color, read without parsing
   // anything. Pure lookup already computed server-side over the engine's own
@@ -46,20 +45,20 @@ export function TradeNowCard() {
 
   return (
     <section className={`panel border-2 ${headBg} space-y-3`}>
-      <div className={`flex items-center justify-center gap-2 rounded border py-1 text-sm font-bold tracking-wide ${lightTone[light.color] || lightTone.RED}`}>
-        <span className="text-base">{light.dot}</span>
-        <span>{light.label}</span>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-          <span>{headIcon}</span>
-          <span className={headColor}>{c.action || "WAIT"}</span>
+      {/* ONE verdict, stated ONCE (owner 2026-07-21: "ஒரே BUY/WAIT verdict ஒரு
+          இடத்தில் மட்டும்"). This card used to print the Trade Light label AND
+          a separate action headline — "🔴 NO TRADE" stacked directly above
+          "⏸ WAIT" — recreating inside the hero exactly the duplication that
+          had just been removed between cards. The Trade Light IS the verdict. */}
+      <div className={`flex items-center justify-between rounded border px-3 py-2 ${lightTone[light.color] || lightTone.RED}`}>
+        <div className="flex items-center gap-2 text-xl sm:text-2xl font-bold tracking-wide">
+          <span>{light.dot}</span>
+          <span>{light.label}</span>
         </div>
         {grade && (
           <div className="text-right">
-            <div className={`text-2xl font-bold ${n >= 4 ? "text-terminal-bull" : n === 3 ? "text-terminal-warn" : "text-terminal-bear"}`}>{grade}</div>
-            <div className="text-xs text-terminal-warn tracking-wide">{stars(n)}</div>
+            <div className="text-2xl font-bold leading-none">{grade}</div>
+            <div className="text-xs tracking-wide opacity-80">{stars(n)}</div>
           </div>
         )}
       </div>
@@ -115,28 +114,12 @@ export function TradeNowCard() {
         </span>
       </div>
 
-      {/* BUY Checklist (owner, 2026-07-21) — her fixed 4-item pre-buy check.
-          Same booleans as the alignment chips above, just spelled out as a
-          checklist instead of read-the-numbers. Still not a second gate. */}
-      <div>
-        <div className="text-[10px] font-semibold text-terminal-muted uppercase tracking-wide mb-0.5">BUY Checklist</div>
-        <ul className="text-xs text-gray-200 space-y-0.5">
-          {([
-            ["premium_building", "Premium Building"],
-            ["institutional_flow", "Institutional Flow"],
-            ["wave_confirmed", "Wave Confirmed"],
-            ["risk_gate_pass", "Risk Gate PASS"],
-          ] as const).map(([key, label]) => {
-            const pass = !!c.buy_checklist?.[key];
-            return (
-              <li key={key} className="flex gap-1.5">
-                <span className={pass ? "text-terminal-bull" : "text-terminal-muted"}>{pass ? "✔" : "✗"}</span>{label}
-              </li>
-            );
-          })}
-        </ul>
-        {c.why?.[0] && <div className="text-[11px] text-terminal-muted mt-1">{c.why[0]}</div>}
-      </div>
+      {/* BUY Checklist — rendered from the contract's shared `buy_checklist`
+          object, the SAME one AI Thinking renders (owner 2026-07-21). ○ means
+          NOT MEASURED (e.g. Structure, pending the Market Structure Engine) —
+          deliberately not a ✗, because "can't see it" ≠ "it failed". */}
+      <BuyChecklist c={c} />
+      {c.why?.[0] && <div className="text-[11px] text-terminal-muted">{c.why[0]}</div>}
 
       <div className="text-[10px] text-terminal-muted border-t border-terminal-border pt-1.5">
         Move probability (Big/Medium/Small) not yet available — needs more black-box history. Radar observes, the engine decides; this card only explains the decision already made.

@@ -42,7 +42,11 @@ export function DecisionContract() {
           <div className="col-span-2 sm:col-span-1"><div className="text-[11px] font-semibold text-white truncate" title={exitIf}>{exitIf || "—"}</div><div className="text-[9px] text-terminal-muted">EXIT IF</div></div>
         </div>
       ) : (
-        <div className="text-xs text-terminal-muted">{c.why?.[0] || "Standing aside — re-evaluated every engine cycle."}</div>
+        // Deliberately does NOT repeat the hero's reason line — on a WAIT the
+        // dashboard was printing "No published reason — engine idle" twice,
+        // once here and once in Trade Now (owner 2026-07-21: one verdict, one
+        // place). There is no entry/stop/target to contract when standing aside.
+        <div className="text-xs text-terminal-muted">No active contract — entry, stop and targets appear when the engine arms a trade.</div>
       )}
     </section>
   );

@@ -133,8 +133,33 @@ def _coil(m: dict[str, Any], was_coiled: bool = False) -> dict[str, Any]:
     return {"state": "NONE", "dot": "", "strength": 0, "note": ""}
 
 
+# ── THE runner threshold table (owner, 2026-07-21). ONE definition drives
+# band + tag + stars + zone, so they can never disagree again. Previously
+# `_stars` used its own 1+score//20 formula (cuts at 20/40/60/80) while the
+# bands cut at 25/40/60/80 — which made Runner 82 show 5★ when the owner's
+# own spec says 82 → READY → ★★★★☆. Boundaries are the owner's:
+#   0-29 Ignore · 30-49 Watch · 50-69 Prepare · 70-84 Ready · 85-100 Buy Candidate
+# Rule: "70க்கு கீழே நான் entry பார்க்க மாட்டேன்" (no entry below 70) — so the
+# actionable BUY ZONE starts at 70, and 85+ is the strongest grade within it.
+# These are DISPLAY LABELS over an already-computed score. They gate nothing;
+# only Kill Switch + Risk Approval + the execution gate ever gate a trade.
+_RUNNER_TABLE = [
+    # min, band label,        tag,             dot, stars, zone code,       zone label,      zone dot
+    (85, "Buy Candidate",     "BUY CANDIDATE", "🚀", 5, "BUY_CANDIDATE", "BUY ZONE",     "🟢"),
+    (70, "Ready",             "READY",         "🟢", 4, "BUY_CANDIDATE", "BUY ZONE",     "🟢"),
+    (50, "Prepare",           "PREPARE",       "🟡", 3, "PREPARE",       "PREPARE ZONE", "🟠"),
+    (30, "Watch",             "WATCH",         "👀", 2, "WATCH",         "WATCH ZONE",   "🟡"),
+    (0,  "Ignore",            "IGNORE",        "⚪", 1, "IGNORE",        "IGNORE",       "⚪"),
+]
+
+
+def _runner_row(score: int) -> tuple:
+    s = max(0, min(100, int(score)))
+    return next(r for r in _RUNNER_TABLE if s >= r[0])
+
+
 def _stars(score: int) -> int:
-    return max(1, min(5, 1 + score // 20))
+    return _runner_row(score)[4]
 
 
 # Owner's 3 macro-phases by %-rise from the session low. `action` (2026-07-21
@@ -148,56 +173,30 @@ def _phase(rise_pct: float) -> dict[str, str]:
     return {"code": "BUILDING", "label": "BUILDING", "dot": "🟢", "action": "Early"}
 
 
-# Owner's Runner-score interpretation bands (2026-07-21 UX review) — a pure
-# label over the already-computed runner_score, never a second decision gate.
+# All four label views below are pure lookups into _RUNNER_TABLE above —
+# no thresholds are written twice anywhere in this file.
 def _runner_band(score: int) -> str:
-    if score >= 80:
-        return "Institutional Runner"
-    if score >= 60:
-        return "BUY Candidate"
-    if score >= 40:
-        return "Ready"
-    if score >= 25:
-        return "Prepare"
-    return "Observe"
-
-
-# Owner's star-count meaning (2026-07-21) — label only, stars still from _stars().
-_STAR_LABEL = {1: "Observe", 2: "Watch", 3: "Prepare", 4: "Ready", 5: "Institutional"}
+    return _runner_row(score)[1]
 
 
 def _star_label(n: int) -> str:
-    return _STAR_LABEL.get(n, "Observe")
+    """Star MEANING (owner 2026-07-21): 1 Ignore · 2 Watch · 3 Prepare ·
+    4 Ready · 5 Buy Candidate — the same words as the runner band, because
+    stars are now derived from the same table."""
+    return next((r[1] for r in _RUNNER_TABLE if r[4] == max(1, min(5, int(n)))), "Ignore")
 
 
-# Owner's 4-zone grouping (2026-07-21) — collapses "same strike shown in 6
-# places" into one bucket per strike. Same thresholds as her own worked
-# examples (Runner 82→BUY, 52→PREPARE, 31→WATCH). Zone, like runner_band, is
-# a pure relabel of runner_score — it groups the radar's existing opportunity
-# list, it is NOT a trade authorization; only the Decision Contract + Risk
-# Approval gate ever say BUY.
-def _zone(score: int) -> dict[str, str]:
-    if score >= 60:
-        return {"code": "BUY_CANDIDATE", "label": "BUY ZONE", "dot": "🟢"}
-    if score >= 40:
-        return {"code": "PREPARE", "label": "PREPARE ZONE", "dot": "🟠"}
-    if score >= 25:
-        return {"code": "WATCH", "label": "WATCH ZONE", "dot": "🟡"}
-    return {"code": "IGNORE", "label": "IGNORE", "dot": "⚪"}
-
-
-# Owner's follow-up (2026-07-21): a bare "Runner 23" tells a new user nothing
-# — every number needs an interpretation next to it. Same verified boundaries
-# as _zone() above, just the compact inline wording she asked for this round
-# (TOO EARLY/PREPARE/READY/BUY) instead of the zone-header wording ("...ZONE").
 def _runner_tag(score: int) -> dict[str, str]:
-    if score >= 60:
-        return {"label": "BUY", "dot": "🚀"}
-    if score >= 40:
-        return {"label": "READY", "dot": "🟢"}
-    if score >= 25:
-        return {"label": "PREPARE", "dot": "🟡"}
-    return {"label": "TOO EARLY", "dot": "❌"}
+    r = _runner_row(score)
+    return {"label": r[2], "dot": r[3]}
+
+
+# Zone grouping — the same table, collapsed to the 4 opportunity buckets the
+# dashboard renders. BUY ZONE starts at 70 per the owner's entry rule.
+# A zone is NOT a trade authorization; only the engine gate ever says BUY.
+def _zone(score: int) -> dict[str, str]:
+    r = _runner_row(score)
+    return {"code": r[5], "label": r[6], "dot": r[7]}
 
 
 def _ladder(series) -> list[dict[str, Any]]:

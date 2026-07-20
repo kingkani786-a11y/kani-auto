@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { BuyChecklist } from "@/components/BuyChecklist";
 
 function Spark({ data }: { data: number[] }) {
   if (!data || data.length < 2) return null;
@@ -27,8 +28,12 @@ function Spark({ data }: { data: number[] }) {
 
 export function AIThinkingPanel() {
   const [t, setT] = useState<any>(null);
+  const [c, setC] = useState<any>(null);   // the shared BUY checklist object
   useEffect(() => {
-    const load = () => api.premiumRadar(8).then((d: any) => setT(d?.thinking || null)).catch(() => {});
+    const load = () => {
+      api.premiumRadar(8).then((d: any) => setT(d?.thinking || null)).catch(() => {});
+      api.decisionContract().then(setC).catch(() => {});
+    };
     load(); const id = setInterval(load, 4000); return () => clearInterval(id);
   }, []);
 
@@ -46,9 +51,14 @@ export function AIThinkingPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
         <div className="space-y-1">
           <div><span className="text-terminal-muted">Watching </span><b className="text-white">{t.watching}</b> <span className={`${t.phase?.code === "RUNNER_CONFIRMED" ? "text-terminal-bear" : t.phase?.code === "RUNNER_BUILDING" ? "text-terminal-warn" : "text-terminal-bull"}`}>{t.phase?.dot} {t.phase?.label}{t.phase?.action ? ` (${t.phase.action})` : ""}</span></div>
-          {/* WHY BUY checklist (owner, 2026-07-21 follow-up: "Paragraph-ஐ
-              Checklist ஆக மாற்ற வேண்டும்") — same confirmed/missing data,
-              rendered one item per line instead of a joined sentence. */}
+          {/* THE shared BUY checklist — same backend object as the hero
+              (owner 2026-07-21). This panel used to render the radar's own 4
+              checks (Premium velocity / Velocity rising / Volume expansion /
+              OI build-up), which is a DIFFERENT list from the hero's — two
+              "checklists" that could disagree on screen. Radar confirmations
+              still shown below, clearly labelled as radar-only. */}
+          <BuyChecklist c={c} compact />
+          <div className="text-[10px] text-terminal-muted pt-1">RADAR CONFIRMATIONS (this strike only)</div>
           <ul className="space-y-0.5">
             {t.confirmed.map((label: string, i: number) => (
               <li key={`c${i}`} className="text-terminal-bull">✔ {label}</li>

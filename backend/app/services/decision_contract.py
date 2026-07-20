@@ -67,8 +67,7 @@ def contract() -> dict[str, Any]:
                 "exit_plan": {}, "trade_readiness": {"wave_direction": None, "premium_strength": None, "risk_approved": None},
                 "trade_light": {"color": "RED", "dot": "🔴", "label": "NO TRADE"},
                 "best_strike": None,
-                "buy_checklist": {"premium_building": False, "institutional_flow": False,
-                                  "wave_confirmed": False, "risk_gate_pass": False},
+                "buy_checklist": [], "buy_checklist_score": {"passed": 0, "measured": 0, "total": 7},
                 "invalidations": [], "instruction": "Standing aside.",
                 "signal_ts": None, "as_of": int(time.time()),
                 "note": "Degraded honest fallback — display layer only."}
@@ -265,13 +264,37 @@ def _contract() -> dict[str, Any]:
     # her 4-item WHY-BUY checklist, each a pure boolean read of a number this
     # contract already computed above (ledger, trade_readiness) — display
     # only, no new gate. The real gate stays Kill Switch + Risk Approval.
+    # ONE checklist object (owner 2026-07-21: "Hero மற்றும் AI Thinking இரண்டும்
+    # ஒரே backend object-ஐ render செய்ய வேண்டும்"). Previously the hero rendered
+    # these 4 booleans while AI Thinking rendered the radar's OWN 4 different
+    # checks — two "checklists" that could disagree on screen. Both now render
+    # this list. `ok` is True / False / None, where None means NOT MEASURABLE
+    # YET — never shown as a ✗, because "we can't see it" is not "it failed".
     _inst_pillar = next((e["score"] for e in ledger if e["pillar"] == "Institutional"), None)
-    buy_checklist = {
-        "premium_building": premium_strength in ("Moderate", "Strong"),
-        "institutional_flow": isinstance(_inst_pillar, (int, float)) and _inst_pillar >= 14,
-        "wave_confirmed": wave_dir is not None,
-        "risk_gate_pass": risk_ok is True,
-    }
+    _vol = layers.get("Volume Profile")
+    _cal = ((dec.get("ai_trust") or {}).get("components") or {}).get("calibration")
+    buy_checklist = [
+        {"key": "premium_building", "label": "Premium Building",
+         "ok": premium_strength in ("Moderate", "Strong")},
+        {"key": "institutional_flow", "label": "Institutional Flow",
+         "ok": _inst_pillar >= 14 if isinstance(_inst_pillar, (int, float)) else None},
+        {"key": "wave_confirmed", "label": "Wave Confirmed", "ok": wave_dir is not None},
+        {"key": "risk_gate", "label": "Risk Gate PASS", "ok": risk_ok},
+        {"key": "volume", "label": "Volume",
+         "ok": _vol >= 55 if isinstance(_vol, (int, float)) else None},
+        {"key": "calibration", "label": "Calibration",
+         "ok": _cal >= 55 if isinstance(_cal, (int, float)) else None},
+        # Structure stays UNMEASURED on purpose. The owner's instruction was
+        # explicit: BOS/CHOCH/HH/HL/LH/LL must exist first — "இவை வந்த பிறகுதான்
+        # 'Structure ✔' checklist-ல் சேர்க்க வேண்டும்". A generic structure layer
+        # score exists, but passing it off as this check would be exactly the
+        # fabricated confirmation the charter forbids.
+        {"key": "structure", "label": "Structure", "ok": None,
+         "note": "Market Structure Engine not built — not measured"},
+    ]
+    _known = [c["ok"] for c in buy_checklist if c["ok"] is not None]
+    buy_checklist_score = {"passed": sum(1 for v in _known if v),
+                           "measured": len(_known), "total": len(buy_checklist)}
 
     return {
         "action": action,
@@ -291,6 +314,7 @@ def _contract() -> dict[str, Any]:
         "trade_light": trade_light,
         "best_strike": best_strike,
         "buy_checklist": buy_checklist,
+        "buy_checklist_score": buy_checklist_score,
         "invalidations": _invalidations(dec, tech),
         "instruction": ("If ANY invalidation occurs → EXIT immediately."
                         if is_trade else
