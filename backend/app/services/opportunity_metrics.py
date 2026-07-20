@@ -68,6 +68,9 @@ _closed: list[dict[str, Any]] = []       # completed episodes today (in-memory)
 _day: str | None = None
 _seq = 0                                 # opportunity number, per day
 _seen_keys: set[str] = set()             # keys tracked at least once today
+_last_ckpt = 0.0                         # last open-episode checkpoint write
+_restored = False                        # open episodes restored after (re)start?
+CKPT_EVERY_S = 10                        # checkpoint cadence (measurement only)
 
 
 def _today() -> str:
@@ -80,6 +83,49 @@ def _roll_day() -> None:
     if d != _day:
         _eps.clear(); _closed.clear(); _seen_keys.clear(); _seq = 0
         _day = d
+
+
+def _ckpt_path() -> pathlib.Path:
+    return _LOG_DIR / f"{_day}.open.json"
+
+
+def _checkpoint_open(now: float) -> None:
+    """P0 (owner, 2026-07-20): open episodes are the day's live measurement —
+    the watchdog restarts the backend routinely (~20× since Jul-10), and every
+    restart used to erase them (8 EARLY vanished from the 10:35 report). Write
+    the open set durably every ~10s so a restart never loses measurement again.
+    Never allowed to crash the scan path."""
+    global _last_ckpt
+    if now - _last_ckpt < CKPT_EVERY_S:
+        return
+    _last_ckpt = now
+    try:
+        _LOG_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = _ckpt_path().with_suffix(".tmp")
+        tmp.write_text(json.dumps({"day": _day, "seq": _seq,
+                                   "seen": sorted(_seen_keys), "eps": _eps}))
+        tmp.replace(_ckpt_path())
+    except Exception:
+        pass
+
+
+def _restore_open() -> None:
+    """After a (re)start, resurrect the same day's open episodes so capture/
+    early/delay KPIs and in-flight coil/ideal-entry tracking continue unbroken."""
+    global _restored, _seq
+    _restored = True
+    try:
+        p = _ckpt_path()
+        if not p.exists():
+            return
+        snap = json.loads(p.read_text())
+        if snap.get("day") != _day:
+            return
+        _eps.update(snap.get("eps") or {})
+        _seen_keys.update(snap.get("seen") or [])
+        _seq = max(_seq, int(snap.get("seq") or 0))
+    except Exception:
+        pass
 
 
 def _hhmmss(ts: float | None) -> str | None:
@@ -117,6 +163,8 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         return
     _roll_day()
     now = now or time.time()
+    if not _restored:
+        _restore_open()          # resurrect same-day open episodes post-restart
     ep = _eps.get(key)
     if ep is None:
         ep = _eps[key] = _new_ep(strike, typ, premium, now)
@@ -187,6 +235,8 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
     if moved and exhausted and now - ep["peak_ts"] > CLOSE_GAP_S:
         _close_episode(ep)
         _eps[key] = _new_ep(strike, typ, premium, now)
+
+    _checkpoint_open(now)        # P0: durable open-episode snapshot (~10s)
 
 
 def _engine_snapshot() -> dict[str, Any]:
