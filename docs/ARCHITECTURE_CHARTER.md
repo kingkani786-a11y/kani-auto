@@ -140,3 +140,54 @@ Monday = VALIDATE ONLY (C6 + V2.1 live). V3.0 systems build in evidence order:
 (a) forward chain-snapshot recorder + strategy-tag recorder (record-or-lose
 instrumentation — the raw material for 1/2/3/4), (b) then Market Memory
 derivations, (c) calibration after data depth, (d) Research AI last.
+
+---
+
+# IEIOS V4.0 — Institutional AI Decision Platform (owner, 2026-07-20 evening)
+
+Terminal architecture vision, layered on top of the observe→understand→predict→
+decide→execute→learn→self-evaluate→research→knowledge-update loop used by
+frontier AI systems. NINE new layers over V3.0:
+
+1. **AI Research Engine** — nightly: winner/loser commonalities, why-late, why-
+   miss, best/worst RR setup → dated Research Reports ("Path2 works better after
+   11:20, 86% prob, recommend confidence +4%") → PENDING APPROVAL, never auto-applied.
+2. **Knowledge Graph** — not facts, RELATIONSHIPS (Narrow CPR → Big Move → Low
+   VIX → OI Build → Coil → Path2 → Winner). The structure GPT-style systems lean on.
+3. **Market DNA (deepened)** — daily/weekly/monthly DNA, not just 100-day
+   candles; "today resembles 12-Mar-2026 at 82% similarity → big move after
+   11:40 that day."
+4. **Multi-Agent AI** — 5 opinion-agents (Price Action / Flow / Option / Risk /
+   Research) + a Judge AI for final synthesis — reduces single-model hallucination.
+5. **Challenger AI** — every BUY/WAIT/EXIT gets a formal "why NOT" debate
+   (extends Rule 11 + Devil's Advocate already in Decision Intelligence).
+6. **Confidence Calibration** — shown 90% vs realized win-rate, continuously
+   measured and corrected (ties to V3.0 Confidence Calibration, same gate).
+7. **Strategy Ranking** — Path2/Coil/ChainWave/etc ranked by 100-day measured
+   win%+RR, AI-generated table, never hand-written.
+8. **Market Regime Memory** — trending/range/expiry/holiday/gap/event days each
+   carry their own learned behaviour profile.
+9. **Continuous Learning discipline** (reaffirms V3.0 governance): Observation →
+   Research → Suggestion → HUMAN APPROVAL → Deploy. AI never rewrites its own
+   rules — restated here because it is the hinge the other 8 layers depend on.
+
+## Explicitly rejected (owner, cost > benefit)
+40+ raw indicators · duplicate scores · unexplainable deep-net predictions ·
+AI auto-order execution · confidence scores that can't be explained.
+
+## V4 pipeline (canonical, supersedes prior diagrams)
+Market Data → Market Intelligence → Detection Engine → Institutional Decision
+Engine → Decision Contract → Execution Intelligence → Trade Review → Black Box
+Recorder → Research AI → Knowledge Graph → Market DNA → Strategy Ranking →
+Confidence Calibration → Human Approval → Production.
+
+## Build gate (unchanged discipline, stated explicitly for V4)
+Layers 1/2/3/6/7/8 are DATA-HUNGRY — they derive patterns/relationships/
+calibration/rankings FROM the black box, which as of 2026-07-20 has ~1 mixed-
+result validation day (C6 needs 3: Mon done, Tue+Wed pending). Building any of
+these now would be fitting a model to one noisy day. Sequencing: finish the 3-
+day C6 window → let 2-3 MORE weeks of clean black-box data accumulate (the
+owner's own stated calibration timeline applies to all of 1/6/7 equally) → THEN
+layers 4/5 (Multi-Agent, Challenger) which are architecture, not data-dependent,
+can be prototyped in parallel since they restructure REASONING over existing
+engine outputs rather than requiring history. Layer 9 is already governing.
