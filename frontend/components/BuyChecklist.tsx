@@ -21,10 +21,17 @@ export function BuyChecklist({ c, compact = false }: { c: any; compact?: boolean
     <div>
       <div className="flex items-baseline justify-between mb-0.5">
         <span className="text-[10px] font-semibold text-terminal-muted uppercase tracking-wide">BUY Checklist</span>
+        {/* Counter reworded 2026-07-21 (owner): "0/1 passed · 6 not measured"
+            read like a failure rate. Measured / Passed / Waiting states the
+            three quantities separately so ○ is unmistakably "waiting for
+            data", never "failed". */}
         {s && (
-          <span className="text-[10px] text-terminal-muted tabular-nums">
-            {s.passed}/{s.measured} passed
-            {s.total > s.measured ? ` · ${s.total - s.measured} not measured` : ""}
+          <span className="text-[10px] tabular-nums space-x-2">
+            <span className="text-terminal-muted">Measured <b className="text-gray-200">{s.measured}/{s.total}</b></span>
+            <span className="text-terminal-muted">Passed <b className={s.passed > 0 ? "text-terminal-bull" : "text-gray-200"}>{s.passed}</b></span>
+            {s.total > s.measured && (
+              <span className="text-terminal-muted">Waiting <b className="text-gray-200">{s.total - s.measured}</b></span>
+            )}
           </span>
         )}
       </div>
