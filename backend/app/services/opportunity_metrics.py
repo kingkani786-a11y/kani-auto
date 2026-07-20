@@ -140,7 +140,8 @@ def _hhmmss(ts: float | None) -> str | None:
 def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]:
     return {"strike": strike, "type": typ, "base": premium, "base_ts": now,
             "peak": premium, "peak_ts": now,
-            "coil_ts": None, "move_start_ts": None, "move_start_prem": None,
+            "coil_ts": None, "ignite_path": 0,
+            "move_start_ts": None, "move_start_prem": None,
             "alert_ts": None, "alert_prem": None, "alert_rise": None,
             "runner_ts": None, "runner_prem": None, "exhaust_ts": None,
             # ideal-entry tracking (owner's missing KPI): after the alert, the
@@ -160,7 +161,8 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
 def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
            coil_state: str, score: int = 0, velocity: float = 0.0,
            vol_delta: float = 0.0, oi_pct: float = 0.0, accel: float = 0.0,
-           now: float | None = None, symbol: str = "", wave_n: int = 0) -> None:
+           now: float | None = None, symbol: str = "", wave_n: int = 0,
+           ignite_path: int = 0) -> None:
     """Feed one radar tick. Called from premium_radar.scan (per option tick)."""
     if premium <= 0:
         return
@@ -217,6 +219,7 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["snap_start"] = _engine_snapshot()   # what did the engine see at birth?
     if ep["alert_ts"] is None and coil_state == "IGNITING":
         ep["alert_ts"], ep["alert_prem"], ep["alert_rise"] = now, premium, rise
+        ep["ignite_path"] = ignite_path      # 1 = velocity spike · 2 = C6 coil breakout
         # wave_n = same-type strikes loaded at ignite — recorded so tomorrow's
         # data can answer whether chain-wave corroboration separates false
         # alerts from real earlies (2026-07-16 showed OI alone does NOT).
@@ -385,6 +388,7 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         # run from a decline, and it was previously unlogged — forcing past-day
         # forensics to infer it. Never leave the ordering unrecoverable again.
         "t_base": _hhmmss(ep.get("base_ts")),
+        "ignite_path": ep.get("ignite_path") or 0,   # 2 = attributable to C6
         "t_coil": _hhmmss(ep["coil_ts"]), "t_move_start": _hhmmss(ep["move_start_ts"]),
         "t_ignite": _hhmmss(ep["alert_ts"]), "t_runner": _hhmmss(ep["runner_ts"]),
         "t_peak": _hhmmss(ep["peak_ts"]), "t_exhaust": _hhmmss(ep["exhaust_ts"]),

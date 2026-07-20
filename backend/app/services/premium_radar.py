@@ -109,7 +109,7 @@ def _coil(m: dict[str, Any], was_coiled: bool = False) -> dict[str, Any]:
     strength = int(min(100, energy * 35 + min(30, max(0, m["oi_pct"]) * 3)))
     # ignition path 1: a velocity SPIKE on stored energy, still early (catchable)
     if m["rise_pct"] < 18 and m["velocity"] >= 2 and m["accel"] > 0 and energy >= 1:
-        return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 60),
+        return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 60), "path": 1,
                 "note": "Coil breaking — energy releasing, move starting NOW. Earliest entry window."}
     # ignition path 2 — the slow-runner breakout (evidence 2026-07-14: of 21
     # MISSED runners, 19 were COILED but NEVER ignited because they climbed
@@ -120,7 +120,7 @@ def _coil(m: dict[str, Any], was_coiled: bool = False) -> dict[str, Any]:
     # first. Without this gate it fired on any 5-20% riser and caused an
     # opening false-alert storm. Declared/tunable; measured by the Black Box.
     if was_coiled and 5 <= m["rise_pct"] < 20 and m["velocity"] > 0 and energy >= 1:
-        return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 55),
+        return {"state": "IGNITING", "dot": "⚡", "strength": max(strength, 55), "path": 2,
                 "note": "Coil breakout — loaded spring released, premium climbing on volume/OI. Early entry window."}
     if compressed and energy >= 1:
         bits = []
@@ -128,9 +128,9 @@ def _coil(m: dict[str, Any], was_coiled: bool = False) -> dict[str, Any]:
             bits.append("volume rising")
         if oi_energy:
             bits.append(f"OI +{m['oi_pct']}%")
-        return {"state": "COILED", "dot": "🌀", "strength": strength,
+        return {"state": "COILED", "dot": "🌀", "strength": strength, "path": 0,
                 "note": f"Loaded spring — premium flat but {', '.join(bits)}. Watch for ignition."}
-    return {"state": "NONE", "dot": "", "strength": 0, "note": ""}
+    return {"state": "NONE", "dot": "", "strength": 0, "path": 0, "note": ""}
 
 
 # ── THE runner threshold table (owner, 2026-07-21). ONE definition drives
@@ -271,7 +271,14 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 t["oi_confirm"] = now
             # coil clock: when did this strike first start loading? (evidence:
             # "coiling 45s") — reset once it stops coiling so it's always fresh.
-            cs = _coil(m, bool(t.get("ever_coiled")))["state"]
+            _cd = _coil(m, bool(t.get("ever_coiled")))
+            cs = _cd["state"]
+            # WHICH ignition path fired. C6 IS path 2 (the was_coiled-gated
+            # slow-runner breakout). Until 2026-07-21 only `cs` reached the
+            # black box, so no recorded field could attribute an outcome to
+            # C6 — making its own 3-day validation unanswerable (Rule B:
+            # No Measurement → No Decision). Recorded from here on.
+            _ig_path = int(_cd.get("path") or 0)
             if cs == "COILED":
                 t.setdefault("coil_since", now)
                 t["ever_coiled"] = True      # remember: this spring WAS loaded
@@ -299,7 +306,7 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
                 _om.record(key, int(strike), typ, prem, m["rise_pct"], cs,
                            score=sc, velocity=m["velocity"], vol_delta=m["vol_delta"],
                            oi_pct=m["oi_pct"], accel=m["accel"], now=now,
-                           symbol=symbol, wave_n=wave_n)
+                           symbol=symbol, wave_n=wave_n, ignite_path=_ig_path)
             except Exception:
                 pass  # measurement must never affect the radar
     # drop stale tracks (strike left the ATM window long ago)

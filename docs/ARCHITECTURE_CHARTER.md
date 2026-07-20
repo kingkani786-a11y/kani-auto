@@ -530,3 +530,43 @@ sequencing, not a permanent prohibition.
 **Owner's framing for this pass:** the Execution Hero is already ~80% built.
 Do not write a new hero — `correct + complete + clean` the existing one.
 Order of value: correctness first, then clarity, then new capability.
+
+## C6 ACCEPTANCE RULE — PRE-REGISTERED (owner, 2026-07-21 ~01:30 IST)
+
+Locked BEFORE the evidence arrives, deliberately: a criterion chosen after
+seeing the data is a rationalisation, not a test.
+
+**Why the original 3-day window cannot settle C6.** Corrected capture% (phantom
+falls removed) per session: 19% · 67% · 83% · 81% (pre-C6) · 60% (post-C6 day 1).
+Pre-C6 spread is 19–83%; Monday's 60% sits inside it. Between-day SD ≈ 30pp, so
+detecting even a 15pp effect at day level needs ~16 sessions per arm. Three days
+was never enough — and the owner's first proposal ("5–10 real runner events")
+does not bind either, since one active session supplies 80+ runner events
+(Jul-16 had 86). The scarce resource is SESSIONS, because the noise is daily.
+
+**The deeper problem (fixed today).** C6 *is* ignite path 2 (the was_coiled-gated
+slow-runner breakout). `record()` received only `coil_state="IGNITING"` — the
+path was discarded at the boundary, so NO recorded field could attribute any
+outcome to C6. Under Rule B (No Measurement → No Decision) C6 could never have
+earned a verdict at all. This is validation starvation in its literal form:
+sessions spent collecting data that cannot answer the question.
+Fixed pre-market: `_coil()` now returns `path` (1 = velocity spike, 2 = C6
+breakout, 0 = none) and it is persisted as `ignite_path` on every black-box line.
+
+**THE RULE (mechanism-based, not day-level):**
+- C6 is judged on **≥30 recorded path-2 (`ignite_path == 2`) ignitions with
+  settled outcomes**, scored on THOSE events' EARLY / LATE / FALSE rates.
+- n grows per EVENT, not per session, which isolates C6 from market-condition
+  variance — reachable in days rather than the ~16 sessions a day-level test needs.
+- Until 30 such events exist the verdict is **EVIDENCE INSUFFICIENT**. Never
+  "Accepted", never "Rejected". ("Evidence decides. Assumptions wait.")
+- Sessions before 2026-07-21 carry NO `ignite_path` and are therefore excluded
+  from the path-2 count — the counter starts at today's open.
+
+**Also pre-registered:** day-level capture% may be reported for context but is
+NOT the acceptance criterion, precisely because its variance is known to swamp
+the effect size.
+
+**Phase 2 (at close) gains one item:** a Validation Status card under Build
+Version — `C6 VALIDATION · Day n · path-2 events k/30 · EVIDENCE INSUFFICIENT`
+— driven by this rule so the system states its own evidential standing.
