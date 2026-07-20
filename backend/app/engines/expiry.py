@@ -4,6 +4,8 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
+from ..core.clock import now as _clock_now
+
 # remembers the previous chain digest per symbol to detect shifts/migration
 _prev: dict[str, dict] = {}
 
@@ -53,7 +55,13 @@ def analyze(symbol: str, analytics: dict[str, Any], spot: float) -> dict[str, An
     dte = None
     if expiry:
         try:
-            dte = (datetime.date.fromisoformat(expiry) - datetime.date.today()).days
+            # IST date, never the server-local one. As of 2026-07-21 `dte`
+            # decides session_type -> validation_bucket, i.e. WHICH DATASET an
+            # episode lands in, so a timezone slip here would silently drop
+            # expiry episodes into the PRIMARY C6 sample. clock.py exists for
+            # exactly this class of bug (its docstring records two prior Greeks
+            # failures from naive datetime reads).
+            dte = (datetime.date.fromisoformat(expiry) - _clock_now().date()).days
         except ValueError:
             pass
     if dte == 0:

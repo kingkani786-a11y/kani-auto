@@ -629,3 +629,20 @@ landed silently in PRIMARY while asserting a session condition we could not
 actually know. It now returns `UNKNOWN` (→ EXCLUDED), and `_black_box()` makes
 one best-effort re-resolve at close, by which time the layer has normally
 published — so genuine episodes are not lost to over-exclusion.
+
+### Timezone audit (2026-07-21) — one fixed, 13 logged
+`dte` is now load-bearing: it decides `session_type` → `validation_bucket` →
+which dataset an episode counts in. It was computed with
+`datetime.date.today()` (SERVER-LOCAL date), which `core/clock.py` exists
+expressly to forbid — its docstring records two prior Greeks failures from
+naive datetime reads. The machine is currently in IST so results were correct,
+but a timezone change would have silently dropped expiry episodes into the
+PRIMARY C6 sample. Fixed in `engines/expiry.py` to use the IST clock.
+
+**Deliberately NOT fixed today:** 13 further naive wall-clock reads exist
+(`broker/dhan.py` ×4, `engines/regime.py`, `engines/probability.py`,
+`engines/scalp_radar.py`, `services/global_feed.py` ×3,
+`services/historical_learning.py`, `services/market_service.py` ×2). All are
+currently correct because the host is IST. A 14-site refactor immediately
+before a validation session is disproportionate risk; logged as a follow-up
+audit item to be done in a quiet window, not on a live day.
