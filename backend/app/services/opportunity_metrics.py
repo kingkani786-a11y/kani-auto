@@ -141,6 +141,7 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
     return {"strike": strike, "type": typ, "base": premium, "base_ts": now,
             "peak": premium, "peak_ts": now,
             "coil_ts": None, "ignite_path": 0, "dte": _dte(),
+            "session_type": _session_type(), "regime": _behavioural_regime(),
             "move_start_ts": None, "move_start_prem": None,
             "alert_ts": None, "alert_prem": None, "alert_rise": None,
             "runner_ts": None, "runner_prem": None, "exhaust_ts": None,
@@ -271,6 +272,40 @@ def _dte() -> int | None:
         v = ((state.intelligence or {}).get("layers") or {}).get("expiry") or {}
         d = v.get("days_to_expiry")
         return int(d) if d is not None else None
+    except Exception:
+        return None
+
+
+# Manual session calendar. Budget Day / RBI Policy / special sessions CANNOT be
+# derived — this system has no economic calendar — so they are declared by the
+# owner in data/session_calendar.json ({"2026-02-01": "BUDGET"}) rather than
+# guessed. Absent an entry the day is NORMAL, or EXPIRY when dte == 0.
+_SESSION_CAL_PATH = _LOG_DIR.parent / "session_calendar.json"
+
+
+def _session_type() -> str:
+    """CALENDAR session type — a fact about the DATE. Deliberately separate
+    from engines/regime.py's BEHAVIOURAL regime (TRENDING/VOLATILE/…), which
+    is a fact about the TAPE. The owner wants to stratify C6 by both axes
+    ("C6 on Expiry" vs "C6 on High Volatility"); collapsing them into one
+    field called `market_regime` would make exactly that impossible."""
+    try:
+        if _SESSION_CAL_PATH.exists():
+            declared = json.loads(_SESSION_CAL_PATH.read_text()).get(_day or _today())
+            if declared:
+                return str(declared).upper()
+    except Exception:
+        pass
+    d = _dte()
+    return "EXPIRY" if d == 0 else "NORMAL"
+
+
+def _behavioural_regime() -> str | None:
+    """The existing regime layer (TRENDING/VOLATILE/HIGH_MOMENTUM/…), recorded
+    so C6 can also be sliced by tape conditions. None when not yet published."""
+    try:
+        from ..core.state import state
+        return ((state.intelligence or {}).get("layers") or {}).get("regime", {}).get("regime")
     except Exception:
         return None
 
@@ -410,6 +445,8 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         "ignite_path": ep.get("ignite_path") or 0,   # 2 = attributable to C6
         "dte": ep.get("dte"),                        # days to expiry at episode start
         "expiry_day": (ep.get("dte") == 0) if ep.get("dte") is not None else None,
+        "session_type": ep.get("session_type"),   # CALENDAR axis: NORMAL/EXPIRY/BUDGET/…
+        "regime": ep.get("regime"),               # TAPE axis: TRENDING/VOLATILE/…
         "t_coil": _hhmmss(ep["coil_ts"]), "t_move_start": _hhmmss(ep["move_start_ts"]),
         "t_ignite": _hhmmss(ep["alert_ts"]), "t_runner": _hhmmss(ep["runner_ts"]),
         "t_peak": _hhmmss(ep["peak_ts"]), "t_exhaust": _hhmmss(ep["exhaust_ts"]),

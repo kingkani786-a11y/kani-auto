@@ -570,3 +570,40 @@ the effect size.
 **Phase 2 (at close) gains one item:** a Validation Status card under Build
 Version — `C6 VALIDATION · Day n · path-2 events k/30 · EVIDENCE INSUFFICIENT`
 — driven by this rule so the system states its own evidential standing.
+
+## C6 STRATIFICATION — PRE-REGISTERED (owner, 2026-07-21 ~02:00 IST, before open)
+
+Locked before today's expiry session produces any data.
+
+- **Primary C6 verdict: NORMAL sessions only.** The 30 path-2 threshold counts
+  ONLY events with `session_type == "NORMAL"`.
+- **Expiry sessions: reported separately**, never merged into the primary sample.
+- **Mixing the two into one sample is forbidden.**
+
+Rationale: expiry is a different POPULATION, not a noisier version of the same
+one. Theta crush inverts what a COILED reading means; `RUNNER_PCT=30%` is
+cleared by a ₹5 option touching ₹6.50; `MIN_RUNNER_PTS=5` flips from a floor
+into a huge move when strikes trade ₹2-20; gamma makes near-ATM premiums
+non-linear. A verdict drawn from a mixed sample would describe expiry
+behaviour while claiming to describe normal behaviour.
+
+Later, and separately, the data may justify a distinct "C6 Expiry Mode" — that
+is a future decision, not part of this verdict.
+
+### Two stratification axes, deliberately NOT merged
+The owner asked for a `market_regime` field. Recorded as TWO fields, because
+two different things could claim that name and collapsing them would destroy
+the very stratification requested:
+- **`session_type`** — the CALENDAR axis, a fact about the DATE:
+  `NORMAL` · `EXPIRY` (dte==0) · plus anything the owner declares.
+- **`regime`** — the TAPE axis, from the existing `engines/regime.py`:
+  `TRENDING` · `HIGH_MOMENTUM` · `VOLATILE` · `LOW_MOMENTUM` · `RANGE_BOUND` ·
+  `EXPIRY_PINNING`.
+Together these give "C6 on Expiry", "C6 on Normal", "C6 on High Volatility"
+— all three slices the owner named.
+
+**Budget Day / RBI Policy are NOT auto-detected.** This system has no economic
+calendar, and inventing detection would be fabricated data. They are DECLARED
+by the owner in `data/session_calendar.json` (`{"2026-02-01": "BUDGET"}`); a
+declaration overrides the derived value, and absent one the day is NORMAL (or
+EXPIRY when dte==0). Honest UNKNOWN over a guess, per doctrine.
