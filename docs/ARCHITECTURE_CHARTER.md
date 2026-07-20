@@ -457,3 +457,37 @@ exact coil state C6 is measuring. Frontend-only restarts do not carry that risk.
 ## Open Category-1 item (not scheduled)
 UI telemetry — decision latency, interaction depth, time-to-first-action — so
 Gate 2 becomes genuinely satisfiable for UX work instead of exempted.
+
+## V6 spec revision (owner, 2026-07-21 pass 5) — THRESHOLDS CHANGED
+
+**Runner bands REVISED** (supersede the 25/40/60/80 set shipped in 1c8893b):
+`0-29 Ignore · 30-49 Watch · 50-69 Prepare · 70-84 Ready · 85-100 Buy Candidate`
+Owner's rule: "70க்கு கீழே நான் entry பார்க்க மாட்டேன்" (no entry below 70).
+Live code currently labels 60-69 as "BUY Candidate" — actively contradicts this.
+
+**Stars must be re-derived from the SAME bands.** `_stars()` is `1 + score//20`
+(cuts at 20/40/60/80) which disagrees: it gives 82 → 5★ while the owner's own
+hero example says Runner 82 → READY → ★★★★☆ (4★). One threshold set must drive
+band + tag + zone + stars. New: `<30=1★ · 30-49=2★ · 50-69=3★ · 70-84=4★ · 85+=5★`
+Star meanings: 1 Ignore · 2 Watch · 3 Prepare · 4 Ready · 5 Buy Candidate.
+
+**Other Level-1/2 items:** Best Strike · Entry Grade (D/C reject, B watch,
+A ready, A+ buy) · Risk YES/NO · R:R ≥1:3 · BUY Checklist 7/7 (adds Structure,
+Volume, Calibration to the existing 4) · AI Thinking as a 7-item checklist
+(Premium/Structure/Flow/Volume/Risk/Wave/Calibration) · Decision Contract cut
+to 2 lines (ENTRY + EXIT IF). Premium: Building=Observe, Growing=Prepare,
+Exploding=Buy Candidate. Wave: Bullish⇒CE only, Bearish⇒PE only, Range⇒avoid both.
+Early Warning / COILED / SPRING / HOT NOW are explicitly NOT buy signals.
+
+### THREE CONFLICTS — must be resolved by the owner before building
+1. **Trade Light loses the in-position states.** Proposed 5 states
+   (🔵 STRONG BUY · 🟢 BUY · 🟡 PREPARE · 🔴 WAIT · ⚫ NO TRADE) are ALL
+   pre-entry. Live mapping uses 🔵=RUNNING (holding) and ⚫=EXIT. Adopting the
+   new list as-is **deletes the EXIT signal** — the one that tells a trader to
+   get OUT of an open position. Safety-relevant; not a cosmetic reassignment.
+2. **`[ MANUAL BUY ]`** is drawn like a button, but pass-3 instruction was
+   "BUY button இல்ல... MANUAL EXECUTION என்று மட்டும்". Reading it as a
+   NON-clickable label (system never places orders — permanent doctrine).
+3. **Decision Contract at 2 lines drops the stop-loss** from that card. SL
+   must stay visible in the hero's Entry/SL/T1-T3 row, or capital protection
+   loses its display. Do not remove both.
