@@ -95,10 +95,14 @@ def _contract() -> dict[str, Any]:
     # ── Unified Entry Grade (C2, charter L7): ONE grade instead of five
     # scattered scores. Declared blend of already-published numbers — conviction
     # (decision), signal confidence, and layer breadth. Not win-calibrated.
+    # live shape: sig["signal"] is usually the NAME string ("NO TRADE") with
+    # confidence as a sibling; older/packet shapes nest a dict. Handle both.
     sig_conf = None
     try:
-        sig_conf = float((sig.get("signal") or {}).get("confidence"))
-    except (TypeError, ValueError):
+        _sv = sig.get("signal")
+        _src = _sv if isinstance(_sv, dict) else sig
+        sig_conf = float(_src.get("confidence"))
+    except (TypeError, ValueError, AttributeError):
         pass
     breadth = (sum(1 for v in layers.values() if v >= 55) / len(layers) * 100) if layers else None
     parts = [p for p in (conviction, sig_conf, breadth) if isinstance(p, (int, float))]
