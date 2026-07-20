@@ -77,7 +77,14 @@ def _contract() -> dict[str, Any]:
 
     action = dec.get("action") or "WAIT"
     is_trade = bool(dec.get("is_trade"))
+    # live decision publishes conviction as a LABEL sometimes ("NONE"/"LOW") —
+    # normalise: numeric or None, never a string (card showed "NONE%" 07-20)
     conviction = dec.get("conviction")
+    if not isinstance(conviction, (int, float)):
+        try:
+            conviction = float(conviction)
+        except (TypeError, ValueError):
+            conviction = None
 
     # WHY (Rule 11 — explain before execute), for BUY and WAIT alike
     reason = dec.get("reason")
