@@ -191,3 +191,50 @@ owner's own stated calibration timeline applies to all of 1/6/7 equally) → THE
 layers 4/5 (Multi-Agent, Challenger) which are architecture, not data-dependent,
 can be prototyped in parallel since they restructure REASONING over existing
 engine outputs rather than requiring history. Layer 9 is already governing.
+
+---
+
+# IEIOS V4.1 — Core AI Principles (owner, 2026-07-20 night)
+
+## Principle 1 — AI Memory ≠ Data Storage
+The black box stores episodes; the AI must distill EXPERIENCE → PATTERN →
+CONFIDENCE → LESSON, not just retain rows. ("When these 5 conditions co-occur,
+win probability rises" — a lesson, not a record.) This is what Research AI (V4
+layer 1) must output, not raw stats.
+
+## Principle 2 — Adaptive Knowledge (versioned, decaying)
+The Knowledge Graph (V4 layer 2) is not static — each edge/fact carries
+confidence, evidence-count, last-updated, accuracy, and versions forward
+(v18→v19→v20). Knowledge with eroding accuracy retires itself automatically —
+this is DATA-DRIVEN pruning, distinct from the RULE-change approval gate (Rule
+9/Governance): the knowledge graph adapts on evidence; trading RULES still
+never change without human approval.
+
+## Principle 3 — Explainable AI (not just predictive)
+Every BUY decomposes into its pillars with values, not a bare confidence number
+— this is the Evidence Ledger (already shipped, V2.1 C3) generalized as a
+platform-wide requirement: no score without its breakdown, anywhere in IEIOS.
+
+## GOLDEN RULE — AI Never Chases Accuracy
+Optimize **Expected Value** (win% × avg-win − loss% × avg-loss), not accuracy.
+90% accuracy at 0.5 RR loses to 62% accuracy at 3.4 RR. Priority order: Expected
+Value → Consistency → Risk-Adjusted Return. Accuracy is a secondary, diagnostic
+metric — never the target a feature is judged against. This reframes every KPI
+in the Capture Score / Entry Grade / Strategy Ranking: report accuracy, but
+GATE on EV.
+
+## V5 (noted, not started) — AI Mentor
+Post-trade coaching for the HUMAN, not just the system: "profit, but late
+entry" / "loss, but the decision was right — execution was the miss" / "should
+never have been taken — MTF conflict + VWAP reject + weak flow." Distinct from
+Trade Review (V3 layer 10, which grades the SYSTEM's call) — Mentor grades the
+USER's execution against that call. Deferred behind V4.
+
+## UNIVERSAL BUILD GATE (supersedes/absorbs the engineering-rules gate stated
+earlier in this charter — this is now the single filter for every future layer)
+A new AI layer ships ONLY if it is simultaneously:
+1. **Measurable** in the Black Box (a concrete field/metric it moves),
+2. **Explainable** (decomposes to named, inspectable components — no bare
+   scores), and
+3. **Governed** (subject to human approval before any rule/threshold changes).
+Fail any one → do not build, regardless of how compelling the idea sounds.
