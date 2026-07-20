@@ -1,3 +1,7 @@
+> **IEIOS PRIME DIRECTIVE:** Every improvement must improve Expected Value
+> (EV), not just accuracy. Accuracy alone rising is never sufficient reason to
+> build. (owner, 2026-07-20 — this line stands permanently first.)
+
 # Cloud AI Trader X PRO — IEIOS V2.0 Architecture Charter (PERMANENT)
 _Adopted 2026-07-17 (owner). This charter supersedes scattered vision docs;
 proposals #013–#020 fold into it. It survives every context compaction._
@@ -346,3 +350,47 @@ keep collecting Black Box data, keep producing validation reports, keep
 watching KPI trends, and implement ONLY features that already pass all 5 gates
 above with real evidence behind them. V5/V6 evolution must emerge FROM the
 data, never from a fresh idea arriving out of sequence.
+
+---
+
+# IEIOS Prime Directive & Permanent Rules (owner, 2026-07-20 — final entry)
+
+## Golden KPI Hierarchy (dashboard + every report, in this order — EV first, Accuracy last)
+1. **Expected Value (EV)** ⭐
+2. Recovery %
+3. Drawdown
+4. Risk : Reward
+5. Decision Consistency
+6. Capture %
+7. False %
+8. Accuracy % — diagnostic only, never the target
+
+## Permanent Rules (never violated)
+- **Rule A** — No Black Box → No Build
+- **Rule B** — No Measurement → No Decision
+- **Rule C** — No Evidence → No Rule Change
+- **Rule D** — No Human Approval → No Deployment
+
+## Future Build Categories (all future work sorts into exactly one)
+1. **Measurement** — Black Box, Recorder, Metrics, Evidence
+2. **Visualization** — Dashboard, Replay, Contract, Reports, Charts
+3. **Intelligence** — Research AI, Knowledge Graph, Memory, Strategy Ranking, Calibration
+4. **Execution** — Decision Engine, Entry, Exit, Risk, Trade Management
+
+## Current status (owner's assessment, 2026-07-20 night)
+- **✅ FROZEN:** Architecture · Decision Logic · Governance · Development Process
+- **🔄 OBSERVE (daily):** C6 Validation · Feed Stability · Black Box · KPI Trend · EV Trend
+- **⛔ NOT building:** new indicators · new layers · new scores · new AI models
+- **✅ Can still build (measurement/visualization only, evidence-gated):**
+  Recorder extensions · Reports · Visualization · Investigation tools · Debug
+  instrumentation — i.e. Categories 1 & 2 above remain open; 3 & 4 wait for evidence.
+
+## Daily discipline for the freeze window (2-3 weeks)
+Not one line of Decision Logic changes. Daily: Market Replay, Validation
+Report, KPI Trend, Root Cause Analysis. Weekly: Weekly Review. After 3 weeks,
+Black Box data — not a new idea — nominates the next feature.
+
+## Closing assessment
+Charter + Governance + Execution Doctrine + Prime Directive together make this
+an Institutional-Grade AI Decision Platform Development Framework, not a
+trading dashboard. Ideas no longer drive this project's growth. Evidence does.
