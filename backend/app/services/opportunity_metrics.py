@@ -188,6 +188,17 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
 
     if ep["move_start_ts"] is None and premium < ep["base"]:
         ep["base"], ep["base_ts"] = premium, now  # track the true pre-move low
+        # Re-anchor the peak with the base (2026-07-21). peak_rise is
+        # (peak-base)/base, and NOTHING previously required the peak to occur
+        # AFTER the base — so an episode that opened high and declined all
+        # session logged as a big "missed runner" (peak first, base last).
+        # Evidence 2026-07-20: 7 of 28 ">=30% movers" were falls, e.g. traj
+        # [20,22,22,22,5] with t_peak at the episode's first tick; 9% of the
+        # day's "lost" points were phantom. A high set before this new low
+        # belongs to a pre-base period and is not a rise FROM it.
+        # No-op for genuine runners (25->18->30 still yields 67% either way);
+        # it only zeroes the falls.
+        ep["peak"], ep["peak_ts"] = premium, now
 
     rise = (premium - ep["base"]) / ep["base"] * 100 if ep["base"] else 0.0
     if premium > ep["peak"]:
@@ -370,6 +381,10 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         "n": _seq, "day": _day, "symbol": ep.get("symbol", ""),
         "cold_start": bool(ep.get("cold_start")),
         "strike": ep["strike"], "type": ep["type"],
+        # t_base added 2026-07-21: base/peak ORDER is what distinguishes a real
+        # run from a decline, and it was previously unlogged — forcing past-day
+        # forensics to infer it. Never leave the ordering unrecoverable again.
+        "t_base": _hhmmss(ep.get("base_ts")),
         "t_coil": _hhmmss(ep["coil_ts"]), "t_move_start": _hhmmss(ep["move_start_ts"]),
         "t_ignite": _hhmmss(ep["alert_ts"]), "t_runner": _hhmmss(ep["runner_ts"]),
         "t_peak": _hhmmss(ep["peak_ts"]), "t_exhaust": _hhmmss(ep["exhaust_ts"]),
