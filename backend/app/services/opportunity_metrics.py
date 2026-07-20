@@ -59,6 +59,9 @@ ROOT_CAUSE = (
     "ADX_WEAK", "ATR_LOW", "EFI_NEGATIVE", "PCR_CONFLICT", "IV_HIGH", "IV_CRUSH",
     "CHAIN_FAIL", "COIL_FAIL", "WAVE_FAIL", "EXECUTION_BLOCK", "KILL_SWITCH",
     "USER_SKIP", "SL_HIT", "TARGET_HIT",
+    # miss taxonomy (owner, 2026-07-20): a miss during a data blackout is NOT a
+    # detection failure — blame the right subsystem, never the AI by default
+    "FEED_OUTAGE", "BROKER_COOLDOWN",
 )
 
 _LOG_DIR = pathlib.Path(__file__).resolve().parents[3] / "data" / "opportunity_log"
@@ -295,8 +298,16 @@ def _root_cause(ep: dict[str, Any], c: dict[str, Any]) -> str | None:
     # no-ignite). Engine context is still preserved in the 'engine' snapshot.
     if c["is_runner"] and c["capture"] in ("MISSED", "LATE"):
         if not c["alerted"]:
-            # never ignited: no coil seen at all (e.g. symbol-switch cold start,
-            # move already underway) vs coiled but the ignite gate never confirmed
+            # miss taxonomy: FIRST check whether data was even flowing — a miss
+            # during a broker cooldown / POOR-feed window is a data-availability
+            # failure, not a detection failure (owner taxonomy, 2026-07-20)
+            ks_txt = " ".join(snap.get("ks_reasons") or []).lower()
+            if "cooldown" in ks_txt:
+                return "BROKER_COOLDOWN"
+            if "data quality poor" in ks_txt or "feed" in ks_txt:
+                return "FEED_OUTAGE"
+            # detection-layer causes: no coil seen at all (cold start / move
+            # already underway) vs coiled but the ignite gate never confirmed
             return "COIL_FAIL" if not ep.get("coil_ts") else "NO_CONFIRMATION"
         return "LATE_CONFIRMATION"
 
