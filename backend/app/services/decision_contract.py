@@ -82,6 +82,31 @@ def _contract() -> dict[str, Any]:
 
     action = dec.get("action") or "WAIT"
     is_trade = bool(dec.get("is_trade"))
+    primary_action = dec.get("primary_action")
+
+    # ── Master Decision reconciliation (owner, 2026-07-21 — "ஒரே Master
+    # Decision மட்டும் இருக்க வேண்டும்; அதை எல்லா panels reference செய்ய
+    # வேண்டும்"). Two separate gates exist upstream: decision.py's first-pass
+    # is_trade/primary_action, and execution_gate.py's STRICTER, LATER "last
+    # institutional checkpoint" (own doc: "authoritative gated verdict") that
+    # adds quality bars (confidence>=80, fire>=85, trade quality>=800,
+    # institutional>=70, data GOOD) on top. Until this fix, TradeNowCard's
+    # trade_light read only the first pass — so it could show GREEN/BUY a
+    # beat before the true final gate agreed, while a separate panel reading
+    # execution_gate directly (LiveCandleCommand) could simultaneously show
+    # AVOID for the exact same cycle. Capital protection > opportunity is
+    # this project's own doctrine, so when the stricter gate is ready and
+    # disagrees, ITS answer wins here. This only ever downgrades a fresh
+    # entry call (primary_action == "ENTER") toward WAIT — it can never
+    # invent a BUY the first pass didn't have, and it never touches
+    # open-position states (HOLD/TRAIL/EXIT), which execution_gate doesn't
+    # model at all.
+    eg = dec.get("execution_gate") or {}
+    if eg.get("ready") and primary_action == "ENTER" and eg.get("final_decision") not in ("BUY CALL", "BUY PUT"):
+        is_trade = False
+        action = "WAIT"
+        primary_action = "WAIT"
+
     # live decision publishes conviction as a LABEL sometimes ("NONE"/"LOW") —
     # normalise: numeric or None, never a string (card showed "NONE%" 07-20)
     conviction = dec.get("conviction")
@@ -225,7 +250,7 @@ def _contract() -> dict[str, Any]:
         "WATCH": ("YELLOW", "🟡", "PREPARE"),
         "WAIT": ("RED", "🔴", "NO TRADE"),
     }
-    _color, _dot, _label = _LIGHT.get(dec.get("primary_action"), ("RED", "🔴", "NO TRADE"))
+    _color, _dot, _label = _LIGHT.get(primary_action, ("RED", "🔴", "NO TRADE"))
     trade_light = {"color": _color, "dot": _dot, "label": _label}
 
     # ── Best Strike (owner, 2026-07-21 — "BEST STRIKE 7850 PE" in the Level-1

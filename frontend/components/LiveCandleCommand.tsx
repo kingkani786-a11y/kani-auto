@@ -1,8 +1,15 @@
 "use client";
-// V2.1 — CANDLE ENTRY COMMAND CENTER. The ONE institutional card in Trading
-// mode. Answers in 2 seconds: trade? buy/wait? strength? time left? entry/SL/
-// targets? strike? why? — One decision, one light, one countdown, one action.
-// LTS-compliant: frontend-only, zero new calculations, existing backend data.
+// ⚙ EXECUTION DETAIL — candle clock, position sizing, entry window, signal
+// truth. Trimmed 2026-07-21 (owner: "மூன்றும் ஒரே விஷயத்தைச் சொல்கின்றன" —
+// this card, Trade Light, and Decision Contract were each independently
+// re-announcing the same BUY/WAIT/AVOID verdict in different words, which
+// is exactly the "no single Master Decision" confusion she flagged). The
+// decision itself now lives in ONE place — TradeNowCard's Trade Light, fed
+// by decision_contract.py, which as of this same pass now ALSO reconciles
+// against execution_gate (this card's own source) so the two can no longer
+// silently disagree. This card no longer restates the verdict — it only
+// adds execution detail a trader wouldn't get from the hero: candle time
+// left, position size/risk ₹, entry-window countdown, signal truth %.
 
 import { useEffect, useState } from "react";
 import { useMarket } from "@/lib/store";
@@ -12,7 +19,7 @@ const TF_SEC: Record<string, number> = { "1m": 60, "3m": 180, "5m": 300, "15m": 
 const TF_LABEL: Record<string, string> = { "1m": "1 Minute", "3m": "3 Minute", "5m": "5 Minute", "15m": "15 Minute", "30m": "30 Minute", "1H": "1 Hour" };
 
 export function LiveCandleCommand({ tf = "5m" }: { tf?: string }) {
-  const { decision, layers, signal, wsOk } = useMarket();
+  const { decision, layers, wsOk } = useMarket();
   const d: any = decision || {};
   const L: any = layers || {};
   const gate = d.execution_gate;
@@ -43,89 +50,32 @@ export function LiveCandleCommand({ tf = "5m" }: { tf?: string }) {
     /kill switch|safe mode|data quality/i.test(r)) || et.status === "ENTRY CLOSED";
   const light = isBuy ? "READY" : hardBlocked ? "AVOID"
     : ["ARMED", "READY", "FIRE NOW"].includes(et.status) ? "PREPARE" : "WAIT";
-  // V20 — the final command names the strike: "BUY 25900 CE NOW"
-  const sqTop = (d.strike_queue || [])[0];
-  const buyLabel = sqTop ? `BUY ${sqTop.strike} ${sqTop.type} NOW` : fd;
-  const ui: Record<string, { lamp: string; tone: string; action: string; btn: string }> = {
-    READY: { lamp: "🟢", tone: "text-terminal-bull", action: buyLabel, btn: "bg-terminal-bull text-black" },
-    PREPARE: { lamp: "🟡", tone: "text-terminal-warn", action: "PREPARE", btn: "bg-yellow-500 text-black" },
-    WAIT: { lamp: "🟠", tone: "text-terminal-warn", action: "WAIT", btn: "bg-terminal-bg text-terminal-warn border border-terminal-warn/50" },
-    AVOID: { lamp: "🔴", tone: "text-terminal-bear", action: "AVOID", btn: "bg-terminal-bg text-terminal-bear border border-terminal-bear/50" },
-  };
-  const u = ui[light];
 
-  // existing values only
   const rows = (ec.checklist || []).filter((c: any) => MANDATORY.includes(c.item));
-  const confirmed = rows.filter((c: any) => c.status === "PASS").length;
   const power = Math.round(((ec.fire_score ?? 0) + (sm.maturity_score ?? 0)) / 2);
-  const powerColor = power >= 80 ? "bg-terminal-bull" : power >= 60 ? "bg-yellow-500"
-    : power >= 40 ? "bg-orange-500" : "bg-terminal-bear";
   const bias = L.trend?.direction === "BULL" ? "Bullish" : L.trend?.direction === "BEAR" ? "Bearish" : "Neutral";
   const strength = rows.find((c: any) => c.item === "Trend")?.score ?? "—";
-  const reasons = isBuy
-    ? rows.filter((c: any) => c.status === "PASS").slice(0, 3).map((c: any) => `✅ ${c.item} Confirmed`)
-    : rows.filter((c: any) => c.status !== "PASS").slice(0, 3).map((c: any) => `❌ ${c.item} Missing`);
   const od = mp.overall_direction || {};
-  const sq = (d.strike_queue || [])[0];
-  const rr = (signal as any)?.reward_risk;
   const fmt = (n?: number | null) => (n == null ? "—" : Number(n).toLocaleString("en-IN"));
 
   return (
     <div className={`panel border-2 ${light === "READY" ? "border-terminal-bull/60" : light === "AVOID" ? "border-terminal-bear/50" : "border-terminal-warn/40"} py-4`}>
-      {/* 1 — LIVE CANDLE STATUS (48px decision, largest) + Grade + ONE action */}
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-        <span className={`text-5xl font-black tracking-wider leading-none ${u.tone}`}>{u.lamp} {light === "READY" ? "READY TO BUY" : light}</span>
-        <span className="flex items-center gap-2">
-          {/* V21 — MISSION status: same single light, mission-control wording */}
-          <span className={`px-2 py-1 rounded-md text-[11px] font-black border ${
-            light === "READY" ? "border-terminal-bull/60 text-terminal-bull"
-            : light === "AVOID" ? "border-terminal-bear/60 text-terminal-bear"
-            : "border-terminal-warn/60 text-terminal-warn"}`}>
-            MISSION {light === "READY" ? "GREEN" : light === "AVOID" ? "RED" : "YELLOW"}
-            {/* V22 — mission progress = fire score (confirmation progress) */}
-            {ec.fire_score != null ? ` · ${ec.fire_score}% ${ec.fire_score >= 80 ? "READY" : "BUILDING"}` : ""}
-          </span>
-          {(() => {
-            const g = (d.intelligence_synthesis?.trade_quality?.grade || "") as string;
-            const letter = g === "ELITE" ? "A+" : g === "HIGH PROBABILITY" ? "A" : g === "MEDIUM" ? "B" : g === "LOW" ? "C" : g ? "REJECT" : "";
-            return letter ? (
-              <span className={`px-2.5 py-1 rounded-md text-sm font-black border ${
-                letter === "A+" || letter === "A" ? "border-terminal-bull/60 text-terminal-bull"
-                : letter === "B" ? "border-terminal-warn/60 text-terminal-warn" : "border-terminal-bear/50 text-terminal-bear"}`}>
-                {letter}
-              </span>
-            ) : null;
-          })()}
-          {(() => {
-            const t = d.ai_trust;
-            return t?.score != null ? (
-              <span title={t.note} className={`px-2 py-1 rounded-md text-[11px] font-bold border ${
-                t.score >= 80 ? "border-terminal-bull/50 text-terminal-bull"
-                : t.score >= 60 ? "border-terminal-warn/50 text-terminal-warn"
-                : "border-terminal-bear/50 text-terminal-bear"}`}>
-                TRUST {t.score}%
-              </span>
-            ) : null;
-          })()}
-          <span className={`px-6 py-2.5 rounded-lg text-base font-black tracking-wider ${u.btn}`}>{u.action}</span>
-        </span>
+        <h2 className="text-sm font-semibold text-white">⚙ Execution Detail <span className="text-[10px] text-terminal-muted">(decision is the Trade Light above — this is supporting detail only)</span></h2>
+        {(() => {
+          const t = d.ai_trust;
+          return t?.score != null ? (
+            <span title={t.note} className={`px-2 py-1 rounded-md text-[11px] font-bold border ${
+              t.score >= 80 ? "border-terminal-bull/50 text-terminal-bull"
+              : t.score >= 60 ? "border-terminal-warn/50 text-terminal-warn"
+              : "border-terminal-bear/50 text-terminal-bear"}`}>
+              TRUST {t.score}%
+            </span>
+          ) : null;
+        })()}
       </div>
 
-      {/* V21 — AI COMMANDER: the ONE dominant reason + honest readiness word
-          (no fabricated minutes — imminent/near from real trigger states) */}
-      {!isBuy && d.meta?.headline ? (
-        <div className="text-[12px] text-terminal-warn mb-2">
-          AI COMMANDER · {d.meta.verdict} — <span className="text-gray-200">{d.meta.headline}</span>
-          {!hardBlocked && ["ARMED", "READY", "FIRE NOW"].includes(et.status)
-            ? <span className="text-terminal-bull"> · est. ready: imminent</span>
-            : !hardBlocked && (sm.maturity_score ?? 0) >= 55
-            ? <span> · est. ready: near</span> : null}
-          {sm.late_entry_risk && sm.late_entry_risk !== "LOW"
-            ? <span className={sm.late_entry_risk === "HIGH" ? "text-terminal-bear" : ""}> · late risk: {sm.late_entry_risk}</span> : null}
-        </div>
-      ) : null}
-
-      {/* 2 — current candle: tf · bias · strength · candle countdown + progress */}
+      {/* current candle: tf · bias · strength · candle countdown + progress */}
       <div className="flex items-center gap-3 mb-2 text-[12px] flex-wrap">
         <span className="text-terminal-muted">{TF_LABEL[tf] || tf} Candle</span>
         <span className={bias === "Bullish" ? "text-terminal-bull" : bias === "Bearish" ? "text-terminal-bear" : "text-terminal-muted"}>{bias}</span>
@@ -154,19 +104,8 @@ export function LiveCandleCommand({ tf = "5m" }: { tf?: string }) {
         );
       })()}
 
-      {/* 4 — entry plan, one row (when a plan exists) */}
-      {(d.entry || d.stop_loss) && (
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3 text-[13px]">
-          <div><div className="stat-label">Entry</div><div className="font-mono font-bold">{fmt(d.entry)}</div></div>
-          <div><div className="stat-label">Stop</div><div className="font-mono text-terminal-bear">{fmt(d.stop_loss)}</div></div>
-          <div><div className="stat-label">T1</div><div className="font-mono text-terminal-bull">{fmt(d.target1)}</div></div>
-          <div><div className="stat-label">T2</div><div className="font-mono text-terminal-bull">{fmt(d.target2)}</div></div>
-          <div><div className="stat-label">T3</div><div className="font-mono text-terminal-bull">{fmt(d.target3)}</div></div>
-          <div><div className="stat-label">R : R</div><div className="font-mono">{rr ? `1 : ${rr}` : "—"}</div></div>
-        </div>
-      )}
-
-      {/* 4b — V12 §10 position sizing (decision-support; from Settings capital+risk%) */}
+      {/* V12 §10 position sizing (decision-support; from Settings capital+risk%) —
+          unique to this card, not shown anywhere else. */}
       {(() => {
         const ps: any = d.position_sizing;
         if (!ps?.ready || !isBuy) return null;
@@ -183,23 +122,14 @@ export function LiveCandleCommand({ tf = "5m" }: { tf?: string }) {
         ) : null;
       })()}
 
-      {/* 5 — best strike · 9 — entry window · 8 — probability */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3 text-[12px]">
-        <div><div className="stat-label">Best Strike</div>
-          <div className="font-mono font-bold text-2xl leading-tight">{sq ? `${sq.strike} ${sq.type}` : "—"}</div>
-          {sq?.prob_itm ? <div className="text-terminal-muted text-[11px]">ITM {Math.round(sq.prob_itm)}%</div> : null}</div>
+      {/* Entry Window + Bull/Bear/Range — unique to this card (Best Strike and
+          the pass/fail Confirmations list now live once, in TradeNowCard). */}
+      <div className="grid grid-cols-2 gap-3 mb-3 text-[12px]">
         <div><div className="stat-label">Entry Window</div>
           <div className={`font-mono ${winLeft !== null && winLeft <= 0 ? "text-terminal-bear font-bold" : ""}`}>
             {winLeft == null ? "—" : winLeft <= 0 ? "ENTRY CLOSED" : `${mmss(winLeft)} left`}</div></div>
         <div><div className="stat-label">Bull / Bear / Range</div>
           <div className="font-mono"><span className="text-terminal-bull">{od.up ?? "—"}</span> / <span className="text-terminal-bear">{od.down ?? "—"}</span> / <span className="text-terminal-warn">{od.range ?? "—"}</span></div></div>
-        <div><div className="stat-label">Confirmations</div>
-          <div>{rows.map((c: any) => (c.status === "PASS" ? "✅" : "❌"))} <span className="font-mono text-terminal-muted">{confirmed}/{rows.length}</span></div></div>
-      </div>
-
-      {/* 6 — why (max 3 bullets) */}
-      <div className="text-[12px] text-gray-300">
-        {reasons.map((r: string, i: number) => <span key={i}>{i > 0 && "   "}{r} </span>)}
       </div>
 
       {/* V40 §1 — signal truth split, front and centre (from signal_maturity) */}

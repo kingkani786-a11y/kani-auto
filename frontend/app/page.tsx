@@ -40,7 +40,6 @@ import { StrikeQueue } from "@/components/StrikeQueue";
 import { PremiumTimeline } from "@/components/PremiumTimeline";
 import { DailyReview } from "@/components/DailyReview";
 import { MarketPathPanel } from "@/components/MarketPathPanel";
-import { FinalDecisionHeader } from "@/components/FinalDecisionHeader";
 import { MissedWinners } from "@/components/MissedWinners";
 import { MissedMoveProtection } from "@/components/MissedMoveProtection";
 import { VoiceAssistant } from "@/components/VoiceAssistant";
@@ -406,7 +405,10 @@ export default function Dashboard() {
 
       {showMiddle && (
         <>
-          <SafeBoundary name="Final Decision"><FinalDecisionHeader /></SafeBoundary>
+          {/* FinalDecisionHeader removed 2026-07-21 (owner: "ஒரே Master Decision
+              மட்டும் இருக்க வேண்டும்") — it was a fully superseded duplicate of
+              TradeNowCard (same strike/confidence/entry/SL/targets/verdict,
+              from an earlier build phase); TradeNowCard is now the one hero. */}
           <SafeBoundary name="Execution Card"><ExecutionCard /></SafeBoundary>
           <SafeBoundary name="Strike Queue"><StrikeQueue /></SafeBoundary>
           <SafeBoundary name="Market Path"><MarketPathPanel /></SafeBoundary>
