@@ -40,8 +40,8 @@ export function HotNow() {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        <span className={phaseTone[t.phase?.code] || ""}>{t.phase?.dot} {t.phase?.label}</span>
-        <span className="text-terminal-muted">Runner <b className="text-white">{t.runner_score}</b></span>
+        <span className={phaseTone[t.phase?.code] || ""}>{t.phase?.dot} {t.phase?.label}{t.phase?.action ? ` (${t.phase.action})` : ""}</span>
+        <span className="text-terminal-muted">Runner <b className="text-white">{t.runner_score}</b> {t.runner_tag && <span className="font-semibold">{t.runner_tag.dot} {t.runner_tag.label}</span>}</span>
         <span className={`font-semibold ${missTone[t.miss?.tone] || ""}`}>⏱ {t.miss?.label}</span>
       </div>
 

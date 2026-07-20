@@ -208,13 +208,14 @@ export default function Dashboard() {
         </SafeBoundary>
       )}
 
-      {/* AI Thinking Now — engine's live reasoning. Owner: "Developer Tool.
-          User பார்க்க வேண்டியது இல்லை" → Advanced only. */}
-      {showAdvanced && (
-        <SafeBoundary name="AI Thinking">
-          <AIThinkingPanel />
-        </SafeBoundary>
-      )}
+      {/* AI Thinking Now — engine's live reasoning, now checklist-formatted.
+          Owner reclassified this 2026-07-21 follow-up as "Level 2" — check
+          when in doubt about BUY (Premium Radar/Early Warning/Hot Now/
+          Decision Contract/AI Thinking) — no longer Advanced-only; her
+          earlier objection was the paragraph format, now fixed. */}
+      <SafeBoundary name="AI Thinking">
+        <AIThinkingPanel />
+      </SafeBoundary>
 
       {/* 📜 Decision Contract — owner: "இதைத்தான் பார்க்க வேண்டும்" (this is
           exactly what should be seen) → always visible, both modes. */}

@@ -137,13 +137,15 @@ def _stars(score: int) -> int:
     return max(1, min(5, 1 + score // 20))
 
 
-# Owner's 3 macro-phases by %-rise from the session low.
+# Owner's 3 macro-phases by %-rise from the session low. `action` (2026-07-21
+# follow-up) adds the plain-English verb a trader reads instead of guessing
+# what the phase name implies.
 def _phase(rise_pct: float) -> dict[str, str]:
     if rise_pct >= 70:
-        return {"code": "RUNNER_CONFIRMED", "label": "EXPLODING", "dot": "🔴"}
+        return {"code": "RUNNER_CONFIRMED", "label": "EXPLODING", "dot": "🔴", "action": "BUY NOW"}
     if rise_pct >= 30:
-        return {"code": "RUNNER_BUILDING", "label": "GROWING", "dot": "🟠"}
-    return {"code": "BUILDING", "label": "BUILDING", "dot": "🟢"}
+        return {"code": "RUNNER_BUILDING", "label": "GROWING", "dot": "🟠", "action": "Prepare"}
+    return {"code": "BUILDING", "label": "BUILDING", "dot": "🟢", "action": "Early"}
 
 
 # Owner's Runner-score interpretation bands (2026-07-21 UX review) — a pure
@@ -182,6 +184,20 @@ def _zone(score: int) -> dict[str, str]:
     if score >= 25:
         return {"code": "WATCH", "label": "WATCH ZONE", "dot": "🟡"}
     return {"code": "IGNORE", "label": "IGNORE", "dot": "⚪"}
+
+
+# Owner's follow-up (2026-07-21): a bare "Runner 23" tells a new user nothing
+# — every number needs an interpretation next to it. Same verified boundaries
+# as _zone() above, just the compact inline wording she asked for this round
+# (TOO EARLY/PREPARE/READY/BUY) instead of the zone-header wording ("...ZONE").
+def _runner_tag(score: int) -> dict[str, str]:
+    if score >= 60:
+        return {"label": "BUY", "dot": "🚀"}
+    if score >= 40:
+        return {"label": "READY", "dot": "🟢"}
+    if score >= 25:
+        return {"label": "PREPARE", "dot": "🟡"}
+    return {"label": "TOO EARLY", "dot": "❌"}
 
 
 def _ladder(series) -> list[dict[str, Any]]:
@@ -372,6 +388,7 @@ def _thinking(rows: list[dict]) -> dict[str, Any] | None:
         "watching": f"{r['strike']} {r['type']}",
         "premium": r["premium"], "rise_pct": r["rise_pct"],
         "runner_score": r["runner_score"], "stars": r["stars"], "stage": r["stage"],
+        "runner_tag": r["runner_tag"],
         "miss": miss,
         "cause": cause,
         "invalidation": {"conditions": inval, "then": "Runner thesis cancelled — stand aside."},
@@ -456,7 +473,7 @@ def radar(top: int = 8) -> dict[str, Any]:
             "velocity": m["velocity"], "accel": m["accel"], "oi_pct": m["oi_pct"],
             "vol_delta": m["vol_delta"], "runner_score": score, "stars": _stars(score),
             "runner_band": _runner_band(score), "star_label": _star_label(_stars(score)),
-            "zone": _zone(score),
+            "zone": _zone(score), "runner_tag": _runner_tag(score),
             "stage": _stage(m), "phase": _phase(m["rise_pct"]),
             "ladder": _ladder(t["series"]), "checklist": chk,
             "checks_met": sum(chk.values()),

@@ -45,10 +45,18 @@ export function AIThinkingPanel() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
         <div className="space-y-1">
-          <div><span className="text-terminal-muted">Watching </span><b className="text-white">{t.watching}</b> <span className={`${t.phase?.code === "RUNNER_CONFIRMED" ? "text-terminal-bear" : t.phase?.code === "RUNNER_BUILDING" ? "text-terminal-warn" : "text-terminal-bull"}`}>{t.phase?.dot} {t.phase?.label}</span></div>
-          <div className="text-terminal-muted">Observed: <span className="text-white">{t.observed}</span></div>
-          <div><span className="text-terminal-bull">✔ {t.confirmed.join(" · ") || "—"}</span></div>
-          {t.missing?.length > 0 && <div className="text-terminal-warn">✗ Missing: {t.missing.join(" · ")}</div>}
+          <div><span className="text-terminal-muted">Watching </span><b className="text-white">{t.watching}</b> <span className={`${t.phase?.code === "RUNNER_CONFIRMED" ? "text-terminal-bear" : t.phase?.code === "RUNNER_BUILDING" ? "text-terminal-warn" : "text-terminal-bull"}`}>{t.phase?.dot} {t.phase?.label}{t.phase?.action ? ` (${t.phase.action})` : ""}</span></div>
+          {/* WHY BUY checklist (owner, 2026-07-21 follow-up: "Paragraph-ஐ
+              Checklist ஆக மாற்ற வேண்டும்") — same confirmed/missing data,
+              rendered one item per line instead of a joined sentence. */}
+          <ul className="space-y-0.5">
+            {t.confirmed.map((label: string, i: number) => (
+              <li key={`c${i}`} className="text-terminal-bull">✔ {label}</li>
+            ))}
+            {(t.missing || []).map((label: string, i: number) => (
+              <li key={`m${i}`} className="text-terminal-muted">✗ {label}</li>
+            ))}
+          </ul>
           <div className="text-terminal-muted">{t.confirmations_line}</div>
         </div>
         <div className="space-y-1">

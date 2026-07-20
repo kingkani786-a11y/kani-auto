@@ -66,6 +66,9 @@ def contract() -> dict[str, Any]:
                 "entry": None, "entry_window": None,
                 "exit_plan": {}, "trade_readiness": {"wave_direction": None, "premium_strength": None, "risk_approved": None},
                 "trade_light": {"color": "RED", "dot": "🔴", "label": "NO TRADE"},
+                "best_strike": None,
+                "buy_checklist": {"premium_building": False, "institutional_flow": False,
+                                  "wave_confirmed": False, "risk_gate_pass": False},
                 "invalidations": [], "instruction": "Standing aside.",
                 "signal_ts": None, "as_of": int(time.time()),
                 "note": "Degraded honest fallback — display layer only."}
@@ -225,6 +228,26 @@ def _contract() -> dict[str, Any]:
     _color, _dot, _label = _LIGHT.get(dec.get("primary_action"), ("RED", "🔴", "NO TRADE"))
     trade_light = {"color": _color, "dot": _dot, "label": _label}
 
+    # ── Best Strike (owner, 2026-07-21 — "BEST STRIKE 7850 PE" in the Level-1
+    # hero): the exact instrument the execution_card engine already selected
+    # and gated — read-only, only surfaced once the gate has actually armed a
+    # trade (honest: no strike identity is invented for a WAIT state).
+    _card = (dec.get("execution_card") or {}).get("card") or {}
+    best_strike = ({"strike": _card.get("strike"), "type": _card.get("type")}
+                   if is_trade and _card.get("strike") else None)
+
+    # ── BUY Checklist (owner, 2026-07-21 — "இந்த ஏழு PASS ஆனால் தான் BUY"):
+    # her 4-item WHY-BUY checklist, each a pure boolean read of a number this
+    # contract already computed above (ledger, trade_readiness) — display
+    # only, no new gate. The real gate stays Kill Switch + Risk Approval.
+    _inst_pillar = next((e["score"] for e in ledger if e["pillar"] == "Institutional"), None)
+    buy_checklist = {
+        "premium_building": premium_strength in ("Moderate", "Strong"),
+        "institutional_flow": isinstance(_inst_pillar, (int, float)) and _inst_pillar >= 14,
+        "wave_confirmed": wave_dir is not None,
+        "risk_gate_pass": risk_ok is True,
+    }
+
     return {
         "action": action,
         "is_trade": is_trade,
@@ -241,6 +264,8 @@ def _contract() -> dict[str, Any]:
         "exit_plan": exit_plan,
         "trade_readiness": trade_readiness,
         "trade_light": trade_light,
+        "best_strike": best_strike,
+        "buy_checklist": buy_checklist,
         "invalidations": _invalidations(dec, tech),
         "instruction": ("If ANY invalidation occurs → EXIT immediately."
                         if is_trade else

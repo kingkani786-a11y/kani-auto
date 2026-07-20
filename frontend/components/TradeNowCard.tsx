@@ -64,6 +64,15 @@ export function TradeNowCard() {
         )}
       </div>
 
+      {/* BEST STRIKE (owner, 2026-07-21) — the exact instrument the engine
+          gated, shown only once a trade is actually armed (honest: never
+          invented for a WAIT state). */}
+      {c.best_strike?.strike && (
+        <div className="text-center text-sm font-bold text-white tracking-wide border-y border-terminal-border py-1">
+          BEST STRIKE — {c.best_strike.strike} {c.best_strike.type}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
         <div>
           <div className="text-lg font-bold tabular-nums text-white">{c.confidence != null ? `${c.confidence}%` : "—"}</div>
@@ -106,13 +115,27 @@ export function TradeNowCard() {
         </span>
       </div>
 
+      {/* BUY Checklist (owner, 2026-07-21) — her fixed 4-item pre-buy check.
+          Same booleans as the alignment chips above, just spelled out as a
+          checklist instead of read-the-numbers. Still not a second gate. */}
       <div>
-        <div className="text-[10px] font-semibold text-terminal-muted uppercase tracking-wide mb-0.5">{buy ? "Reason" : "Why not"}</div>
+        <div className="text-[10px] font-semibold text-terminal-muted uppercase tracking-wide mb-0.5">BUY Checklist</div>
         <ul className="text-xs text-gray-200 space-y-0.5">
-          {(c.why || []).slice(0, 5).map((w: string, i: number) => (
-            <li key={i} className="flex gap-1.5"><span className={buy ? "text-terminal-bull" : "text-terminal-warn"}>{buy ? "✓" : "▸"}</span>{w}</li>
-          ))}
+          {([
+            ["premium_building", "Premium Building"],
+            ["institutional_flow", "Institutional Flow"],
+            ["wave_confirmed", "Wave Confirmed"],
+            ["risk_gate_pass", "Risk Gate PASS"],
+          ] as const).map(([key, label]) => {
+            const pass = !!c.buy_checklist?.[key];
+            return (
+              <li key={key} className="flex gap-1.5">
+                <span className={pass ? "text-terminal-bull" : "text-terminal-muted"}>{pass ? "✔" : "✗"}</span>{label}
+              </li>
+            );
+          })}
         </ul>
+        {c.why?.[0] && <div className="text-[11px] text-terminal-muted mt-1">{c.why[0]}</div>}
       </div>
 
       <div className="text-[10px] text-terminal-muted border-t border-terminal-border pt-1.5">
