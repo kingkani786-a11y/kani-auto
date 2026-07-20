@@ -491,3 +491,42 @@ Early Warning / COILED / SPRING / HOT NOW are explicitly NOT buy signals.
 3. **Decision Contract at 2 lines drops the stop-loss** from that card. SL
    must stay visible in the hero's Entry/SL/T1-T3 row, or capital protection
    loses its display. Do not remove both.
+
+## EXECUTION DASHBOARD ROADMAP — LOCKED (owner, 2026-07-21 01:15 IST)
+
+Sequencing agreed: **today = C6 validation ONLY.** No deploys during the
+session. The Execution Hero pass lands after the 15:30 close.
+
+**Locked priority order:**
+1. **Hero Premium Bug (CRITICAL)** — TradeNowCard labels UNDERLYING INDEX
+   levels as Entry/SL/T1-3. A "7850 PE" card reads "Entry 7,927 · SL 7,944"
+   — NIFTY points, readable as the option price. Fix: show `premium_entry`,
+   `premium_stop_loss`, `premium_target1/2/3` (already written by
+   strike_selector.py); demote index levels to small print labelled
+   "Underlying". Owner: an option buyer could misread ₹7927 as the premium.
+2. **Dead Backend Keys (CRITICAL)** — `execution_card.py` reads
+   `premium_sl` / `premium_targets`; strike_selector writes
+   `premium_stop_loss` / `premium_target1..3`. The read names are NEVER
+   written anywhere. Effect: SL is always None ("SL ₹None" in the actionable
+   line) and the target list is always empty. Backend consistency bug.
+3. **Strike Intelligence** — "Why THIS strike?" from existing
+   selection_score / spread_pct / prob_itm / greeks. Category 2.
+4. **Live Entry Status (NEW, owner 2026-07-21)** — showing BUY RANGE alone is
+   not enough; the card must answer "can I buy RIGHT NOW?":
+   `NOW ₹499 🟢 INSIDE BUY RANGE` · `NOW ₹507 🟠 ABOVE ENTRY — wait pullback`
+   · `NOW ₹492 ⚪ BELOW ENTRY — watch`. Pure comparison of live premium
+   against the entry band; no new logic.
+5. Position Manager — BLOCKED: needs a user-confirmed entry path that does
+   not exist (V5 L7 User-Confirm, noted-not-built). Not derivable.
+6. Exit Intelligence — engine exists; surfacing depends on (5).
+7. Trade Review / AI Mentor — AFTER C6 validation completes.
+
+**Mentor clarification (owner).** The freeze is a *Decision Logic* freeze.
+A Mentor that reviews a trade AFTER completion does not modify the decision
+engine, so it is not inherently freeze-violating — but it stays **Future
+Phase, NOT NOW**. Recorded so the earlier "❌ Mentor AI" line is read as
+sequencing, not a permanent prohibition.
+
+**Owner's framing for this pass:** the Execution Hero is already ~80% built.
+Do not write a new hero — `correct + complete + clean` the existing one.
+Order of value: correctness first, then clarity, then new capability.
