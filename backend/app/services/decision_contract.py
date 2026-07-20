@@ -217,9 +217,16 @@ def _contract() -> dict[str, Any]:
     # (premium_radar's chain-wave + phase, Risk Approval's gate). NEVER a
     # second decision gate — the real gate stays Kill Switch/Risk Approval;
     # this only explains, in plain words, what's already true.
+    _radar_live = False
     try:
         from . import premium_radar as _radar, risk_approval as _ra
         _rr = _radar.radar(top=1)
+        # Is the radar actually seeing anything? With 0 strikes tracked (market
+        # closed, or pre-first-tick after open) "premium isn't building" and
+        # "no wave" are NOT findings — they are the absence of data. Same rule
+        # already applied to Structure; applying it inconsistently is what made
+        # the closed-market dashboard show ✗ Premium / ✗ Wave as if measured.
+        _radar_live = bool(_rr.get("tracked"))
         _waves = _rr.get("chain_wave") or []
         wave_dir = _waves[0]["direction"] if _waves else None
         _leaders = (_rr.get("leaders") or []) + (_rr.get("watchlist") or [])
@@ -275,10 +282,11 @@ def _contract() -> dict[str, Any]:
     _cal = ((dec.get("ai_trust") or {}).get("components") or {}).get("calibration")
     buy_checklist = [
         {"key": "premium_building", "label": "Premium Building",
-         "ok": premium_strength in ("Moderate", "Strong")},
+         "ok": (premium_strength in ("Moderate", "Strong")) if _radar_live else None},
         {"key": "institutional_flow", "label": "Institutional Flow",
          "ok": _inst_pillar >= 14 if isinstance(_inst_pillar, (int, float)) else None},
-        {"key": "wave_confirmed", "label": "Wave Confirmed", "ok": wave_dir is not None},
+        {"key": "wave_confirmed", "label": "Wave Confirmed",
+         "ok": (wave_dir is not None) if _radar_live else None},
         {"key": "risk_gate", "label": "Risk Gate PASS", "ok": risk_ok},
         {"key": "volume", "label": "Volume",
          "ok": _vol >= 55 if isinstance(_vol, (int, float)) else None},

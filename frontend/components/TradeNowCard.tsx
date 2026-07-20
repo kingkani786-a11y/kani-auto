@@ -101,19 +101,9 @@ export function TradeNowCard() {
         </div>
       )}
 
-      {/* Alignment checklist — informational only, NOT a second gate */}
-      <div className="flex flex-wrap gap-2 text-[11px] border-t border-terminal-border pt-2">
-        <span className={`px-1.5 py-0.5 rounded border ${tr.wave_direction ? "text-terminal-bull border-terminal-bull/40" : "text-terminal-muted border-terminal-border"}`}>
-          {tr.wave_direction ? "🌊" : "○"} Wave {tr.wave_direction ? tr.wave_direction.toUpperCase() : "—"}
-        </span>
-        <span className={`px-1.5 py-0.5 rounded border ${tr.premium_strength === "Strong" ? "text-terminal-bull border-terminal-bull/40" : tr.premium_strength === "Moderate" ? "text-terminal-warn border-terminal-warn/40" : "text-terminal-muted border-terminal-border"}`}>
-          {tr.premium_strength ? "⚡" : "○"} Premium {tr.premium_strength || "—"}
-        </span>
-        <span className={`px-1.5 py-0.5 rounded border ${tr.risk_approved ? "text-terminal-bull border-terminal-bull/40" : "text-terminal-bear border-terminal-bear/40"}`}>
-          {tr.risk_approved ? "✓" : "✕"} Risk Gate
-        </span>
-      </div>
-
+      {/* Alignment chips REMOVED 2026-07-21: Wave / Premium / Risk Gate are
+          all three already rows in the BUY checklist directly below, so this
+          rendered the same three facts twice, adjacently. */}
       {/* BUY Checklist — rendered from the contract's shared `buy_checklist`
           object, the SAME one AI Thinking renders (owner 2026-07-21). ○ means
           NOT MEASURED (e.g. Structure, pending the Market Structure Engine) —

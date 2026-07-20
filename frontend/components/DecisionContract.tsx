@@ -22,16 +22,16 @@ export function DecisionContract() {
   if (!c) return null;
 
   const buy = c.is_trade;
-  const head = buy
-    ? { t: `🟢 ${c.action}`, cls: "text-terminal-bull border-terminal-bull/50 bg-terminal-bull/10" }
-    : { t: `⏸ ${c.action || "WAIT"}`, cls: "text-terminal-warn border-terminal-warn/40 bg-terminal-warn/5" };
   const exitIf = (c.invalidations || []).find((v: string) => !v.startsWith("Kill Switch")) || c.invalidations?.[0];
 
   return (
     <section className="panel space-y-2">
       <div className="flex items-center justify-between">
+        {/* No verdict badge here (owner 2026-07-21: one verdict, one place).
+            This card said "⏸ WAIT" while the hero said "🔴 NO TRADE" — the same
+            state in two different words on one screen. The hero owns the
+            verdict; this card owns the entry/stop/target contract only. */}
         <h2 className="text-sm font-semibold text-white">📜 Decision Contract</h2>
-        <span className={`text-[12px] font-bold px-2 py-0.5 rounded border ${head.cls}`}>{head.t}</span>
       </div>
 
       {buy ? (
