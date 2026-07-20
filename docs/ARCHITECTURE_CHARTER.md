@@ -607,3 +607,25 @@ calendar, and inventing detection would be fabricated data. They are DECLARED
 by the owner in `data/session_calendar.json` (`{"2026-02-01": "BUDGET"}`); a
 declaration overrides the derived value, and absent one the day is NORMAL (or
 EXPIRY when dte==0). Honest UNKNOWN over a guess, per doctrine.
+
+### `validation_bucket` — the sampling rule, made machine-readable (owner, 2026-07-21)
+One derivation in `opportunity_metrics._validation_bucket()`, so the code can
+never drift from the pre-registered rule above (same principle as the single
+runner-threshold table):
+
+| condition | bucket | meaning |
+|---|---|---|
+| `session_type == NORMAL` | `PRIMARY` | counts toward the 30 path-2 events |
+| `session_type == EXPIRY` | `SECONDARY` | reported separately, never merged |
+| `session_type == UNKNOWN` | `EXCLUDED` | conditions unknown — must not contaminate |
+| root_cause FEED_OUTAGE / BROKER_COOLDOWN | `EXCLUDED` | a data-availability failure is not a detection outcome |
+
+`WHERE validation_bucket='PRIMARY'` is now the whole C6 dataset definition.
+
+**Contamination fix found while building this.** `_session_type()` previously
+returned `NORMAL` whenever `dte` was unavailable — which happens on the first
+ticks after open, before the expiry layer publishes. Those episodes would have
+landed silently in PRIMARY while asserting a session condition we could not
+actually know. It now returns `UNKNOWN` (→ EXCLUDED), and `_black_box()` makes
+one best-effort re-resolve at close, by which time the layer has normally
+published — so genuine episodes are not lost to over-exclusion.

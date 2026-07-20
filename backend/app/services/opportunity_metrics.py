@@ -297,6 +297,12 @@ def _session_type() -> str:
     except Exception:
         pass
     d = _dte()
+    if d is None:
+        # The expiry layer has not published yet (first ticks after open, or a
+        # chain-less instrument). Returning NORMAL here would silently drop the
+        # episode into the PRIMARY C6 sample while asserting something we cannot
+        # actually know. UNKNOWN keeps it out until it can be resolved.
+        return "UNKNOWN"
     return "EXPIRY" if d == 0 else "NORMAL"
 
 
@@ -308,6 +314,26 @@ def _behavioural_regime() -> str | None:
         return ((state.intelligence or {}).get("layers") or {}).get("regime", {}).get("regime")
     except Exception:
         return None
+
+
+# The pre-registered C6 sampling rule, in ONE place so the code cannot drift
+# from the charter (same principle as the single runner-threshold table).
+#   NORMAL  -> PRIMARY    counts toward the 30 path-2 events
+#   EXPIRY  -> SECONDARY  reported separately, never merged
+#   UNKNOWN -> EXCLUDED   session conditions unknown; must not contaminate
+#   feed/broker outage -> EXCLUDED  a data-availability failure is not a
+#                         detection outcome and must never score against C6
+_EXCLUDING_CAUSES = ("FEED_OUTAGE", "BROKER_COOLDOWN")
+
+
+def _validation_bucket(session_type: str | None, root_cause: str | None) -> str:
+    if root_cause in _EXCLUDING_CAUSES:
+        return "EXCLUDED"
+    if session_type == "EXPIRY":
+        return "SECONDARY"
+    if session_type == "NORMAL":
+        return "PRIMARY"
+    return "EXCLUDED"
 
 
 def _engine_snapshot() -> dict[str, Any]:
@@ -434,6 +460,11 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
     global _seq
     _seq += 1
     c = _classify(ep)
+    if ep.get("session_type") in (None, "UNKNOWN"):
+        ep["session_type"] = _session_type()   # best-effort resolve before writing
+    if not ep.get("regime"):
+        ep["regime"] = _behavioural_regime()
+    _rc = _root_cause(ep, c)
     return {
         "n": _seq, "day": _day, "symbol": ep.get("symbol", ""),
         "cold_start": bool(ep.get("cold_start")),
@@ -462,7 +493,10 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
                        if ep.get("alert_prem") and ep.get("ideal_prem") else None),
         "ideal_wait_s": (round(ep["ideal_ts"] - ep["alert_ts"], 1)
                          if ep.get("ideal_ts") and ep.get("alert_ts") else None),
-        "root_cause": _root_cause(ep, c),        # WHY — the Evidence-Layer verdict
+        "root_cause": _rc,                       # WHY — the Evidence-Layer verdict
+        # PRIMARY = counts toward the C6 verdict · SECONDARY = expiry, separate
+        # · EXCLUDED = unknown conditions or a feed/broker outage
+        "validation_bucket": _validation_bucket(ep.get("session_type"), _rc),
         "engine": ep.get("snap_run") or ep.get("snap_start"),  # decision context join
     }
 
@@ -617,6 +651,11 @@ def black_box_log(limit: int = 50) -> dict[str, Any]:
 
 def _black_box_preview(ep: dict[str, Any]) -> dict[str, Any]:
     c = _classify(ep)
+    if ep.get("session_type") in (None, "UNKNOWN"):
+        ep["session_type"] = _session_type()   # best-effort resolve before writing
+    if not ep.get("regime"):
+        ep["regime"] = _behavioural_regime()
+    _rc = _root_cause(ep, c)
     return {"n": "live", "day": _day, "strike": ep["strike"], "type": ep["type"],
             "t_coil": _hhmmss(ep["coil_ts"]), "t_ignite": _hhmmss(ep["alert_ts"]),
             "t_peak": _hhmmss(ep["peak_ts"]), "t_exhaust": _hhmmss(ep["exhaust_ts"]),
