@@ -140,7 +140,7 @@ def _hhmmss(ts: float | None) -> str | None:
 def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]:
     return {"strike": strike, "type": typ, "base": premium, "base_ts": now,
             "peak": premium, "peak_ts": now,
-            "coil_ts": None, "ignite_path": 0,
+            "coil_ts": None, "ignite_path": 0, "dte": _dte(),
             "move_start_ts": None, "move_start_prem": None,
             "alert_ts": None, "alert_prem": None, "alert_rise": None,
             "runner_ts": None, "runner_prem": None, "exhaust_ts": None,
@@ -254,6 +254,25 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         _eps[key] = _new_ep(strike, typ, premium, now)
 
     _checkpoint_open(now)        # P0: durable open-episode snapshot (~10s)
+
+
+def _dte() -> int | None:
+    """Days to expiry at this instant, read defensively off the shared state.
+
+    Recorded on EVERY black-box line from 2026-07-21 because expiry sessions are
+    a different population, not a noisier version of the same one: theta crush
+    inverts what a "COILED" reading (flat premium + rising volume/OI) means,
+    RUNNER_PCT=30% is trivially cleared by a ₹5 option touching ₹6.50, and
+    MIN_RUNNER_PTS=5 flips from a floor into a huge move when strikes trade
+    ₹2-20. Without this tag, expiry episodes are indistinguishable from normal
+    ones in the C6 sample and would silently decide the verdict."""
+    try:
+        from ..core.state import state
+        v = ((state.intelligence or {}).get("layers") or {}).get("expiry") or {}
+        d = v.get("days_to_expiry")
+        return int(d) if d is not None else None
+    except Exception:
+        return None
 
 
 def _engine_snapshot() -> dict[str, Any]:
@@ -389,6 +408,8 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         # forensics to infer it. Never leave the ordering unrecoverable again.
         "t_base": _hhmmss(ep.get("base_ts")),
         "ignite_path": ep.get("ignite_path") or 0,   # 2 = attributable to C6
+        "dte": ep.get("dte"),                        # days to expiry at episode start
+        "expiry_day": (ep.get("dte") == 0) if ep.get("dte") is not None else None,
         "t_coil": _hhmmss(ep["coil_ts"]), "t_move_start": _hhmmss(ep["move_start_ts"]),
         "t_ignite": _hhmmss(ep["alert_ts"]), "t_runner": _hhmmss(ep["runner_ts"]),
         "t_peak": _hhmmss(ep["peak_ts"]), "t_exhaust": _hhmmss(ep["exhaust_ts"]),
