@@ -32,6 +32,7 @@ import { RiskApproval } from "@/components/RiskApproval";
 import { DecisionContract } from "@/components/DecisionContract";
 import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
+import { TradeNowCard } from "@/components/TradeNowCard";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
 import { AIChangelog } from "@/components/AIChangelog";
@@ -82,21 +83,27 @@ export default function Dashboard() {
   const [tf, setTf] = useState("5m");                         // default: 5m
   const [lines, setLines] = useState<TradeLines>({});
   const [switching, setSwitching] = useState(false);
-  // V29.x — Trading Mode (one-screen execution) vs Research Mode (full depth)
-  const [mode, setMode] = useState<"Trading" | "Research">("Trading");
+  // Simple Mode (one-screen "what do I do now") vs Advanced Mode (full depth +
+  // developer/measurement tools). Renamed from Trading/Research 2026-07-21
+  // (owner UX review): the old "Trading" mode still showed Capture Score/AI
+  // Thinking/Timeline/Attention — dev-facing measurement tools a trader
+  // glancing for 2-3 seconds shouldn't have to parse. Simple now shows ONLY
+  // the Trade Now hero + Decision Contract ("why") + Market (radar/movers).
+  const [mode, setMode] = useState<"Simple" | "Advanced">("Simple");
 
   useEffect(() => {
     api.symbols().then(setSymbols).catch(() => {});
     const saved = (typeof window !== "undefined" && localStorage.getItem("cat_mode")) as any;
-    if (saved === "Trading" || saved === "Research") setMode(saved);
+    if (saved === "Simple" || saved === "Advanced") setMode(saved);
   }, []);
 
   const setModePersist = (m: typeof mode) => {
     setMode(m);
     try { localStorage.setItem("cat_mode", m); } catch {}
   };
-  const showMiddle = mode === "Research";       // Market section (Research only)
-  const showBottom = mode === "Research";       // Deep Analysis section (Research only)
+  const showAdvanced = mode === "Advanced";     // dev/measurement tools + deep analysis
+  const showMiddle = showAdvanced;              // Market section (Advanced only)
+  const showBottom = showAdvanced;              // Deep Analysis section (Advanced only)
 
   const onCandles = useCallback((_c: Candle[]) => {}, []);
   const onLines = useCallback((l: TradeLines) => setLines(l), []);
@@ -157,20 +164,32 @@ export default function Dashboard() {
         <SmartAlertBar />
       </SafeBoundary>
 
-      {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts */}
+      {/* 🟢 TRADE NOW — the ONE box (owner UX review 2026-07-21): BUY/WAIT/EXIT,
+          confidence, grade, entry/SL/targets, reason — decide in 2-3 seconds.
+          Always visible, both modes — this IS the "Simple Mode" hero. */}
+      <SafeBoundary name="Trade Now">
+        <TradeNowCard />
+      </SafeBoundary>
+
+      {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts.
+          Market tier (owner's ③): kept visible in Simple — an option buyer's
+          opportunity radar, not a developer tool. */}
       <SafeBoundary name="Early Warning">
         <EarlyWarning />
       </SafeBoundary>
 
-      {/* 🔥 HOT NOW — action-first, the top opportunity at the very top */}
+      {/* 🔥 HOT NOW — action-first top opportunity. Market tier, always visible. */}
       <SafeBoundary name="Hot Now">
         <HotNow />
       </SafeBoundary>
 
-      {/* 👀 AI Attention — where the radar's focus is now */}
-      <SafeBoundary name="AI Attention Focus">
-        <AIAttention />
-      </SafeBoundary>
+      {/* 👀 AI Attention — where the radar's focus is (%). Measurement/dev tool
+          per owner's review → Advanced only. */}
+      {showAdvanced && (
+        <SafeBoundary name="AI Attention Focus">
+          <AIAttention />
+        </SafeBoundary>
+      )}
 
       {/* V20 ACTION-FIRST ORDER (user design review): decision → strike/plan →
           capture → index → shields; diagnostics move BELOW the action stack. */}
@@ -180,35 +199,49 @@ export default function Dashboard() {
         <PremiumRadar />
       </SafeBoundary>
 
-      {/* 🏆 Capture Score — the Measure step: is the software actually catching more? */}
-      <SafeBoundary name="Capture Score">
-        <CaptureScore />
-      </SafeBoundary>
+      {/* 🏆 Capture Score — dashboard health KPI (Missed/Late/Capture%), NOT a
+          trade signal. Owner's review 2026-07-21: "Trade எடுக்க பயன்படுத்தக்
+          கூடாது" (not for taking trades) → Developer Tool, Advanced only. */}
+      {showAdvanced && (
+        <SafeBoundary name="Capture Score">
+          <CaptureScore />
+        </SafeBoundary>
+      )}
 
-      {/* AI Thinking Now — the engine's live reasoning made visible */}
-      <SafeBoundary name="AI Thinking">
-        <AIThinkingPanel />
-      </SafeBoundary>
+      {/* AI Thinking Now — engine's live reasoning. Owner: "Developer Tool.
+          User பார்க்க வேண்டியது இல்லை" → Advanced only. */}
+      {showAdvanced && (
+        <SafeBoundary name="AI Thinking">
+          <AIThinkingPanel />
+        </SafeBoundary>
+      )}
 
-      {/* 📜 Decision Contract — V2.1: entry/hold/exit as one object */}
+      {/* 📜 Decision Contract — owner: "இதைத்தான் பார்க்க வேண்டும்" (this is
+          exactly what should be seen) → always visible, both modes. */}
       <SafeBoundary name="Decision Contract">
         <DecisionContract />
       </SafeBoundary>
 
-      {/* 🔒 Risk Approval — V5 layer 5: capital & market safety gate before any BUY */}
-      <SafeBoundary name="Risk Approval">
-        <RiskApproval />
-      </SafeBoundary>
+      {/* 🔒 Risk Approval — full detail panel. The simple YES/NO now lives in
+          TradeNowCard's alignment chips; the detailed breakdown is Advanced only. */}
+      {showAdvanced && (
+        <SafeBoundary name="Risk Approval">
+          <RiskApproval />
+        </SafeBoundary>
+      )}
 
       {/* AI Analysis — Gemini explains the live decision (cost-cached) */}
       <SafeBoundary name="AI Analysis">
         <AIAnalysisCard />
       </SafeBoundary>
 
-      {/* AI Timeline — the day's market story (engine transitions) */}
-      <SafeBoundary name="AI Timeline">
-        <AITimelineCard />
-      </SafeBoundary>
+      {/* AI Timeline — the day's market story. Owner: "History. BUY செய்ய
+          பயன்படுத்த வேண்டாம்" (don't use it to decide BUY) → Advanced only. */}
+      {showAdvanced && (
+        <SafeBoundary name="AI Timeline">
+          <AITimelineCard />
+        </SafeBoundary>
+      )}
 
       {/* THE decision card — first thing on screen */}
       <SafeBoundary name="Live Candle">
@@ -338,18 +371,18 @@ export default function Dashboard() {
       {/* V29.x — Trading Mode (one screen) vs Research Mode (full depth) */}
       <div className="flex items-center justify-end gap-2">
         <div className="flex gap-0.5 bg-terminal-bg rounded-lg p-0.5 border border-terminal-border">
-          {(["Trading", "Research"] as const).map((m) => (
+          {(["Simple", "Advanced"] as const).map((m) => (
             <button key={m} onClick={() => setModePersist(m)}
               className={`px-3 py-1 text-[11px] rounded-md transition-colors ${
                 mode === m ? "bg-terminal-accent text-black font-bold" : "text-terminal-muted hover:text-white"}`}>
-              {m === "Trading" ? "⚡ Trading" : "🔬 Research"}
+              {m === "Simple" ? "🟢 Simple" : "🔬 Advanced"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Research-mode quick links to the deep-analysis pages */}
-      {mode === "Research" && (
+      {/* Advanced-mode quick links to the deep-analysis pages */}
+      {showAdvanced && (
         <div className="flex flex-wrap gap-1.5">
           {[["🧠 AI Workspace", "/ai-workspace"], ["Analysis", "/advanced"], ["Market DNA", "/dna"], ["Simulator", "/simulator"],
             ["Evolution", "/evolution"], ["Research Lab", "/research"], ["Report Card", "/report-card"],
