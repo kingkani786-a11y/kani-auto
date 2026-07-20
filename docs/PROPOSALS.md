@@ -908,3 +908,26 @@ Nothing in V2.0 builds before its evidence gate: L4 needs false/wave data,
 L5 needs retest data, L6 needs move-size distribution from the black box.
 L2 candle library + L1 composite readout are deterministic/display and can be
 built next once the current evidence week concludes.
+
+---
+
+## #021 — Feed Confidence Engine (owner, 2026-07-20) — NEXT MAJOR BUILD CANDIDATE
+
+Evidence: Monday's biggest limitation was DATA AVAILABILITY, not detection
+(broker cooldowns + feed POOR windows produced the only real losses; detection
+misses = 0). A dedicated layer BEFORE the Decision Engine:
+
+Inputs: tick freshness · websocket health · API health · latency · missing-tick
+% · cooldown state → one **Feed Confidence %**.
+Decision rule (institutional): >90% trade normally · 70–90% reduced confidence ·
+50–70% WAIT · <50% NO TRADE.
+
+Today's partials to consolidate (not duplicate): data_quality.report()
+(completeness/quality), DhanClient.stats() (cooldown, latency), Feed Diagnostics
+panel, Safe Mode data triggers. The engine unifies them into ONE number consumed
+by kill-switch/risk-approval/contract, and the black box records feed_confidence
+at move-start so misses auto-classify.
+Companion (DONE 2026-07-20, c2fbe7f): miss taxonomy FEED_OUTAGE /
+BROKER_COOLDOWN before detection blame.
+Gate: build AFTER the 3-day C6 validation window (Wed close), if the miss-split
+evidence confirms data-availability as the dominant loss source.
