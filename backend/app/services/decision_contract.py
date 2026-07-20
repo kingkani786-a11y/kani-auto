@@ -15,12 +15,18 @@ from ..core.state import state
 
 
 def _layers() -> dict[str, float]:
-    rows = ((state.intelligence or {}).get("layers", {}).get("intelligence", {})
-            .get("rows", []))
+    # every level can be None/non-dict mid-cycle (live 500 on 2026-07-20:
+    # layers.intelligence was None between engine publishes) — walk defensively
+    node: Any = state.intelligence or {}
+    for key in ("layers", "intelligence"):
+        node = node.get(key) if isinstance(node, dict) else None
+        if node is None:
+            return {}
+    rows = node.get("rows") if isinstance(node, dict) else None
     out: dict[str, float] = {}
-    for r in rows:
+    for r in rows or []:
         try:
-            if r.get("layer") is not None and r.get("score") is not None:
+            if isinstance(r, dict) and r.get("layer") is not None and r.get("score") is not None:
                 out[str(r["layer"])] = float(r["score"])
         except (TypeError, ValueError):
             continue
@@ -45,6 +51,25 @@ def _invalidations(dec: dict, tech: dict) -> list[str]:
 
 
 def contract() -> dict[str, Any]:
+    """Never 500s: any internal error degrades to an honest WAIT contract
+    (Rule 1 — fail to WAIT, never to a broken card)."""
+    try:
+        return _contract()
+    except Exception as e:  # pragma: no cover — belt and braces for live shapes
+        return {"action": "WAIT", "is_trade": False, "confidence": None,
+                "why": [f"Contract builder degraded ({type(e).__name__}) — engine unaffected"],
+                "entry_grade": {"grade": None, "score": None, "parts": {}},
+                "ledger": [], "ledger_total": None,
+                "aging": {"age_s": None, "state": None, "decay_pct": 0, "aged_confidence": None},
+                "entry_window_live": {"seconds_left": None, "state": None},
+                "risk": None, "expected_move": None, "reward_risk": None,
+                "entry": None, "entry_window": None,
+                "exit_plan": {}, "invalidations": [], "instruction": "Standing aside.",
+                "signal_ts": None, "as_of": int(time.time()),
+                "note": "Degraded honest fallback — display layer only."}
+
+
+def _contract() -> dict[str, Any]:
     dec = state.decision or {}
     sig = state.signal or {}
     tech = (sig.get("tech") or {})
