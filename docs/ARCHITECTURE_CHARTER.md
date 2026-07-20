@@ -303,3 +303,46 @@ phase. All future work executes existing charter layers in evidence order,
 inside the validation discipline already governing C6 (3-day window) and
 calibration (2-3wk). The "buildable now" items above are NOTED, not started,
 absent a separate explicit go-ahead — they do not override the Tuesday lock.
+
+---
+
+# IEIOS EXECUTION DOCTRINE (FINAL — owner, 2026-07-20 night)
+_This is not a layer. It is the process that governs every future layer.
+Charter architecture is now FROZEN — no new layers for 2-3 weeks per this
+doctrine. What follows is the only lens for any future proposal._
+
+## The 5 Gates — mandatory for every future feature, no exceptions
+1. **What problem does this solve?** (Detection Miss? Late Entry? False
+   Signal? Poor Exit? User Confusion?) No clear problem ⇒ no build.
+2. **Can the Black Box measure it?** Must state Current → Build → Expected KPI
+   Change BEFORE building (e.g. "Coil Memory: Misses 12 → expected 6"). Can't
+   measure ⇒ no build.
+3. **Can an existing engine derive this?** (Price Action + Institutional Flow +
+   Consensus + Black Box already there?) If yes ⇒ no new engine — extend
+   existing derivation instead.
+4. **Is it explainable?** "BUY" alone is insufficient; must be "BUY because…".
+   Unexplainable AI output never reaches production.
+5. **Does it need human override?** AI never changes its own rules — it only
+   ever proposes; approval is always the human's.
+
+## Development Priority Pyramid (this ordering itself is doctrine)
+- **Level 1 (highest) — Measurement:** Black Box, Recorder, Evidence, Governance
+- **Level 2 — Decision Quality:** Contract, Grade, Replay, Challenge
+- **Level 3 — Prediction:** Memory, Research, Knowledge Graph, Strategy Ranking
+- **Level 4 — Self-Learning:** Calibration, Adaptive Knowledge, Mentor
+
+Reading: for this platform, measuring correctly outranks the AI learning
+anything — Level 1 is not infrastructure to rush past, it IS the priority.
+
+## The failure mode this doctrine exists to prevent
+Most trading-AI projects die from: Idea → Feature → Another Feature → Another
+Feature (unbounded accretion, never validated). This project's loop instead:
+Idea → Charter → Validation → Evidence → Decision → Build. Every idea earns a
+charter entry; only evidence promotes a charter entry to a build.
+
+## Standing instruction (effective now)
+No new architecture layers for 2-3 weeks. Instead: keep the charter frozen,
+keep collecting Black Box data, keep producing validation reports, keep
+watching KPI trends, and implement ONLY features that already pass all 5 gates
+above with real evidence behind them. V5/V6 evolution must emerge FROM the
+data, never from a fresh idea arriving out of sequence.
