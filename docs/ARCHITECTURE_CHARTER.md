@@ -321,6 +321,23 @@ doctrine. What follows is the only lens for any future proposal._
 2. **Can the Black Box measure it?** Must state Current → Build → Expected KPI
    Change BEFORE building (e.g. "Coil Memory: Misses 12 → expected 6"). Can't
    measure ⇒ no build.
+   - **Documented exemption — Category 2 (Visualization) only** (owner,
+     2026-07-21): pure presentation work is exempt from Gate 2 when it
+     provably changes no decision logic, no threshold and no engine — i.e. it
+     only re-renders values the backend already publishes. Rationale: the
+     Black Box measures *market episodes* (capture %, detection delay, root
+     cause); it has no UI instrumentation, so decision latency / interaction
+     depth / time-to-first-action are **not measurable today** and no code
+     path can produce them.
+   - **The honest cost of this exemption, stated plainly:** UX improvements
+     under it are *asserted, never proven*. The 2026-07-21 UX passes 1–4 ran
+     this way de facto, and each was followed by "still too much
+     information" — unmeasured UX iteration converges slowly, by observation.
+   - **Limits.** The exemption does NOT cover: anything touching decision
+     logic/thresholds (Gate 2 applies in full), or any claim that a UX change
+     improved a *trading* KPI (EV, capture %, false %) — such a claim needs
+     real measurement like any other. Building actual UI telemetry, to make
+     Gate 2 genuinely satisfiable for UX, remains open as a Category-1 item.
 3. **Can an existing engine derive this?** (Price Action + Institutional Flow +
    Consensus + Black Box already there?) If yes ⇒ no new engine — extend
    existing derivation instead.
@@ -394,3 +411,49 @@ Black Box data — not a new idea — nominates the next feature.
 Charter + Governance + Execution Doctrine + Prime Directive together make this
 an Institutional-Grade AI Decision Platform Development Framework, not a
 trading dashboard. Ideas no longer drive this project's growth. Evidence does.
+
+---
+
+# V6 Trader UX — APPROVED SPEC, DEFERRED BUILD (owner, 2026-07-21)
+
+Owner's V6 proposal, run through the 5 Gates. **Gates 1/3/4/5 pass.** Gate 2
+does not pass as originally written (it claimed decision-latency / scroll-depth
+/ confirmation-time were measurable — they are not; no UI telemetry exists) and
+proceeds instead under the **Category-2 Visualization exemption** recorded
+above. Classification: **UI/UX refactor, NOT a Decision Engine change.**
+
+## Sequencing decision (owner, 2026-07-21)
+C6 validation comes FIRST. V6 builds only after the 15:30 close. Rationale:
+2026-07-21 is C6 validation day 2 of 3, and a **backend** restart wipes
+`premium_radar._tracks` (the known, still-unfixed P0 phase-2 gap) — i.e. the
+exact coil state C6 is measuring. Frontend-only restarts do not carry that risk.
+
+## Target layer order
+1 Trade Light · 2 Decision Hero · 3 WHY Checklist · 4 Execution · 5 Radar ·
+6 AI Thinking · 7 Research · 8 System
+
+## Build list, by risk
+
+**A. Frontend-only (data already in the API payload — no backend restart):**
+- **Confidence meter + 5-pillar breakdown.** The Evidence Ledger already
+  computes this (`ledger[]`, /20 per pillar; Institutional / Price Action /
+  Risk match the owner's list literally). *Regression note: this was rendered
+  until UX pass 3 (commit 1763a41) trimmed DecisionContract.tsx; only the bare
+  total survives. V6 is partly asking to undo an over-trim.*
+- **Entry-window countdown in the hero.** `entry_window_live` is computed every
+  cycle and has had **no consumer at all** since that same pass-3 trim.
+- Bigger Runner badge ("23/100 · EARLY BUILD") — `runner_tag` exists.
+- Bigger Grade badge + sub-scores — `entry_grade.parts` is close but not
+  identical to the owner's Signal/Execution/Risk split.
+- `MANUAL EXECUTION` label. **No BUY button has ever existed** in this
+  codebase — the "AI never trades, human executes" rule is already satisfied
+  structurally; this label only makes it visible.
+- Panel reorder to the 1–8 order above.
+
+**B. Needs backend (deploy at close only):**
+- WHY checklist 4 items → 7 (add Calibration PASS, Structure PASS, Volume
+  PASS to `buy_checklist` in `decision_contract.py`).
+
+## Open Category-1 item (not scheduled)
+UI telemetry — decision latency, interaction depth, time-to-first-action — so
+Gate 2 becomes genuinely satisfiable for UX work instead of exempted.
