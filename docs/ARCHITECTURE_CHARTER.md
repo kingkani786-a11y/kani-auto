@@ -857,6 +857,12 @@ just the instance** — #10's second copy was missed on the first pass.
 
 # HANDOFF — 4 LOCKED DECISIONS (owner sign-off, 2026-07-21 end of session)
 
+## ORDER OF WORK NEXT SESSION (owner, explicit)
+**#2 FIRST — run Case A/B, ship the `_total_429` fix. THEN #4 naming cleanup.**
+Rationale: an approved-but-undeployed fix must land before an unrelated
+refactor begins, or the context splits and the approved fix slips. Do not
+start the naming work with #2 still pending.
+
 ## 1. Calibration gate — SETTLED, no action
 `institutional` moved 56→61 on real signal strength, so the confluence gate
 self-corrects and is NOT deadlocked. A gate that recovers on genuine market
@@ -889,7 +895,7 @@ a blanket rule. For every gate ask: *is this reset business-meaningful, or
 accidental?* `_total_429` had no business reason for its behaviour — a bug.
 Kill Switch's daily reset has one — a design decision.
 
-## 4. Two calibration paths — NEXT SESSION, FIRST TASK
+## 4. Two calibration paths — NEXT SESSION, **SECOND** task (after #2 ships)
 Three names for two concepts is the root confusion, and I added the third.
 | now (colliding) | rename to | meaning |
 |---|---|---|
