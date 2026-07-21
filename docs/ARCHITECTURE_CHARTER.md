@@ -1039,3 +1039,62 @@ ignition caps (`rise_pct < 18` / `< 20`) prevent an alert once a move is
 already large, which is why a +40pt CE move showed on the radar but never fired
 an alert. So Rule 3 is satisfied for tracking and violated for alerting. That
 distinction matters — the fix is to the alert path, not the tracker.
+
+---
+
+# ★ V16 MASTER SPECIFICATION — CANONICAL
+_(owner, 2026-07-21 — consolidates and SUPERSEDES the two V16 entries above.
+Read this one.)_
+
+## THE EIGHT GOLDEN RULES
+1. No fabricated numbers.
+2. No hidden opportunities.
+3. No strategy decides trades.
+4. **No probability without ML.**
+5. No duplicated evidence.
+6. No engine counted twice.
+7. Every displayed value must have a measurable source.
+8. **Evidence first · Decision second · Execution last.**
+
+## THREE AIs
+- **AI-1 Decision** — the only engine that may approve a trade.
+- **AI-2 Opportunity** — never decides, never blocks, never executes. Asks
+  "what opportunity exists?", never "should we buy?".
+- **AI-3 Explanation** — when AI-1 refuses, explains why. Never hides the
+  opportunity, never promotes it.
+
+## STRATEGIES = EVIDENCE PROVIDERS
+~35 named strategies (directional, synthetic, spreads, volatility, structure,
+flow). Each outputs ONLY: strength · evidence · historical match · pattern
+confidence · risk notes. **Never BUY.**
+
+## CONSENSUS IS WEIGHTED BY INDEPENDENCE
+Correlation is measured BEFORE consensus is used. Highly correlated engines
+cannot be counted twice; consensus is weighted by independence, not by vote
+count. Consensus never approves a trade — AI-1 consumes it as one input.
+
+## LEGAL EVIDENCE SOURCES (Rule 7)
+Live Market · Database · Historical Episodes · Research Mode · Machine
+Learning. Anything else MUST display **Unknown / Unavailable / Not Enough
+Data**. Never fabricate.
+
+## VALIDATION BEFORE DISPLAY
+Every engine must carry: evidence · accuracy · false-alert rate · hit rate ·
+observed statistics · last validation · sample count · confidence.
+**Nothing may display unless validated.**
+
+## RESEARCH MODE (already shipped 2026-07-21)
+Must never write the production database, modify the checkpoint, or pollute
+learning. Isolated storage only. → `CAT_RESEARCH_MODE=1` / `CAT_DATA_DIR`.
+
+## STATUS OF THE FOUR RECORDED VIOLATIONS
+1. **Five surviving "Probability" labels** — ⚠ STILL OPEN. `Entry Probability`,
+   Scalping Tool `Probability`, `Probability Candle Projection`, `Probability
+   Ladder`, `Reversal Probability`. Reclassify AND check against outcomes.
+2. **Rise caps suppress ALERTING** (not tracking) — ⚠ STILL OPEN, frozen until
+   C6 has a verdict; it is the same logic C6 is validating. Fix belongs to the
+   alert path, not the tracker.
+3. **"Forecast AI uses ML" implied a capability that is absent** — ✅ RESOLVED
+   by Golden Rule 4: probability is now conditioned on ML existing, so
+   Forecast AI simply stays unbuilt until it does. Rule and reality now agree.
+4. **Forecast mandatory labels implied a trained model** — ✅ RESOLVED, same rule.
