@@ -28,6 +28,8 @@ export function TradeNowCard() {
   const grade = c.entry_grade?.grade as string | undefined;
   const n = grade ? GRADE_STARS[grade] ?? 0 : 0;
   const tr = c.trade_readiness || {};
+  const pp = c.premium_plan || {};      // option premium — what you actually pay
+  const sw = c.strike_why || {};        // why this strike was selected
 
   const headBg = buy ? "border-terminal-bull/60 bg-terminal-bull/10" : "border-terminal-warn/40 bg-terminal-warn/5";
 
@@ -91,13 +93,45 @@ export function TradeNowCard() {
         </div>
       </div>
 
-      {buy && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center border-t border-terminal-border pt-2">
-          <div><div className="text-sm font-semibold tabular-nums text-white">{fmt(c.entry)}</div><div className="text-[9px] text-terminal-muted">Entry</div></div>
-          <div><div className="text-sm font-semibold tabular-nums text-terminal-bear">{fmt(c.exit_plan?.stop_loss)}</div><div className="text-[9px] text-terminal-muted">SL</div></div>
-          <div><div className="text-sm font-semibold tabular-nums text-terminal-bull">{fmt(c.exit_plan?.target1)}</div><div className="text-[9px] text-terminal-muted">T1</div></div>
-          <div><div className="text-sm font-semibold tabular-nums text-terminal-bull">{fmt(c.exit_plan?.target2)}</div><div className="text-[9px] text-terminal-muted">T2</div></div>
-          <div><div className="text-sm font-semibold tabular-nums text-terminal-bull">{fmt(c.exit_plan?.target3)}</div><div className="text-[9px] text-terminal-muted">T3</div></div>
+      {/* PREMIUM PLAN — what an option buyer actually pays (owner 2026-07-21).
+          This row previously rendered exit_plan, which holds UNDERLYING INDEX
+          levels: a "7850 PE" card showed "Entry 7,927 · SL 7,944" in NIFTY
+          points, readable as the option price. strike_selector publishes both
+          separately; the index levels are now demoted to small print and
+          explicitly labelled "Underlying".
+          Shown whenever a plan exists — NOT only on a BUY — because the owner
+          needs to see the opportunity the engine is refusing, not just the
+          ones it approves. It is labelled as the engine's plan, never as an
+          instruction; nothing here authorises a trade. */}
+      {pp?.entry != null && (
+        <div className="border-t border-terminal-border pt-2">
+          <div className="flex items-baseline justify-between mb-1">
+            <span className="text-[10px] font-semibold text-terminal-muted uppercase tracking-wide">
+              Premium plan{pp.strike ? ` — ${pp.strike} ${pp.type}` : ""}
+            </span>
+            {!buy && <span className="text-[10px] text-terminal-warn">engine has NOT approved this</span>}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
+            <div><div className="text-sm font-semibold tabular-nums text-white">₹{fmt(pp.entry)}</div><div className="text-[9px] text-terminal-muted">Entry</div></div>
+            <div><div className="text-sm font-semibold tabular-nums text-terminal-bear">₹{fmt(pp.stop_loss)}</div><div className="text-[9px] text-terminal-muted">SL</div></div>
+            <div><div className="text-sm font-semibold tabular-nums text-terminal-bull">₹{fmt(pp.target1)}</div><div className="text-[9px] text-terminal-muted">T1</div></div>
+            <div><div className="text-sm font-semibold tabular-nums text-terminal-bull">₹{fmt(pp.target2)}</div><div className="text-[9px] text-terminal-muted">T2</div></div>
+            <div><div className="text-sm font-semibold tabular-nums text-terminal-bull">₹{fmt(pp.target3)}</div><div className="text-[9px] text-terminal-muted">T3</div></div>
+          </div>
+          {pp.underlying?.stop_loss != null && (
+            <div className="text-[10px] text-terminal-muted mt-1">
+              Underlying (index): SL {fmt(pp.underlying.stop_loss)} · T1 {fmt(pp.underlying.target1)} · T2 {fmt(pp.underlying.target2)} · T3 {fmt(pp.underlying.target3)}
+            </div>
+          )}
+          {sw?.selection_score != null && (
+            <div className="text-[10px] text-terminal-muted mt-0.5">
+              Why this strike: score {sw.selection_score}
+              {sw.spread_pct != null && ` · spread ${sw.spread_pct}%`}
+              {sw.prob_itm_pct != null && ` · ITM ${Math.round(sw.prob_itm_pct)}%`}
+              {sw.delta != null && ` · Δ ${sw.delta}`}
+              {sw.iv != null && ` · IV ${sw.iv}`}
+            </div>
+          )}
         </div>
       )}
 

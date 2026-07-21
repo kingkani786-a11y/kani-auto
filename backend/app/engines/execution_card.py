@@ -121,8 +121,14 @@ def build(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, An
     # --- the actionable execution card (GOLDEN RULE) ---
     opt = "PE" if direction == "BEAR" else "CE"
     pe = strike.get("premium_entry")
-    sl = strike.get("premium_sl")
-    ptargets = strike.get("premium_targets") or []
+    # Dead-key fix 2026-07-21: this read `premium_sl` and `premium_targets`,
+    # which strike_selector NEVER writes (it writes premium_stop_loss and
+    # premium_target1/2/3). sl was therefore always None — the actionable line
+    # rendered "SL Rs None" — and ptargets always [], silently falling through
+    # to the forecast branch. Grepped: those two names appear nowhere as writes.
+    sl = strike.get("premium_stop_loss")
+    ptargets = [t for t in (strike.get("premium_target1"), strike.get("premium_target2"),
+                            strike.get("premium_target3")) if t is not None]
     # expected premium range: stored targets, else premium-forecast 30m/60m
     if isinstance(ptargets, list) and ptargets:
         prem_lo, prem_hi = ptargets[0], ptargets[-1]

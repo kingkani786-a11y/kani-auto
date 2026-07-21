@@ -69,7 +69,7 @@ def contract() -> dict[str, Any]:
                 "entry_window_live": {"seconds_left": None, "state": None},
                 "risk": None, "expected_move": None, "reward_risk": None,
                 "entry": None, "entry_window": None,
-                "exit_plan": {}, "trade_readiness": {"wave_direction": None, "premium_strength": None, "risk_approved": None},
+                "exit_plan": {}, "premium_plan": {}, "strike_why": {}, "trade_readiness": {"wave_direction": None, "premium_strength": None, "risk_approved": None},
                 "trade_light": {"color": "RED", "dot": "🔴", "label": "NO TRADE"},
                 "best_strike": None,
                 "buy_checklist": [], "buy_checklist_score": {"passed": 0, "measured": 0, "total": 7},
@@ -247,6 +247,30 @@ def _contract() -> dict[str, Any]:
         "risk_approved": risk_ok,                  # True/False/None(unknown)
     }
 
+    # ── PREMIUM PLAN (owner, 2026-07-21). The hero showed exit_plan's
+    # UNDERLYING INDEX levels under labels an option buyer reads as prices —
+    # a "7850 PE" card rendering "Entry 7,927 · SL 7,944" in NIFTY points.
+    # strike_selector already publishes BOTH, cleanly separated; nothing here
+    # is computed, only read from the right field.
+    _st = state.strike or {}
+    premium_plan = {
+        "strike": _st.get("strike"), "type": _st.get("type"),
+        "entry": _st.get("premium_entry"),
+        "stop_loss": _st.get("premium_stop_loss"),
+        "target1": _st.get("premium_target1"),
+        "target2": _st.get("premium_target2"),
+        "target3": _st.get("premium_target3"),
+        "underlying": _st.get("level_underlying") or {},   # index levels, named as such
+    }
+    # ── STRIKE INTELLIGENCE — "why THIS strike?" from fields already selected on
+    strike_why = {
+        "selection_score": _st.get("selection_score"),
+        "spread_pct": _st.get("spread_pct"),
+        "prob_itm_pct": _st.get("prob_itm_pct"),
+        "delta": _st.get("delta"), "gamma": _st.get("gamma"),
+        "iv": _st.get("iv"), "oi": _st.get("oi"), "volume": _st.get("volume"),
+    }
+
     # ── AI Trade Light (owner, 2026-07-21 — a traffic signal a trader reads
     # without parsing anything): pure lookup over the decision engine's own
     # already-computed 9-state `primary_action` (decision.py) — no new state,
@@ -322,7 +346,9 @@ def _contract() -> dict[str, Any]:
         "reward_risk": dec.get("reward_risk"),
         "entry": dec.get("entry"),
         "entry_window": dec.get("entry_window"),
-        "exit_plan": exit_plan,
+        "exit_plan": exit_plan,          # UNDERLYING index levels
+        "premium_plan": premium_plan,    # what an option buyer actually pays
+        "strike_why": strike_why,
         "trade_readiness": trade_readiness,
         "trade_light": trade_light,
         "best_strike": best_strike,
