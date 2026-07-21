@@ -646,3 +646,44 @@ PRIMARY C6 sample. Fixed in `engines/expiry.py` to use the IST clock.
 currently correct because the host is IST. A 14-site refactor immediately
 before a validation session is disproportionate risk; logged as a follow-up
 audit item to be done in a quiet window, not on a live day.
+
+## INCIDENT + RESEARCH MODE (2026-07-21, live session)
+
+**Incident.** A synthetic episode from my own verification run leaked into
+production measurement state. Verification called `opportunity_metrics.record()`
+directly; `record()` triggers `_checkpoint_open()`, which writes to the
+PRODUCTION `data/opportunity_log/` path — there is no test isolation. The
+02:15 backend restart then ran `_restore_open()` and loaded it into live memory.
+Because `report()` includes open episodes, it was counted in live KPIs:
+`detected_early` read 1 when the true value was 0, and `capture_rate` read 8.3%
+when the true value was 0%.
+
+Scope: LIVE KPIs distorted only. It could never close (no further ticks for
+that key), so it never reached the persisted `.jsonl`, never reached PRIMARY,
+and `_eps.clear()` discards it at day roll. Deliberately NOT hot-fixed — the
+only purge is a backend restart, which would wipe `premium_radar._tracks` (the
+real coil state then producing C6 data). Destroying real evidence to remove one
+fake row is the worse trade.
+
+Classification: not a decision, trading or execution bug — a **testing
+isolation** bug. The production path was the DEFAULT, so writing to it required
+no explicit intent.
+
+**RESEARCH MODE (owner, to build at close).** Isolation by convention would
+fail again; it must be structurally impossible to touch production data
+without saying so.
+
+| context | data path | checkpoint | restore | jsonl write |
+|---|---|---|---|---|
+| PRODUCTION (explicit only) | `data/opportunity_log/` | yes | yes | yes |
+| TEST | `tmp/opportunity_log/` | yes | yes | yes |
+| RESEARCH / UNIT TEST | memory only | **never** | **never** | **never** |
+
+Implementation agreed: `CAT_RESEARCH_MODE=1` sets a module flag that makes
+`_checkpoint_open()` and `_restore_open()` no-ops and skips the disk write in
+`_close_episode()` (in-memory `_closed` still populated, so assertions work);
+`CAT_DATA_DIR` redirects `_LOG_DIR` wholesale. Every future verification script
+must run under it.
+
+**Close-pass list (5):** Execution Hero · Validation Card · `Premium Building`
+→ `Premium Strength (Weak)` · Test isolation · Research Mode.
