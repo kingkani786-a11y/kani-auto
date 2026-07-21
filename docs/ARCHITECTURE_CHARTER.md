@@ -860,7 +860,13 @@ just the instance** — #10's second copy was missed on the first pass.
 ## ORDER OF WORK NEXT SESSION (owner, explicit)
 **ORDER (owner, severity-ranked — do NOT bundle):**
 1. Case A/B → ship `_total_429`
-2. **Confidence `—` fix** — own slot, higher user impact than naming
+2a. **Confidence `—` fix** → read `intelligence_synthesis.conviction`
+2b. **Verify `context_builder.py:63` separately** — same fix, or different?
+    **#2 is NOT done until 2b is traced.** Do not close it on 2a alone.
+    Three times on 2026-07-21 two problems that looked identical had different
+    causes (Kill Switch daily-reset vs `_total_429` missing-decay; fallback vs
+    root-cause on conviction; `state.strike` absent vs assigned-by-test).
+    Same pattern is not evidence of same cause — grep each one.
 3. Calibration rename + delete duplicate checklist row
 4. Trace `premium_accuracy._errors`
 5. Watch `calibration_score` move
