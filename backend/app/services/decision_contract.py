@@ -252,7 +252,16 @@ def _contract() -> dict[str, Any]:
     # a "7850 PE" card rendering "Entry 7,927 · SL 7,944" in NIFTY points.
     # strike_selector already publishes BOTH, cleanly separated; nothing here
     # is computed, only read from the right field.
-    _st = state.strike or {}
+    # state.strike does NOT exist — the State singleton has no such attribute,
+    # so reading it raised AttributeError every cycle and the whole contract
+    # fell through to the degraded fallback (hero lost Evidence, R:R and the
+    # BUY checklist). The strike packet lives under state.intelligence.
+    # My verification missed it by ASSIGNING state.strike first, which created
+    # the attribute the bug depends on being absent — the test manufactured
+    # the passing condition.
+    _st = (state.intelligence or {}).get("strike") or {}
+    if not isinstance(_st, dict):
+        _st = {}
     premium_plan = {
         "strike": _st.get("strike"), "type": _st.get("type"),
         "entry": _st.get("premium_entry"),
