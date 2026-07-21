@@ -64,7 +64,19 @@ ROOT_CAUSE = (
     "FEED_OUTAGE", "BROKER_COOLDOWN",
 )
 
-_LOG_DIR = pathlib.Path(__file__).resolve().parents[3] / "data" / "opportunity_log"
+# RESEARCH MODE (owner, 2026-07-21). On 2026-07-21 a synthetic episode from a
+# verification run leaked into live measurement: record() triggers
+# _checkpoint_open(), which wrote the PRODUCTION log path because that path was
+# the DEFAULT — touching it required no explicit intent. A restart then restored
+# it and it was counted in live KPIs (detected_early read 1 when the truth was 0).
+# Isolation by convention would fail again, so it is now structural:
+#   CAT_RESEARCH_MODE=1 → never checkpoint, never restore, never write to disk
+#                         (in-memory _closed still populates, so tests assert fine)
+#   CAT_DATA_DIR=<path>  → redirect the log directory wholesale
+import os
+RESEARCH_MODE = os.getenv("CAT_RESEARCH_MODE", "").strip() in ("1", "true", "yes")
+_LOG_DIR = (pathlib.Path(os.environ["CAT_DATA_DIR"]) if os.getenv("CAT_DATA_DIR")
+            else pathlib.Path(__file__).resolve().parents[3] / "data" / "opportunity_log")
 
 _eps: dict[str, dict[str, Any]] = {}     # live episode per strike key
 _closed: list[dict[str, Any]] = []       # completed episodes today (in-memory)
@@ -99,6 +111,8 @@ def _checkpoint_open(now: float) -> None:
     the open set durably every ~10s so a restart never loses measurement again.
     Never allowed to crash the scan path."""
     global _last_ckpt
+    if RESEARCH_MODE:
+        return                      # research: never touch production state
     if now - _last_ckpt < CKPT_EVERY_S:
         return
     _last_ckpt = now
@@ -117,6 +131,8 @@ def _restore_open() -> None:
     early/delay KPIs and in-flight coil/ideal-entry tracking continue unbroken."""
     global _restored, _seq
     _restored = True
+    if RESEARCH_MODE:
+        return                      # research: never resurrect production episodes
     try:
         p = _ckpt_path()
         if not p.exists():
@@ -503,6 +519,8 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
 
 def _close_episode(ep: dict[str, Any]) -> None:
     _closed.append(ep)
+    if RESEARCH_MODE:
+        return                      # in-memory only; assertions still work
     try:                                    # persist the black box (never crash scan)
         bb = _black_box(ep)
         _LOG_DIR.mkdir(parents=True, exist_ok=True)

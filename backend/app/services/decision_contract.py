@@ -17,8 +17,13 @@ from ..core.state import state
 def _layers() -> dict[str, float]:
     # every level can be None/non-dict mid-cycle (live 500 on 2026-07-20:
     # layers.intelligence was None between engine publishes) — walk defensively
+    # Path fixed 2026-07-21: this walked …layers.intelligence.rows and therefore
+    # returned {} on EVERY cycle since it was written — silently killing the
+    # Evidence Ledger (charter Rule 3), layer_breadth in the Entry Grade, the
+    # Institutional/Volume checklist items, and the why-fallback. The rows live
+    # one level deeper, under decision_matrix, as execution_gate.py already read.
     node: Any = state.intelligence or {}
-    for key in ("layers", "intelligence"):
+    for key in ("layers", "intelligence", "decision_matrix"):
         node = node.get(key) if isinstance(node, dict) else None
         if node is None:
             return {}
