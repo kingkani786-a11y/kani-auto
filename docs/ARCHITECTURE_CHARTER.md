@@ -941,3 +941,62 @@ not an implicit gap.
 The third monotonic counter; I did not trace whether it feeds a score or gate.
 Do not carry "probably fine" — `_total_429` looked fine too.
 (`_total_requests` is display-only: confirmed harmless.)
+
+---
+
+# V16 MASTER CHARTER — Evidence-Driven Institutional AI Framework
+_(owner, 2026-07-21 — governance document, not a build order)_
+
+## PRIME DIRECTIVE (V16)
+Never optimise for "more BUY signals." Optimise only for: higher EV · earlier
+evidence detection · honest confidence · measured outcomes · **zero fabricated
+probability** · **one Decision Engine only**.
+The software must never be a signal generator. It is an Evidence Provider.
+
+## THREE PERMANENT LAYERS (order never changes)
+- **AI-1 Decision** — the ONLY authority. BUY / WAIT / EXIT / HOLD. No other
+  module may emit a BUY.
+- **AI-2 Evidence** — runs continuously, never gated, never blocked. Detects
+  opportunity BEFORE AI-1 approves. Reports strength, readiness, block reason,
+  premium behaviour, strategy agreement, historical context. Never executes.
+- **AI-3 Blocked Opportunity** — when AI-1 refuses: "this opportunity exists,
+  the engine blocked it because…" with exact reason, missing confirmations and
+  the premium plan. **Never hide opportunities. Never promote a blocked
+  opportunity into a BUY.**
+
+## STRATEGIES ARE EVIDENCE PROVIDERS, NEVER SIGNALS
+Directional · Alpha · Synthetic · Straddle · Strangle · Iron Condor · Iron
+Butterfly · Butterfly · Calendar · Gamma · Volatility · Smart Money.
+Each outputs ONLY: evidence strength · historical success · alignment · risk ·
+entry quality · missing confirmation · blocked reason · suggested premium.
+**Never BUY.** Consensus ("6/8 agree") is evidence, never execution.
+_(Owner dropped Arbitrage and Market Maker after the data-honesty objection —
+neither is buildable on a retail feed without fabricating certainty.)_
+
+## ENGINE INDEPENDENCE — measure, never assume
+Agreement is not strength. Low correlation ⇒ raise confidence; high
+correlation ⇒ reduce it. Requires `_engine_snapshot()` (bug #11) working.
+
+## NAMING (enforces the 2026-07-21 rule)
+"Probability" may appear ONLY in Forecast AI. Everywhere else:
+**Observed Historical Frequency** — labelled *Historical Observation, NOT
+Prediction*. Forecast AI must label output *Forecast — Not Guaranteed*.
+
+## MEASUREMENT RULE
+Measured · Verified · Evidence logged · Outcome logged · Historical comparison
+— all five BEFORE a feature may affect Decision AI. **No Measurement, No Decision.**
+
+## ⚠ CHARTER RULES CURRENTLY VIOLATED BY LIVE CODE (gaps, not compliance)
+Recording these as OPEN so V16 is not filed as satisfied when it isn't:
+1. **"Never use Probability outside Forecast AI"** — 5 live violations remain:
+   `Entry Probability`, Scalping Tool `Probability`, `Probability Candle
+   Projection`, `Probability Ladder`, `Reversal Probability`. Each must be
+   reclassified AND checked against outcomes (a label alone proves nothing —
+   that is exactly how the 3×–50× overstatement survived).
+2. **"Never hide opportunities"** — the ignition caps (`rise_pct < 18` path-1,
+   `< 20` path-2, coil memory erased ≥20%) structurally hide fast movers; this
+   is why a +40pt CE move was never alerted. Frozen until C6 has a verdict,
+   because it is the same logic C6 is being validated on.
+3. **"Forecast AI uses Machine Learning"** — no ML exists in this codebase.
+   Forecast AI is unbuilt (charter Layer 6) and needs normal-session black-box
+   data first. Do not let the charter imply a capability that is absent.
