@@ -854,3 +854,52 @@ Ledger dead since written) · 9. non-decaying 429 counter gating Safe Mode ·
 Nine HID information. #10 MANUFACTURED it, which is worse on a card a trader
 acts from. Standing lesson: **when a defect is found, grep for the pattern, not
 just the instance** — #10's second copy was missed on the first pass.
+
+# HANDOFF — 4 LOCKED DECISIONS (owner sign-off, 2026-07-21 end of session)
+
+## 1. Calibration gate — SETTLED, no action
+`institutional` moved 56→61 on real signal strength, so the confluence gate
+self-corrects and is NOT deadlocked. A gate that recovers on genuine market
+strength must not be patched because of one bad morning. **Do not touch.**
+
+## 2. `_total_429` windowing — APPROVED, test before deploy
+Copy the sibling idiom in the SAME function (`_req_times`), NOT the Kill
+Switch (see #3 — I recommended that first and was wrong; it is a fixed daily
+boundary and would have introduced a midnight cliff).
+```python
+_429_times: deque = deque(maxlen=500)     # on 429: append(time.monotonic())
+recent = [t for t in cls._429_times if now - t < 3600]
+score -= min(len(recent) * 5, 40)
+```
+- maxlen=500 verified safe: the cap saturates at 8 events, so 500 dwarfs it.
+- **Keep `_total_429` for display.** `stats()["rate_limit_events"]` is a
+  lifetime figure; scoring moves to `_429_times`. Separating DISPLAY HISTORY
+  from LIVE HEALTH is the actual lesson, not just the decay.
+- **MANDATORY before deploy** (owner): synthetic test, not code review alone —
+  `Case A: 8×429 over 2h → score must NOT reach −40`
+  `Case B: 8×429 within 1h → score MUST reach −40`
+
+## 3. Kill Switch midnight reset — INTENTIONAL, documented so nobody "fixes" it
+`_day0` (IST midnight) resets the consecutive-loss count. This is **correct
+design**, not a missing-decay bug: "new trading day, fresh loss count" is valid
+risk semantics and aligns with the daily trading rules. **Leave as is.**
+
+**PRINCIPLE (owner, supersedes my framing):** "sliding good, fixed bad" is NOT
+a blanket rule. For every gate ask: *is this reset business-meaningful, or
+accidental?* `_total_429` had no business reason for its behaviour — a bug.
+Kill Switch's daily reset has one — a design decision.
+
+## 4. Two calibration paths — NEXT SESSION, FIRST TASK
+Three names for two concepts is the root confusion, and I added the third.
+| now (colliding) | rename to | meaning |
+|---|---|---|
+| `confluence.calibration` | `confluence_gate` | point-in-time, 5-check pass/fail |
+| `analytics.calibration_score` | unchanged | rolling historical accuracy 0–100 |
+| BUY-checklist "Calibration" row | **DELETE** | my duplicate of `confluence_gate` |
+They are legitimately independent — record that as an EXPLICIT design decision,
+not an implicit gap.
+
+## 5. `premium_accuracy._errors` — UNVERIFIED, trace before assuming safe
+The third monotonic counter; I did not trace whether it feeds a score or gate.
+Do not carry "probably fine" — `_total_429` looked fine too.
+(`_total_requests` is display-only: confirmed harmless.)
