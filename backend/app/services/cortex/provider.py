@@ -118,6 +118,9 @@ class Cortex:
         }
 
 
+_THINKING_UNSUPPORTED = False   # learned at runtime; see _ask_gemini
+
+
 def _ask_gemini(key: str, model: str, system: str, user: str,
                 max_tokens: int) -> tuple[str, int, int]:
     # New official SDK (google-genai). The old google-generativeai is EOL.
@@ -128,15 +131,45 @@ def _ask_gemini(key: str, model: str, system: str, user: str,
     # Disable "thinking" — these are phrasing/explain tasks, not reasoning; on
     # flash models thinking silently eats the output-token budget and truncates
     # the answer. thinking_budget=0 frees the full budget for the reply.
-    cfg = dict(system_instruction=system, max_output_tokens=max_tokens, temperature=0.4)
+    #
+    # 2026-07-22: this started returning 400 INVALID_ARGUMENT with no code
+    # change on our side. `gemini-flash-latest` is a FLOATING ALIAS — Google
+    # repointed it to a model that rejects thinking_budget. Verified by
+    # bisection: identical request WITH thinking_config → 400, WITHOUT → OK.
+    # The old guard only caught errors CONSTRUCTING ThinkingConfig, never the
+    # API rejecting it, so the whole AI layer went dark instead of degrading.
+    # Now: try it, and if the model refuses, remember that and retry once
+    # without. Self-healing across future alias moves in either direction.
+    # When thinking cannot be disabled it still consumes max_output_tokens.
+    # Measured 2026-07-22 on this alias: ~240-290 tokens of thought BEFORE any
+    # answer. At the old 64-token budget the reply truncated mid-word
+    # ("Goodbye my", finish=MAX_TOKENS, out=2). Headroom is therefore not
+    # optional once thinking is forced on — it is what makes the answer exist.
+    global _THINKING_UNSUPPORTED
+    _budget = max_tokens if not _THINKING_UNSUPPORTED else max(max_tokens + 400, 512)
+    cfg = dict(system_instruction=system, max_output_tokens=_budget, temperature=0.4)
+    used_thinking = False
+    if not _THINKING_UNSUPPORTED:
+        try:
+            cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+            used_thinking = True
+        except Exception:
+            cfg.pop("thinking_config", None)
+
+    def _call(c: dict):
+        return client.models.generate_content(
+            model=model, contents=user, config=types.GenerateContentConfig(**c))
+
     try:
-        cfg["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
-    except Exception:
-        pass
-    resp = client.models.generate_content(
-        model=model, contents=user,
-        config=types.GenerateContentConfig(**cfg),
-    )
+        resp = _call(cfg)
+    except Exception as e:
+        if used_thinking and "INVALID_ARGUMENT" in str(e):
+            _THINKING_UNSUPPORTED = True          # learn once, not every call
+            cfg.pop("thinking_config", None)
+            cfg["max_output_tokens"] = max(max_tokens + 400, 512)   # room to think AND answer
+            resp = _call(cfg)                     # degrade, never go dark
+        else:
+            raise
     text = (getattr(resp, "text", "") or "").strip()
     um = getattr(resp, "usage_metadata", None)
     in_tok = int(getattr(um, "prompt_token_count", 0) or 0)
