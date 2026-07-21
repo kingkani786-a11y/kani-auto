@@ -367,7 +367,17 @@ def _engine_snapshot() -> dict[str, Any]:
         sig = state.signal or {}
         tech = sig.get("tech") or {}
         an = state.analytics or {}
-        rows = ((state.intelligence or {}).get("layers", {}).get("intelligence", {})
+        # Path fixed 2026-07-21 (bug #11 — twin of bug #8). This walked
+        # layers→intelligence→rows; the rows live one level deeper under
+        # decision_matrix, so this dict was EMPTY on every episode ever
+        # recorded (0 of 2363 black-box lines carry layer context). The
+        # docstring calls this "the JOIN that lets the black box say why a
+        # runner was not taken" — that join never worked.
+        # I fixed the identical path in decision_contract._layers() this
+        # morning and did NOT grep for the pattern, which is the exact
+        # standing lesson recorded hours earlier. Same defect, two files.
+        rows = (((state.intelligence or {}).get("layers") or {})
+                .get("intelligence", {}).get("decision_matrix", {})
                 .get("rows", []))
         layers = {r.get("layer"): r.get("score") for r in rows if r.get("layer")}
         return {
