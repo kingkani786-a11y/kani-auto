@@ -744,3 +744,40 @@ FIX (close pass, needs owner sign-off — it changes a gate, not just a label):
    distinctly from the composite score.
 Does NOT affect C6: Safe Mode gates signals/execution only; `premium_radar` and
 `opportunity_metrics` keep recording (Two-Layer Law).
+
+## LANGUAGE COLLISION — observation layer must never say "BUY" (owner, 2026-07-21)
+Owner: the dashboard answers "should I buy?" in several languages at once —
+Trade Light `NO TRADE`, Premium Radar `BUY ZONE / Buy Candidate`, Scalping Tool
+a full plan (`24200 PE ₹44 · SL ₹26 · T1 ₹94 · 7 lots`), Decision Contract
+`No Active Contract`. The 4e893a8 reconciliation covered Trade Light ↔ Decision
+Contract ↔ Execution Detail but never included Premium Radar or Scalping Tool.
+
+Partly self-inflicted: implementing the owner's runner bands put the literal
+word BUY into the OBSERVATION layer (`85-100 → "Buy Candidate"`, zone
+`"BUY ZONE"` at 70+).
+
+**The owner's own Layer-1 spec resolves it** — their MARKET layer reads
+"Market Opportunity · Runner ★★★★★ · Growing", with no BUY. Rule adopted:
+**the word BUY belongs to the execution layer only.**
+
+Close-pass renames (thresholds 30/50/70/85 unchanged — labels only):
+- `BUY ZONE` → `PRIME ZONE`
+- runner_band `Buy Candidate` → `Prime Runner`
+- Scalping Tool: when the gate is closed, a HEADER saying so — not a trailing
+  "· fires only if the gate opens" after the ₹ amounts and lot counts.
+
+### Three-layer target (owner)
+1. **MARKET** — observation only, no BUY language.
+2. **EXECUTION** — strike · entry · SL · targets · lots. The only BUY.
+3. **WHY NOT** — one line. `execution_gate.blocking_reasons[0]` ALREADY exists
+   (rendered at page bottom as "ENTRY STATUS: WAIT · missing: …"); the hero
+   shows the vague `Confirmation Missing – Wait` instead. Surface it as
+   `block_reason` on the contract.
+
+### Universal Opportunity Tracker — splits in two
+- **Display half (close pass):** show every tracked move, alertable or not.
+- **Detection half (FROZEN):** the `rise_pct < 18` / `< 20` ignition caps that
+  made the 40-pt CE move invisible. That is a threshold change to the SAME
+  ignition logic C6 is under validation on — changing it now would destroy the
+  C6 answer. Deferred until C6 has a verdict; `RISE_CAP_BLOCKED` measurement
+  ships first so the change arrives with evidence (Rule C).
