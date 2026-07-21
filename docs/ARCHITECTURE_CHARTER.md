@@ -1098,3 +1098,50 @@ learning. Isolated storage only. → `CAT_RESEARCH_MODE=1` / `CAT_DATA_DIR`.
    by Golden Rule 4: probability is now conditioned on ML existing, so
    Forecast AI simply stays unbuilt until it does. Rule and reality now agree.
 4. **Forecast mandatory labels implied a trained model** — ✅ RESOLVED, same rule.
+
+---
+
+# ★ FINAL MASTER ROADMAP (owner, 2026-07-22) — 4 phases, 7 locked principles
+
+## SEVEN GOLDEN PRINCIPLES (locked)
+1. **One Decision Engine** — BUY/WAIT/EXIT issued in exactly one place.
+2. **Many Evidence Engines** — strategies supply evidence only.
+3. **No strategy may issue BUY** — Strategy ≠ Signal.
+4. **Probability only in Forecast AI** — elsewhere: Observed Statistics ·
+   Evidence Strength · Decision Confidence.
+5. **No Measurement → No Promotion** — a new engine may not join the decision
+   system until it has demonstrated positive EV.
+6. **Engine Independence** — the same data must not be counted twice under
+   different engine names.
+7. **Evidence First → Decision Second → Execution Last.**
+
+## PHASE 1 — Measurement & Validation *(BLOCKS all of Phase 2)*
+⚠ The owner's draft marked these ✅. **None is complete.** Recorded truthfully
+so the next session does not inherit a false done-state:
+
+| item | real status |
+|---|---|
+| `_engine_snapshot()` live verification | ⏳ code live (`aabec53` via `6f71e10`), **UNVERIFIED** — needs a live payload at 09:15 |
+| Engine Independence data collection | ❌ **not started** — 0 of 2363 episodes carry layer context; only begins if the above works |
+| Existing 56-engine validation | ❌ not started |
+| Safe Mode / Kill Switch validation | ◐ **partial** — `verdicts` has 600 settled shadow trades with gate efficiency MEASURED, but scored in **INDEX points**, the wrong instrument for an option buyer. Distorts saved/missed in both directions (gamma understates misses; theta understates saves). Needs premium-based re-scoring. |
+| Premium Accuracy validation | ❌ `premium_accuracy._errors` **still untraced** — do not assume safe |
+| Evidence Ledger stabilization | ◐ `_layers()` path fixed and verified against a captured payload; **not yet confirmed on a live session** |
+
+**Only two things were genuinely completed in this window:** the `_total_429`
+sliding window (5/5 acceptance, `54d1fe7`) and the Gemini floating-alias fix
+(`6f71e10`). Both were unplanned; neither is a Phase-1 item.
+
+## PHASE 2 — Strategy Intelligence Layer
+Alpha · Synthetic · Gamma · Trend · Momentum · Volatility · Straddle ·
+Strangle · Breakout · Range. Each outputs evidence strength · historical
+outcome · readiness · block reason. **Never a BUY.** Gated on Phase 1.
+
+## PHASE 3 — Decision Intelligence
+AI-1 alone consumes all evidence and emits exactly one of BUY / WAIT / HOLD / EXIT.
+
+## PHASE 4 — Forecast AI *(the only ML component)*
+Requires: thousands of validated sessions · Engine Independence Matrix ·
+strategy-wise outcomes · model versioning · confidence calibration.
+Until all exist, Forecast AI stays unbuilt and Principle 4 keeps the word
+"probability" out of the rest of the system.
