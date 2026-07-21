@@ -1000,3 +1000,42 @@ Recording these as OPEN so V16 is not filed as satisfied when it isn't:
 3. **"Forecast AI uses Machine Learning"** — no ML exists in this codebase.
    Forecast AI is unbuilt (charter Layer 6) and needs normal-session black-box
    data first. Do not let the charter imply a capability that is absent.
+
+## V16 REFINEMENT (owner, 2026-07-21 — supersedes/extends the V16 entry above)
+
+**Rule 1 — Evidence First (formalises the source-tag principle).** Every
+displayed value must come from exactly one of: Live Market Data · Historical
+Database · Statistical Measurement · Forecast AI (labelled) · Decision Engine.
+**Nothing may be guessed.** This is the rule the fabricated decay curve broke.
+
+**Rule 3 — Detection never stops.** Radar, detection, learning, logging and
+research continue through Kill Switch, Safe Mode, calibration failure, WAIT and
+broker pause. **Only EXECUTION may stop.**
+
+**Consensus must show its own independence.** Not just "8/10 agree" but
+`Engine Independence 73% · Shared Inputs 31%`. Correlated engines must not
+inflate confidence.
+
+**Forecast AI mandatory labels:** Forecast Confidence · Horizon · Training
+Samples · Model Version · Confidence Interval. It may never overwrite the
+Decision Engine.
+
+**Dashboard layout:** TOP = Decision (AI-1) · CENTER = Opportunity (AI-2) ·
+RIGHT = Blocked Reason (AI-3) · BOTTOM = Evidence Providers, Forecast,
+Observed Statistics, Validation, Research, Learning.
+
+### ⚠ ADDITIONAL VIOLATION (new in this refinement)
+4. **Forecast AI's mandatory labels imply a trained model that does not exist.**
+   "Training Samples / Model Version / Confidence Interval" describe an ML
+   artefact; there is no ML, no training pipeline and no model in this
+   codebase. Forecast AI is unbuilt (charter Layer 6) and blocked on
+   normal-session black-box data. Emitting those fields before a model exists
+   would be Rule 1's own failure mode — a displayed value that is guessed.
+
+### Precision on violation #2 (rise caps)
+Rule 3 says detection never stops. The radar *tracking* genuinely never stops —
+it holds all 18 strikes through every gate. What stops is **alerting**: the
+ignition caps (`rise_pct < 18` / `< 20`) prevent an alert once a move is
+already large, which is why a +40pt CE move showed on the radar but never fired
+an alert. So Rule 3 is satisfied for tracking and violated for alerting. That
+distinction matters — the fix is to the alert path, not the tracker.
