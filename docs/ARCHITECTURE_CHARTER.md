@@ -715,3 +715,32 @@ on a wrong path, never raises, and reads as "no data yet".
 FIX DEFERRED to the close pass — found at 11:12 IST with the market open, and a
 backend restart would wipe `premium_radar._tracks` (live C6 coil state).
 Display-only: it cannot confound C6, which is measured in `opportunity_metrics`.
+
+## BUG #9 — broker health_score: cumulative penalty used as a live gate, and invisible (2026-07-21)
+Safe Mode freezes ALL signals when `broker_stats["health_score"] < 40`
+(`safe_mode.py:31`). That score (`broker/dhan.py:195`) is:
+`100 − min(_total_429*5, 40) − max(util−80,0)*1.5 − 30·cooling − 10·(lat>800)`
+
+`_total_429` is initialised once at class definition and only incremented —
+**never reset, never decayed**. After 8 rate-limit hits in the whole process
+lifetime it is a permanent −40. One transient cooldown (−30) then puts the
+score at 30, below the threshold, and Safe Mode freezes trading. The same
+cooldown early in the session would leave it at 70 and freeze nothing.
+
+⇒ The broker trigger becomes progressively more sensitive the longer the
+backend runs. Same defect class as the 3-day Kill Switch deadlock already
+fixed (cumulative state used as a live gate with no session window).
+
+**Also a display-honesty failure.** The only `health_score` rendered in the UI
+is `SystemVerify.tsx`, showing a DIFFERENT same-named metric (the composite
+`100% Stable`). The dashboard therefore shows `100% Stable` + `🟢 Broker
+connected` + `FEED 🟢 100% healthy` while the one number freezing trading is
+displayed nowhere. `state.connected` (a bare boolean) is what the Broker row
+reports; broker call-health is never surfaced.
+
+FIX (close pass, needs owner sign-off — it changes a gate, not just a label):
+1. Window `_total_429` to the current session/rolling hour so it decays.
+2. Surface broker `health_score` in Feed Diagnostics / System Verify, named
+   distinctly from the composite score.
+Does NOT affect C6: Safe Mode gates signals/execution only; `premium_radar` and
+`opportunity_metrics` keep recording (Two-Layer Law).
