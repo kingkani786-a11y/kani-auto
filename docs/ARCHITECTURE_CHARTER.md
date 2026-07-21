@@ -781,3 +781,45 @@ Close-pass renames (thresholds 30/50/70/85 unchanged — labels only):
   ignition logic C6 is under validation on — changing it now would destroy the
   C6 answer. Deferred until C6 has a verdict; `RISE_CAP_BLOCKED` measurement
   ships first so the change arrives with evidence (Rule C).
+
+# CLOUD AI TRADER V15 — Dual Intelligence Architecture (owner, 2026-07-21, LOCKED)
+
+| # | Layer | Status |
+|---|---|---|
+| 1 | **Decision AI** (risk brain) — BUY/WAIT/NO TRADE only | EXISTS |
+| 2 | **Opportunity AI** — is there a move? | EXISTS (Two-Layer Law) — scattered across 5 panels, needs consolidating |
+| 3 | **Forecast AI** — today's expected move | **NEW, unbuilt** (charter Layer 6) — needs normal-session black-box data |
+| 4 | **Historical Reality** — observed outcome statistics | SHIPPED 2026-07-21 |
+| 5 | **Manual Entry** — premium entry/SL/targets even when refused | SHIPPED (premium_plan) |
+| 6 | **Block Analysis** — why the engine said no | exists as blocking_reasons; needs surfacing |
+| 7 | **Override** (default OFF) | not built — see doctrine note below |
+| 8 | **Trade Review** — per missed move, blocked-by + would-have-reached | needs premium-based shadow scoring first |
+| 9 | **Learning AI** — daily auto-written summary | not built |
+| 10 | **Adaptive Recommendation** — proposes, never self-modifies | partially exists (`proposal_readiness`, already holding #001 Greeks Softening for want of samples) |
+
+## THE NAMING RULE (owner, 2026-07-21) — now a permanent rule
+**The word "Probability" may appear in ONE place only: Forecast AI.**
+Everywhere else must use its own honest name:
+`Observed Frequency` · `Historical Outcome` · `Forecast Confidence` ·
+`Decision Confidence` · `Opportunity Strength`.
+
+Rationale, learned the hard way today: a 3×–50× overstatement survived for
+months *because* it wore the word "probability". A number called probability is
+trusted as one. Naming is not cosmetic here — it is the control that makes the
+error visible.
+
+**Audit outstanding** (labels still saying Probability, to be reclassified):
+`Entry Probability` (entry_probability layer) · `Probability` in Scalping Tool ·
+`Probability Candle Projection` · `Probability Ladder` · `Reversal Probability`.
+Each must be re-labelled as forecast, observation, or confidence — or justified.
+
+## Confidence must split three ways (owner)
+One blended number hides which part is weak:
+`Forecast Confidence` · `Execution Confidence` · `Historical Support`.
+
+## Doctrine note on Layer 7 (Override)
+Showing a blocked opportunity with its reason and its premium plan is
+information, and is built. A control that makes the system print "BUY NOW"
+while its own gates say no would be the system contradicting its own risk
+assessment. The decision already rests with the human — nothing auto-executes —
+so the honest form is "blocked · here is what it was worth", not a second BUY.

@@ -37,8 +37,21 @@ def _opportunity_ladder(em: float, base_prob: float, runner: float) -> list[dict
     out = []
     prev = 100.0
     for label, mode, lo, hi, t in _LADDER:
-        p = 100.0 * math.exp(-0.55 * (lo / em)) * (0.6 + 0.4 * edge)
-        if mode in ("RUNNER", "MEGA") and runner:        # runner conviction lifts far tiers
+        # 2026-07-21: this was the SECOND copy of the fabricated decay curve
+        # (the first lived in _point_capture). Measured against 1694 real
+        # ignitions it overstated badly — "Runner 40-80pts 49%" when reaching
+        # 50pt happened 4.8% of the time, "Mega 32%" when 100pt happened 0.5%.
+        # Prefer the OBSERVED reach-rate for this tier's lower bound; fall back
+        # to the model only when the black box has no sample.
+        _obs = None
+        try:
+            from ..services.opportunity_metrics import observed_reach_pct as _orp
+            _obs = _orp(lo)
+        except Exception:
+            _obs = None
+        p = _obs if _obs is not None else 100.0 * math.exp(-0.55 * (lo / em)) * (0.6 + 0.4 * edge)
+        if _obs is None and mode in ("RUNNER", "MEGA") and runner:
+            # only lift a MODELLED number; never inflate an observed frequency
             p = max(p, runner * (0.9 if mode == "RUNNER" else 0.7))
         # capturing 40 pts implies first capturing 5 — a far tier can never be
         # more probable than a nearer one (keeps runner lift honest on
@@ -47,7 +60,7 @@ def _opportunity_ladder(em: float, base_prob: float, runner: float) -> list[dict
         p = max(5.0, min(96.0, p))
         prev = p
         out.append({"mode": mode, "label": label, "expected_points": [lo, hi],
-                    "probability": round(p, 0), "time": t})
+                    "probability": round(p, 0), "observed": _obs is not None, "time": t})
     return out
 
 

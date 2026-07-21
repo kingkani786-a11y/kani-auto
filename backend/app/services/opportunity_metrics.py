@@ -697,9 +697,22 @@ def _black_box_preview(ep: dict[str, Any]) -> dict[str, Any]:
 # word. This ships as "Observed", carries its sample size, and is explicitly
 # labelled not-a-forecast. A separate predictive engine (charter Layer 6, Move
 # Prediction) remains unbuilt and frozen — it is NOT this.
-_OUTCOME_PTS = (5, 10, 20, 30, 50, 100)
+_OUTCOME_PTS = (5, 10, 20, 30, 40, 50, 80, 100)
 _stats_cache: dict[str, Any] = {"at": 0.0, "val": None}
 _STATS_TTL_S = 300
+
+
+def observed_reach_pct(pts: float) -> float | None:
+    """Observed % of past ignitions that reached >= pts. Used by any panel that
+    would otherwise invent a number (the opportunity ladder did)."""
+    st = outcome_stats()
+    if not st.get("sample_n"):
+        return None
+    best = None
+    for r in st["rows"]:
+        if r["points"] <= pts:
+            best = r
+    return (best or st["rows"][0])["reached_pct"]
 
 
 def outcome_stats() -> dict[str, Any]:
