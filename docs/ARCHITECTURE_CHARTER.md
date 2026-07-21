@@ -858,7 +858,33 @@ just the instance** — #10's second copy was missed on the first pass.
 # HANDOFF — 4 LOCKED DECISIONS (owner sign-off, 2026-07-21 end of session)
 
 ## ORDER OF WORK NEXT SESSION (owner, explicit)
-**#2 FIRST — run Case A/B, ship the `_total_429` fix. THEN #4 naming cleanup.**
+**ORDER (owner, severity-ranked — do NOT bundle):**
+1. Case A/B → ship `_total_429`
+2. **Confidence `—` fix** — own slot, higher user impact than naming
+3. Calibration rename + delete duplicate checklist row
+4. Trace `premium_accuracy._errors`
+5. Watch `calibration_score` move
+
+### #2 Confidence `—` — ROOT CAUSE FOUND, not a fallback
+`decision.py::_conviction()` returns a CATEGORICAL grade label
+(HIGH/MODERATE/LOW/**NONE**) plus `conviction_label` for display. `'NONE'` is
+CORRECT output — there is no upstream bug. The defect is that
+`decision_contract.py:116` reads `dec["conviction"]` (the label) while SIX
+other consumers — alpha_engine, execution_card, signal_maturity,
+execution_gate, brain, market_service — all read
+`intelligence_synthesis.conviction` (the NUMBER, live value 74).
+Fix = follow the existing convention, not add a fallback:
+```python
+conviction = (dec.get("intelligence_synthesis") or {}).get("conviction")
+```
+Effect: hero shows Confidence 74 instead of `—` while the same page already
+prints CONVICTION 74 two panels down.
+**UNVERIFIED, same shape:** `cortex/context_builder.py:63` also reads
+`dec.get("conviction")` — trace before assuming safe.
+**Evidence /100 is NOT part of this** — it reads decision-matrix layers
+continuously and is correctly independent of trade arming (observation ≠
+decision). R:R `—` is also correct: reward_risk is genuinely None with no
+active setup.
 Rationale: an approved-but-undeployed fix must land before an unrelated
 refactor begins, or the context splits and the approved fix slips. Do not
 start the naming work with #2 still pending.
