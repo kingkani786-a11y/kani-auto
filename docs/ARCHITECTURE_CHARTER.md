@@ -823,3 +823,34 @@ information, and is built. A control that makes the system print "BUY NOW"
 while its own gates say no would be the system contradicting its own risk
 assessment. The decision already rests with the human — nothing auto-executes —
 so the honest form is "blocked · here is what it was worth", not a second BUY.
+
+## SOURCE TAGS — every metric declares where it came from (owner, 2026-07-21) — PERMANENT
+Today's lesson generalised: a formula can be wrong, a label can be wrong, but a
+measurement must never lie. From here, every number on the dashboard carries a
+source tag:
+
+| tag | meaning | example |
+|---|---|---|
+| 📈 **Forecast** | AI model, forward-looking | Forecast AI (Layer 3, unbuilt) |
+| 📊 **Observed** | historical frequency from the black box | outcome_stats(), n=1694 |
+| ⚙️ **Decision** | engine rules / gates | BUY/WAIT/NO TRADE, blocking_reasons |
+| 🧪 **Estimated** | declared heuristic, not calibrated | runner score, coil strength |
+
+Why it matters: for months a 🧪 Estimated decay curve was displayed as though it
+were 📈 Forecast, and nobody could tell by looking. With tags, that mislabelling
+is visible on the surface instead of buried three files deep.
+
+**The three that must NEVER blend:** History (Observed) · Forecast · Decision.
+
+## THE PATTERN — ten bugs, one shape (2026-07-21)
+Every bug found today produced plausible output and raised no error:
+1. `peak_rise` scored declines as runs · 2. `ignite_path` discarded at a
+boundary · 3. expiry unrecorded · 4. `UNKNOWN` session defaulted to `NORMAL` ·
+5. sampling rule lived only in prose · 6. feed outage scored as detection
+failure · 7. `dte` from server-local date · 8. `_layers()` wrong path (Evidence
+Ledger dead since written) · 9. non-decaying 429 counter gating Safe Mode ·
+10. fabricated decay curve shown as probability — **twice**, in two files.
+
+Nine HID information. #10 MANUFACTURED it, which is worse on a card a trader
+acts from. Standing lesson: **when a defect is found, grep for the pattern, not
+just the instance** — #10's second copy was missed on the first pass.
