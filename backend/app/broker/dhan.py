@@ -171,7 +171,8 @@ class DhanClient:
     _req_times: "deque[float]" = None  # type: ignore[assignment]
     _latencies: "deque[float]" = None  # type: ignore[assignment]
     _total_requests = 0
-    _total_429 = 0
+    _total_429 = 0                      # LIFETIME, display only (rate_limit_events)
+    _429_times = None                   # sliding 1h window for SCORING (lazy-init)
     BUDGET_PER_MIN = 45      # self-imposed budget (well under Dhan data limits)
 
     @classmethod
@@ -180,6 +181,9 @@ class DhanClient:
         if cls._req_times is None:
             cls._req_times = _dq(maxlen=600)
             cls._latencies = _dq(maxlen=200)
+        if cls._429_times is None:
+            # cap 500: the penalty saturates at 8 events, so 500 is ample headroom
+            cls._429_times = _dq(maxlen=500)
 
     @classmethod
     def stats(cls) -> dict:
@@ -192,7 +196,18 @@ class DhanClient:
         avg_lat = round(sum(cls._latencies) / len(cls._latencies) * 1000, 0) if cls._latencies else None
         cooling = now < cls._cooldown_until
         score = 100.0
-        score -= min(cls._total_429 * 5, 40)          # 429 history hurts
+        # Sliding 1h window (owner-approved 2026-07-21). This was
+        # `min(cls._total_429 * 5, 40)` over a MONOTONIC lifetime counter that
+        # never reset or decayed: after 8 rate-limit hits EVER, a permanent -40,
+        # so one transient cooldown (-30) put the score under Safe Mode's 40
+        # threshold and froze trading. The gate drifted tighter purely with
+        # uptime, not with real risk.
+        # Copies the sibling idiom four lines above (`_req_times`, 60s), NOT the
+        # Kill Switch's fixed daily boundary — a fixed reset would reintroduce
+        # the same defect as a midnight cliff. `_total_429` stays untouched for
+        # the lifetime display figure: display history != live health.
+        _recent_429 = [t for t in cls._429_times if now - t < 3600]
+        score -= min(len(_recent_429) * 5, 40)
         score -= max(utilization - 80, 0) * 1.5       # running hot hurts
         if cooling:
             score -= 30
@@ -253,7 +268,9 @@ class DhanClient:
             DhanClient._latencies.append(time.monotonic() - started)
             DhanClient._total_requests += 1
         if r.status_code == 429:
-            DhanClient._total_429 += 1
+            DhanClient._total_429 += 1                       # lifetime (display)
+            DhanClient._init_stats()
+            DhanClient._429_times.append(time.monotonic())    # sliding (scoring)
             # smart cooldown: each consecutive 429 doubles the pause (cap 5m)
             DhanClient._cooldown_until = time.monotonic() + DhanClient._cooldown_step
             pause = int(DhanClient._cooldown_step)
