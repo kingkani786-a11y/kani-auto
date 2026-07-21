@@ -680,3 +680,63 @@ def _black_box_preview(ep: dict[str, Any]) -> dict[str, Any]:
             "base": c["base"], "peak": c["peak"], "potential": c["potential"],
             "captured": c["captured"], "reason": ep["reason"],
             "stability": c["stability"], "capture": c["capture"], "outcome": "OPEN"}
+
+
+# ── OBSERVED OUTCOME STATISTICS (owner, 2026-07-21) ─────────────────────────
+# NOT a probability engine. This reports what ACTUALLY happened in the black
+# box: of every episode the radar ignited on, what fraction went on to reach
+# +5/+10/.../+100 premium points. Backward-looking frequency, nothing else.
+#
+# It replaces a declared decay curve (execution_card's
+# 100*exp(-0.7*pts/em)*(0.6+0.4*edge)) that was never checked against outcomes
+# and overstated reality by 3x at 20pt and ~50x at 100pt — the dashboard showed
+# "100pt 42%" when 9 of 1694 ignitions (0.5%) ever got there. Unlike the other
+# 2026-07-21 bugs, which hid information, that one manufactured opportunity.
+#
+# The owner's rule, adopted: history and prediction must never wear the same
+# word. This ships as "Observed", carries its sample size, and is explicitly
+# labelled not-a-forecast. A separate predictive engine (charter Layer 6, Move
+# Prediction) remains unbuilt and frozen — it is NOT this.
+_OUTCOME_PTS = (5, 10, 20, 30, 50, 100)
+_stats_cache: dict[str, Any] = {"at": 0.0, "val": None}
+_STATS_TTL_S = 300
+
+
+def outcome_stats() -> dict[str, Any]:
+    """Observed reach-rates across the whole black box. Cached ~5 min."""
+    now = time.time()
+    if _stats_cache["val"] is not None and now - _stats_cache["at"] < _STATS_TTL_S:
+        return _stats_cache["val"]
+    alerted: list[dict[str, Any]] = []
+    try:
+        for f in sorted(_LOG_DIR.glob("*.jsonl")):
+            for line in f.read_text().splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    r = json.loads(line)
+                except Exception:
+                    continue
+                if r.get("t_ignite"):
+                    alerted.append(r)
+    except Exception:
+        pass
+    n = len(alerted)
+    rows = []
+    for pts in _OUTCOME_PTS:
+        hit = sum(1 for r in alerted if (r.get("potential") or 0) >= pts)
+        rows.append({"points": pts, "reached": hit,
+                     "reached_pct": round(100 * hit / n, 1) if n else None})
+    false_n = sum(1 for r in alerted if r.get("outcome") == "FALSE")
+    out = {
+        "observed": True,
+        "sample_n": n,
+        "days": len({r.get("day") for r in alerted if r.get("day")}),
+        "rows": rows,
+        "false_alert_pct": round(100 * false_n / n, 1) if n else None,
+        "note": ("Observed historical frequency across the black box — NOT a "
+                 "future prediction and NOT a win probability. Says only: of "
+                 "past ignitions, this fraction went on to reach N points."),
+    }
+    _stats_cache.update({"at": now, "val": out})
+    return out

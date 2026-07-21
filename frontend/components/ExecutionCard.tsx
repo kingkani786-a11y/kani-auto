@@ -84,20 +84,32 @@ function Cell({ label, value, tone }: { label: string; value: React.ReactNode; t
   );
 }
 
-function PointCapture({ pc }: { pc: any[] }) {
-  if (!pc?.length) return null;
+function PointCapture({ pc }: { pc: any }) {
+  // Renamed from "Point Capture Probability" 2026-07-21. It rendered a declared
+  // decay curve as probability; measured against the black box it overstated
+  // reality 3x-50x. Now shows OBSERVED historical frequency with sample size,
+  // explicitly labelled not-a-prediction (owner: history and prediction must
+  // never wear the same word).
+  const rows: any[] = pc?.rows || [];
+  if (!rows.length) return null;
+  const observed = !!pc?.observed;
   return (
     <div className="mt-3 pt-2 border-t border-terminal-border/40">
-      <div className="stat-label mb-1">Point Capture Probability</div>
+      <div className="stat-label mb-1">
+        {observed ? "Observed outcomes — historical frequency" : "Modelled (low sample)"}
+      </div>
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-[11px]">
-        {pc.map((p) => (
+        {rows.map((p: any) => (
           <div key={p.points}>
             <div className="font-mono">{p.points}pt</div>
-            <div className={p.probability >= 60 ? "text-terminal-bull" : p.probability >= 35 ? "text-terminal-warn" : "text-terminal-muted"}>
-              {p.probability}%
-            </div>
+            <div className="text-gray-200 tabular-nums">{p.reached_pct == null ? "—" : `${p.reached_pct}%`}</div>
           </div>
         ))}
+      </div>
+      <div className="text-[10px] text-terminal-muted mt-1">
+        {observed
+          ? `Of ${(pc?.sample_n ?? 0).toLocaleString("en-IN")} past ignitions — NOT a forecast`
+          : `Sample too small (${pc?.sample_n ?? 0}) — declared model`}
       </div>
     </div>
   );

@@ -96,7 +96,21 @@ def build(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, An
     runner = float(exp.get("runner_probability") or 0)
     base_prob = float(di.get("conviction") or signal.get("dynamic_confidence") or 0)
     radar = _opportunity_ladder(em, base_prob, runner)
-    point_capture = _point_capture(em, base_prob)   # V25 §3
+    # V25 §3 replaced 2026-07-21: the declared decay curve overstated reality
+    # 3x-50x, so this now serves OBSERVED black-box frequencies. Falls back to
+    # the old curve only if the black box has no sample yet (honest: an empty
+    # dataset must not silently render as 0%).
+    try:
+        from ..services.opportunity_metrics import outcome_stats as _os
+        _obs = _os()
+        point_capture = (_obs if (_obs.get("sample_n") or 0) >= 100
+                         else {"observed": False, "sample_n": _obs.get("sample_n", 0),
+                               "rows": [{"points": r["points"], "reached_pct": r["probability"]}
+                                        for r in _point_capture(em, base_prob)],
+                               "note": "Insufficient black-box sample — declared model, not observed."})
+    except Exception:
+        point_capture = {"observed": False, "sample_n": 0, "rows": [],
+                         "note": "Outcome statistics unavailable."}
 
     # V19 §2 — trade style suited to the current tape (derived from regime +
     # runner conviction; this is an intraday engine, so SWING/POSITION are N/A)
