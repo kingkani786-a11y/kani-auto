@@ -687,3 +687,31 @@ must run under it.
 
 **Close-pass list (5):** Execution Hero · Validation Card · `Premium Building`
 → `Premium Strength (Weak)` · Test isolation · Research Mode.
+
+## BUG #8 — `_layers()` reads the wrong path; Evidence Ledger never worked (2026-07-21, found live)
+`decision_contract._layers()` walks `state.intelligence → layers → intelligence
+→ rows`. The rows actually live at `intelligence → decision_matrix → rows`
+(`execution_gate.py` reads them correctly). `_layers()` has therefore returned
+`{}` on every cycle since it was written.
+
+Silently dead as a result:
+- **Evidence Ledger** — all five pillars `None`, `ledger_total` `None`. This is
+  the persistent `Evidence /100 —` on the dashboard. Charter **Rule 3**
+  ("confidence is evidence — 95% must decompose") has never functioned.
+- **Entry Grade** — `layer_breadth` always `None`; grade computed from 2 of 3
+  declared inputs.
+- **BUY checklist** — `Institutional Flow` and `Volume` permanently ○
+  ("not measured") when both were measurable all along.
+- **`why` fallback** — could never name the strongest confirming layers, so it
+  emitted "No published reason — engine idle" while Trend sat at 90 PASS.
+
+Verified live: 11 rows present, every name the ledger/checklist needs is there.
+Post-fix values at the moment of discovery: Evidence 69/100, breadth 7/11 = 64,
+Volume ✔ (68), Institutional Flow ✗ with a real 11/20 rather than ○.
+
+Same signature as the other seven: a defensive `.get()` chain that returns `{}`
+on a wrong path, never raises, and reads as "no data yet".
+
+FIX DEFERRED to the close pass — found at 11:12 IST with the market open, and a
+backend restart would wipe `premium_radar._tracks` (live C6 coil state).
+Display-only: it cannot confound C6, which is measured in `opportunity_metrics`.
