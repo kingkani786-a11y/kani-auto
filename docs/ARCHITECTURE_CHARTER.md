@@ -1273,3 +1273,19 @@ NEXT TEST (not a fix): on the next TRENDING day where signal confidence clears
 70 — does calibration_score move? YES → working as designed, leave it. NO even
 on a clean directional day → real deadlock, redesign recovery. Do NOT edit the
 gate before that observation.
+
+### Item 1 WATCH — explicit trigger (owner, 2026-07-22) so it is not silently forgotten
+A WATCH with no trigger-check becomes a forgotten item. Concrete condition:
+```
+TRIGGER: signal confidence crosses 70 on any session (a clean directional day)
+  THEN CHECK: did calibration_score move off 54?
+    YES → gate is correctly conservative. CLOSE this item.
+    NO  → escalate to FIX, re-open WITH that session's data as the evidence
+          (a directional day where the score still could not recover = the
+           proof that today's range-bound day could not provide).
+```
+PERMANENT FIX (small future build, so the check does not depend on a human
+remembering): add ONE line to the daily validation report —
+"peak signal_confidence today = X · calibration_score = Y (Δ from session open)".
+When X≥70 and ΔY==0 appears in the report, the escalation is automatic and
+visible, not dependent on someone eyeballing the dashboard on the right day.
