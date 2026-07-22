@@ -1145,3 +1145,34 @@ Requires: thousands of validated sessions · Engine Independence Matrix ·
 strategy-wise outcomes · model versioning · confidence calibration.
 Until all exist, Forecast AI stays unbuilt and Principle 4 keeps the word
 "probability" out of the rest of the system.
+
+## DSRI — Dynamic Support & Resistance Intelligence (owner, 2026-07-22) — SPEC'D, PHASE 2, DEFERRED
+An always-visible S/R side panel: R1–R5 / LIVE / S1–S5, each with a strength
+score, evidence count, and — the genuinely new part — **historical touch/reject
+stats** (reject %, touch count, last tested, average move). Correctly framed as
+an Evidence Engine: emits evidence only, never BUY/SELL; feeds AI-1.
+
+**8 of its 10 layers already exist** — do NOT rebuild them:
+structure (swing/BOS/CHOCH) · volume_profile (HVN/LVN) · index_analytics
+(OI/max-pain/gamma-wall) · technicals (VWAP) · market_context.institutional_
+levels (prev day/week) · institutional_scores (which ALREADY fuses them at
+:133 — `resistance = struct.resistance or prev_day_high`). So DSRI is ONE
+aggregator + ONE panel, not a new engine stack.
+
+**Why it is DEFERRED (not rejected):**
+- It is a Phase-2 evidence engine; the Final Master Roadmap (locked minutes
+  earlier) makes Phase 1 block all of Phase 2. Building it now would be the
+  first breach of a charter still being written.
+- Its headline feature — `Historical Reject 84% · Touch 27` — CANNOT be built
+  honestly today: that history lives in the black box, which recorded ZERO
+  layer context until `_engine_snapshot()` was fixed this morning
+  (`aabec53`, verifying now). Emitting those numbers before the data exists
+  would break Golden Rule 1 (no fabricated numbers) — the exact failure of the
+  Point-Capture curve.
+
+**Correct order:** Phase 1 completes → black box accumulates level-touch
+history → THEN DSRI's aggregator + panel, with real reject-rates. The static
+levels (R/S with evidence count, no history) could ship earlier as a pure
+display of existing fused levels; the historical strength scores must wait for
+data. Do not ship the two together, or the honest half lends false authority
+to the fabricated half.
