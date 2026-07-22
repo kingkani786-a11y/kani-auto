@@ -1201,3 +1201,26 @@ from the opportunity side: #3 answers "why not now", the Trigger Ladder answers
 "what would make it yes". Build them together — one shows the missing
 confirmations, the other shows the path to arming. Phase-2 UI work; gated on
 Phase 1, but low-risk and high-clarity.
+
+## RENAME: Kill Switch → Execution Lock (owner, 2026-07-22) — HIGH VALUE, spec'd
+Owner's own best insight, correcting their own premise: the recurring belief
+that "Kill Switch freezes analysis" is FALSE (proven: 155 episodes recorded
+today while Kill Switch active all day; premium_radar.py has zero kill_switch
+references). The architecture already does what V18 asks — analysis/radar/black
+box run through the gate; only execution locks. The problem is the NAME, not the
+behaviour: "Kill Switch" + "SIGNALS FROZEN" reads like a total halt.
+Same pattern as every 2026-07-21 bug: correct logic, misleading label.
+
+FIX (display-only, ~22 files — do carefully with full build+verify, NOT rushed):
+- "Kill Switch" → "Execution Lock" everywhere user-facing (keep the internal
+  module name kill_switch.py if churn is risky; rename the LABELS).
+- Banner "SIGNALS FROZEN (WAIT)" → "EXECUTION LOCKED · radar & analysis live".
+- Safe Mode banner likewise: make clear only execution halts.
+This resolves the owner's most-repeated confusion by making the screen state
+what is already true. NOT an architecture change — a labelling fix.
+
+Note: the rest of V18 (Point Detector / Strategy Detector / S&R side panel /
+Replay Engine) is the same Point-Capture vision already recorded in V16/V17;
+stable, gated on Phase 1. Institution Replay Engine is the one genuinely new
+buildable idea (replay.py + black box exist; needs the engine.layers data that
+only began recording 2026-07-22).
