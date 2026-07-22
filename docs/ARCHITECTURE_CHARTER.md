@@ -1176,3 +1176,28 @@ levels (R/S with evidence count, no history) could ship earlier as a pure
 display of existing fused levels; the historical strength scores must wait for
 data. Do not ship the two together, or the honest half lends false authority
 to the fabricated half.
+
+## Violation-list update (owner audit, 2026-07-22, live session)
+Owner's live audit confirmed a 6th surviving "Probability" label, verified by grep:
+- **`runner_probability`** → rendered "Runner Prob 65%" in EntryFirstDeck.tsx:137
+  and ScalpingTool.tsx:197, with a % sign, on a score whose OWN disclaimer says
+  "not a calibrated probability". Golden-Rule-4 violation.
+  **Fix (owner's wording):** rename to **"Radar continuation score"** — no %,
+  no "probability". Backend field `expansion.runner_probability` stays; only the
+  DISPLAY label changes (frontend-only, safe mid-session).
+
+Owner's live-session audit score: 8.5/10. Direction engine 9, Premium Radar 9,
+Risk Gate 10, Data Safety 10, Probability Calibration 6, UI clarity 7.
+Confirmed the two-brain behaviour is working, NOT conflicting: WAIT (decision)
+alongside IGNITING (radar) is the Two-Layer Law behaving correctly. The gap is
+UI legibility, not logic.
+
+## V7 vision (owner) — the Trigger Ladder / Radar→Decision bridge
+Owner wants the Radar→Decision transition made EXPLICIT as a visible ladder:
+  OBSERVE → EARLY WARNING → RADAR ACTIVE → STRUCTURE CONFIRM → ENGINE READY → BUY
+so a strike shows WHERE it is on the path and exactly which condition flips
+WAIT→READY. This is the same need as work-order #3 (block-reason-in-hero) seen
+from the opportunity side: #3 answers "why not now", the Trigger Ladder answers
+"what would make it yes". Build them together — one shows the missing
+confirmations, the other shows the path to arming. Phase-2 UI work; gated on
+Phase 1, but low-risk and high-clarity.
