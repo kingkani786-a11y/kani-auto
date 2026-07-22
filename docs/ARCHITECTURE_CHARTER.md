@@ -1251,3 +1251,25 @@ voluntarily now, which is the point of writing it down.
 
 Status: all Phase 2, gated on Phase 1 (started 2026-07-22). Premium-S/R is the
 one buildable-today slice once the block-reason/rename UI work clears.
+
+## CORRECTION: calibration "deadlock" is UNPROVEN — do not fix mechanically (2026-07-22)
+I mislabeled "Calibration 54 all day" as a fix-it priority. Owner caught it:
+that contradicts "confluence passed → track_signal resumes → score moves", so
+it needed a trace before a label. Trace done (market_service.py):
+- track_signal fires at :542 on packet["signal"], BEFORE the kill-switch
+  downgrade at :646 — so the Kill Switch does NOT block signal recording
+  (rules out a _total_429-style wiring bug).
+- BUT track_signal returns early on "NO TRADE", and packet["signal"] is
+  NO TRADE whenever confluence's signal-confidence gate fails (<70). Today it
+  was 45-66 all day — SENSEX range-bound, structure failing (HH/HL).
+CHAIN: range day → confidence <70 → confluence NO TRADE → track_signal skips
+→ no settled outcomes → analytics calibration_score frozen at 54 → Kill Switch
+stays on. A real feedback loop, but today's entry point was LEGITIMATE market
+behaviour (no clean directional setup), not a bug.
+VERDICT: "54 all day" is consistent with "no qualifying signal today", NOT
+proof of a permanent deadlock. Cannot distinguish "correctly conservative"
+from "unable to recover" on one range-bound day.
+NEXT TEST (not a fix): on the next TRENDING day where signal confidence clears
+70 — does calibration_score move? YES → working as designed, leave it. NO even
+on a clean directional day → real deadlock, redesign recovery. Do NOT edit the
+gate before that observation.
