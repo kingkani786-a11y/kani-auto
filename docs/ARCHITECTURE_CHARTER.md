@@ -1224,3 +1224,30 @@ Replay Engine) is the same Point-Capture vision already recorded in V16/V17;
 stable, gated on Phase 1. Institution Replay Engine is the one genuinely new
 buildable idea (replay.py + black box exist; needs the engine.layers data that
 only began recording 2026-07-22).
+
+## IDSR enrichment of DSRI (owner, 2026-07-22) — two genuinely new pieces
+The owner's Institutional Dynamic S/R spec is mostly the DSRI already recorded
+(see DSRI entry). TWO parts are genuinely new and worth keeping:
+
+1. **Multi-SOURCE, not single-method** (owner's key insight): a candle-only OR
+   premium-only S/R fails in option markets. Fuse with declared weights —
+   Spot 40% · Option-chain OI/gamma 25% · Premium structure 20% · Candle
+   confirm 10% · Institutional 5%. institutional_scores.py already fuses
+   struct+levels; this is the weighted, multi-source version.
+2. **PREMIUM support/resistance** — S/R computed on the OPTION PREMIUM series
+   itself (premium swing / premium-VWAP / premium-ATR), not just the index.
+   BUILDABLE NOW from existing data: premium_radar already keeps a per-strike
+   premium series (deque of premium/vol/oi). This is the piece an option buyer
+   actually enters on. Good early Phase-2 candidate.
+
+Plus the owner's ENTRY rule, which aligns with the charter: a level touch ALONE
+must never trigger — require confluence (touch + candle + volume + OI + premium
+bounce + smart-money) or it's WAIT with the missing confirmation named. This is
+Rule 2 ("every BUY earns its right") applied to S/R.
+
+**Naming check — owner got it right:** their bounce-% draft was labelled
+"Observed Historical Behaviour, NOT Probability." Golden Rule 4 holding
+voluntarily now, which is the point of writing it down.
+
+Status: all Phase 2, gated on Phase 1 (started 2026-07-22). Premium-S/R is the
+one buildable-today slice once the block-reason/rename UI work clears.
