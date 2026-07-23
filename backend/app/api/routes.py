@@ -161,6 +161,18 @@ async def set_symbol(body: SymbolBody):
     return {"ok": True, "status": state.status()}
 
 
+# ---------- V7 Market Independence Phase A (owner, 2026-07-23) ----------
+class AutoMarketSwitchBody(BaseModel):
+    enabled: bool
+
+
+@router.post("/market/auto-switch")
+async def set_auto_market_switch(body: AutoMarketSwitchBody):
+    _require_connection()
+    state.auto_market_switch = body.enabled
+    return {"ok": True, "auto_market_switch": state.auto_market_switch}
+
+
 @router.get("/market/overview")
 async def overview():
     _require_connection()

@@ -10,8 +10,8 @@ import logging
 import time
 from collections import defaultdict, deque
 
-from ..broker.instruments import INSTRUMENTS, get_instrument
-from . import alerts
+from ..broker.instruments import get_instrument
+from . import alerts, market_session_manager
 
 log = logging.getLogger("scanner")
 
@@ -29,9 +29,14 @@ def _should_alert(key: str) -> bool:
     return False
 
 
-async def scan(client, watchlist: list[str]) -> list[dict]:
-    """One scanner pass. Returns ranked opportunities (also kept in module state)."""
-    symbols = [s for s in INSTRUMENTS if INSTRUMENTS[s].market_type == "INDEX"]
+async def scan(client, watchlist: list[str], market_type: str = "INDEX") -> list[dict]:
+    """One scanner pass. Returns ranked opportunities (also kept in module state).
+
+    market_type selects the candidate universe (V7 Market Independence Phase A,
+    owner 2026-07-23) — this used to be hardcoded to INDEX, which is exactly why
+    MCX never got auto-selected even though it was fully registered: the ranking
+    that decides "what's the active symbol" simply never considered it."""
+    symbols = market_session_manager.candidates_for(market_type)
     symbols += [s for s in watchlist if s not in symbols]
 
     # group by segment for batch quoting

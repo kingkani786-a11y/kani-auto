@@ -58,6 +58,8 @@ export const api = {
     }),
   setSymbol: (symbol: string) =>
     req<any>("/api/symbol", { method: "POST", body: JSON.stringify({ symbol }) }),
+  setAutoMarketSwitch: (enabled: boolean) =>
+    req<any>("/api/market/auto-switch", { method: "POST", body: JSON.stringify({ enabled }) }),
   overview: () => req<any>("/api/market/overview"),
   optionChain: () => req<any>("/api/market/optionchain"),
   candlesTf: (tf: string, symbol?: string) =>

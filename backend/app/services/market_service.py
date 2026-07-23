@@ -20,7 +20,7 @@ from ..core.state import state, is_market_open
 from ..engines import (anomaly, confluence, decision as decision_eng,
                        dom as dom_eng, index_analytics, smart_money)
 from ..engines.lifecycle import Lifecycle
-from ..services import alerts, journal, memory, paper, scanner
+from ..services import alerts, journal, market_session_manager, memory, paper, scanner
 from ..ws.manager import manager
 
 log = logging.getLogger("market")
@@ -186,7 +186,7 @@ class MarketService:
                 # lowest-priority loop: skip while cooling OR market closed
                 if (self.client and not DhanClient.stats()["cooldown_active"]
                         and is_market_open(state.market_type)):
-                    await scanner.scan(self.client, state.watchlist)
+                    await scanner.scan(self.client, state.watchlist, state.market_type)
                     state.heartbeats["scanner"] = time.time()
                     await manager.broadcast("scanner", scanner.results)
                     # V26 — Level-2 deep scan on the strongest L1 candidates
@@ -213,11 +213,46 @@ class MarketService:
         while True:
             await asyncio.sleep(20)
             try:
+                await self._auto_switch_market()
                 await manager.broadcast("status", state.status())
             except asyncio.CancelledError:
                 raise
             except Exception:
                 log.exception("status broadcast failed")
+
+    async def _auto_switch_market(self) -> None:
+        """V7 Market Independence Phase A (owner, 2026-07-23; LTS freeze
+        exception — foundational, not a feature add). Zero broker calls (same
+        contract as this loop's other work) — resolve_active_market_type() is
+        pure local time math, same as is_market_open().
+
+        Root cause this closes: state.market_type only ever changed on an
+        explicit set_symbol() call, so nothing ever asked "is a DIFFERENT
+        market open right now?" — the platform sat idle at NSE close even
+        while MCX was live. Currency intentionally excluded from the cascade
+        (Dhan CDS access unverified, owner 2026-07-23 — parked, not silently
+        dropped; see market_session_manager.market_overview()).
+
+        Never overrides a manual pin (auto_market_switch=False), and never
+        fabricates a switch target when every registered market is closed —
+        that stays an honest WAIT, same as today."""
+        if not state.auto_market_switch or not self.client:
+            return
+        active = market_session_manager.resolve_active_market_type()
+        if active is None or active == state.market_type:
+            return
+        candidates = market_session_manager.candidates_for(active)
+        if not candidates:
+            return
+        # prefer the last scanner pass's top-ranked candidate for the target
+        # market (the same ranking already trusted for INDEX); else the
+        # registry's first entry as an honest, declared fallback — never an
+        # invented "best commodity to trade" preference.
+        ranked = [r["symbol"] for r in scanner.results if r.get("market_type") == active]
+        best = ranked[0] if ranked else candidates[0]
+        log.info("Market Independence: %s closed, %s open — switching %s -> %s",
+                 state.market_type, active, state.symbol, best)
+        await self.set_symbol(best)
 
     async def _safe(self, fn) -> None:
         try:

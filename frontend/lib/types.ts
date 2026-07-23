@@ -4,6 +4,13 @@ export interface Status {
   symbol: string;
   market_open: boolean;
   data_quality: string;
+  // V7 Market Independence Phase A (owner, 2026-07-23)
+  market_exchanges?: Record<string, {
+    status: string; market_type: string; is_open: boolean;
+    ist_time?: string; next_open_ist?: string | null; seconds_to_open?: number;
+    weekend?: boolean; reason?: string;
+  }>;
+  auto_market_switch?: boolean;
 }
 
 export interface Spot {

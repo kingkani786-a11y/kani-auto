@@ -2,14 +2,57 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMarket } from "@/lib/store";
+import { api } from "@/lib/api";
 
 function Dot({ on, warn }: { on: boolean; warn?: boolean }) {
   const color = on ? (warn ? "bg-terminal-warn" : "bg-terminal-bull") : "bg-terminal-bear";
   return <span className={`inline-block w-2 h-2 rounded-full ${color} ${on ? "animate-pulse" : ""}`} />;
 }
 
+// V7 Market Independence Phase A (owner, 2026-07-23) — one chip per registered
+// exchange, so "system is idle" and "NSE happens to be closed right now" read
+// as two different things. NOT_CONFIGURED (Currency — Dhan CDS access
+// unverified, parked) renders grey, never a fabricated red/green.
+const EXCHANGE_LABEL: Record<string, string> = { INDEX: "NSE", COMMODITY: "MCX", CURRENCY: "Currency" };
+const EXCHANGE_ORDER = ["INDEX", "COMMODITY", "CURRENCY"];
+
+function ActiveMarketStrip({ exchanges, autoSwitch, onToggleAuto }: {
+  exchanges: Record<string, any> | undefined;
+  autoSwitch: boolean | undefined;
+  onToggleAuto: () => void;
+}) {
+  if (!exchanges) return null;
+  return (
+    <span className="hidden md:flex items-center gap-2.5 pl-2 border-l border-terminal-border">
+      <span className="text-[9px] text-terminal-muted uppercase tracking-wide">Active Market</span>
+      {EXCHANGE_ORDER.map((mt) => {
+        const ex = exchanges[mt];
+        if (!ex) return null;
+        const configured = ex.status !== "NOT_CONFIGURED";
+        return (
+          <span key={mt} className="flex items-center gap-1" title={configured ? ex.status : ex.reason}>
+            <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+              !configured ? "bg-terminal-muted/40" : ex.is_open ? "bg-terminal-bull animate-pulse" : "bg-terminal-bear"
+            }`} />
+            {EXCHANGE_LABEL[mt] || mt}
+          </span>
+        );
+      })}
+      <button
+        onClick={onToggleAuto}
+        title="Auto-switch to whichever registered market is open (NSE closed -> MCX open -> switch). Off pins the current symbol through its own close."
+        className={`text-[9px] px-1.5 py-0.5 rounded border ${
+          autoSwitch ? "border-terminal-bull/50 text-terminal-bull" : "border-terminal-border text-terminal-muted"
+        }`}
+      >
+        {autoSwitch ? "AUTO" : "MANUAL"}
+      </button>
+    </span>
+  );
+}
+
 export function StatusBar() {
-  const { status, wsOk } = useMarket();
+  const { status, wsOk, refreshStatus } = useMarket();
   const path = usePathname();
   const nav = [
     { href: "/", label: "Dashboard" },
@@ -70,6 +113,14 @@ export function StatusBar() {
             <Dot on={!!status?.market_open} warn={!status?.market_open} />
             {status?.market_open ? "MARKET OPEN" : "MARKET CLOSED"}
           </span>
+          <ActiveMarketStrip
+            exchanges={status?.market_exchanges}
+            autoSwitch={status?.auto_market_switch}
+            onToggleAuto={async () => {
+              await api.setAutoMarketSwitch(!status?.auto_market_switch);
+              await refreshStatus();
+            }}
+          />
         </div>
       </div>
     </header>

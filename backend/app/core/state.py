@@ -53,11 +53,19 @@ class AppState:
     simulator: dict[str, Any] = field(default_factory=dict)     # Phase 29 — today/tomorrow scenarios
     safe_mode: dict[str, Any] = field(default_factory=dict)     # Phase D — disaster-recovery safe mode
     opportunities: dict[str, Any] = field(default_factory=dict)  # V26 — market opportunity board
+    # V7 Market Independence Phase A (owner, 2026-07-23) — when True, the
+    # service auto-switches the active symbol to whichever registered market
+    # is open (NSE closed -> MCX open -> switch). False pins the current
+    # symbol even through its own close, for a manual/deliberate watch.
+    auto_market_switch: bool = True
 
     # Background task handles owned by MarketService
     tasks: list[asyncio.Task] = field(default_factory=list)
 
     def status(self) -> dict[str, Any]:
+        # lazy import — market_session_manager reads is_market_open/market_status
+        # from this module, so a top-level import here would cycle back
+        from ..services.market_session_manager import market_overview
         return {
             "connected": self.connected,
             "connected_since": self.connected_at,
@@ -68,6 +76,8 @@ class AppState:
             "kill_switch": self.kill_switch,
             "safe_mode": self.safe_mode,
             "market_status": market_status(self.market_type),
+            "market_exchanges": market_overview(),      # V7 Phase A — all-exchange bar
+            "auto_market_switch": self.auto_market_switch,
             "last_close": (self.spot or {}).get("ref") or (self.spot or {}).get("ltp"),
             "server_time": time.time(),
         }
