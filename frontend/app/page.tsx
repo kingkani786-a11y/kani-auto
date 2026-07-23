@@ -36,6 +36,8 @@ import { TradeNowCard } from "@/components/TradeNowCard";
 import { BlockReasonHero } from "@/components/BlockReasonHero";
 import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
 import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
+import { SRHeroCard } from "@/components/SRHeroCard";
+import { SRHeatMap } from "@/components/SRHeatMap";
 import { SupportResistancePanel } from "@/components/SupportResistancePanel";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
@@ -174,6 +176,14 @@ export default function Dashboard() {
         <TradeNowCard />
       </SafeBoundary>
 
+      {/* S/R HERO CARD (owner, 2026-07-23, item #5 Phase 2, Priority 11) —
+          nearest actionable support/resistance + readiness stage. NOT a
+          second Trade Light: proximity to structure, not the trade verdict
+          (that stays TradeNowCard's alone). */}
+      <SafeBoundary name="S/R Hero">
+        <SRHeroCard />
+      </SafeBoundary>
+
       {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts.
           Market tier (owner's ③): kept visible in Simple — an option buyer's
           opportunity radar, not a developer tool. */}
@@ -298,6 +308,9 @@ export default function Dashboard() {
       </SafeBoundary>
       <SafeBoundary name="Calibration Watch">
         <CalibrationWatchCard />
+      </SafeBoundary>
+      <SafeBoundary name="S/R Heat Map">
+        <SRHeatMap />
       </SafeBoundary>
       <SafeBoundary name="Feed Diagnostics">
         <FeedDiagnostics />

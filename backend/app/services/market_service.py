@@ -196,6 +196,13 @@ class MarketService:
                 # US futures trade nearly 24h; context-only per doctrine)
                 from . import global_feed
                 await global_feed.refresh()
+                # Weekly/Monthly pivots (S/R Phase 2, owner 2026-07-23) —
+                # cache-gated 6h, one broker call per refresh; safe even
+                # off-hours (uses only already-closed daily candles)
+                if self.client:
+                    from . import period_pivot_cache
+                    inst = get_instrument(state.symbol)
+                    await period_pivot_cache.refresh(self.client, inst)
             except asyncio.CancelledError:
                 raise
             except Exception as e:

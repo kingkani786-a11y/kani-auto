@@ -415,15 +415,57 @@ async def calibration_watch_ep():
 
 @router.get("/support-resistance")
 async def support_resistance_ep():
-    """Dynamic Support/Resistance — Phase 2 kickoff (item #5, 2026-07-23).
-    Spot levels from swing-fractal clustering + touch/bounce/break stats on
-    live candle history. Premium S/R deferred (see engine docstring — no
-    persisted full-session premium series exists yet). Read-only."""
+    """Dynamic Support/Resistance — Phase 2 (item #5, 2026-07-23). Spot levels
+    from swing-fractal clustering + touch/bounce/break stats on live candle
+    history, enriched with: CPR (daily/weekly/monthly pivots), an evidence
+    join against VWAP/Gamma Wall/Volume Profile (each read from its own
+    owning engine — never re-derived), and a Hero Card + Entry Workflow
+    (readiness signal only — the Decision Engine still decides BUY/WAIT/EXIT).
+    Read-only."""
     from ..engines import support_resistance
+    from . import period_pivot_cache
+
     spot_cmp = (state.spot or {}).get("ltp")
     result = support_resistance.spot_levels(state.candles, cmp=spot_cmp)
     result["premium_available"] = support_resistance.premium_levels_available()
+
+    layers = (state.intelligence or {}).get("layers") or {}
+    vwap = ((state.signal or {}).get("tech") or {}).get("vwap")
+    gamma_wall = (layers.get("expiry") or {}).get("gamma_wall")
+    vp = layers.get("volume_profile") or {}
+    prev = layers.get("institutional_levels") or {}
+
+    daily_cpr = support_resistance.daily_cpr(
+        prev.get("prev_day_high"), prev.get("prev_day_low"), prev.get("prev_day_close"))
+    periods = period_pivot_cache.get(state.symbol)
+    result["cpr"] = {"daily": daily_cpr, "weekly": periods["weekly"], "monthly": periods["monthly"]}
+
+    cpr_lines: dict[str, float] = {}
+    for label, block in (("d", daily_cpr), ("w", periods["weekly"]), ("m", periods["monthly"])):
+        for k, v in (block or {}).items():
+            if isinstance(v, (int, float)):
+                cpr_lines[f"{label}_{k}"] = v
+
+    if result.get("ready") and spot_cmp:
+        support_resistance.attach_evidence(result, spot_cmp, vwap=vwap,
+                                            gamma_wall=gamma_wall, volume_profile=vp, cpr_lines=cpr_lines)
+        result["hero"] = support_resistance.hero_card(result, state.candles)
     return result
+
+
+@router.get("/support-resistance/premium")
+async def support_resistance_premium_ep(strike: int, type: str):
+    """Premium S/R for one strike (item #5 Phase 2, 2026-07-23) — same
+    touch/bounce/break math as spot, over the persisted premium tick log
+    (premium_series.py). Honestly reports 'insufficient history' until enough
+    of today's session has accumulated — never fabricated from a thin sample."""
+    from ..engines import support_resistance
+    prem_row = next((r for r in (state.option_chain or {}).get("chain", [])
+                      if int(float(r.get("strike", 0))) == strike), None)
+    cmp = None
+    if prem_row:
+        cmp = float(prem_row.get(f"{'ce' if type == 'CE' else 'pe'}_ltp") or 0) or None
+    return support_resistance.premium_levels(state.symbol, strike, type.upper(), cmp=cmp)
 
 
 @router.get("/opportunity-log")

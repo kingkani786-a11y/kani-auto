@@ -248,6 +248,14 @@ def scan(symbol: str, spot: float, chain: list[dict] | None) -> None:
             vol = float(row.get(f"{side}_volume") or 0)
             oi = float(row.get(f"{side}_oi") or 0)
             t["series"].append((now, prem, vol, oi))
+            # persist for Premium S/R (owner, 2026-07-23) — the 200-tick
+            # in-memory window above is not enough for genuine touch/bounce
+            # stats; never affects the radar itself (try/except, read-only elsewhere)
+            try:
+                from . import premium_series as _ps
+                _ps.record(symbol, int(strike), typ, prem, now)
+            except Exception:
+                pass
             while t["series"] and now - t["series"][0][0] > _LOOKBACK:
                 t["series"].popleft()
             # day-peak + first confirmation timestamps (for Missed Opportunity)

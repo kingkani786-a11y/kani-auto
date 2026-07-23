@@ -83,6 +83,8 @@ export const api = {
   decisionContract: () => req<any>(`/api/decision-contract`),
   calibrationWatch: () => req<any>(`/api/calibration-watch`),
   supportResistance: () => req<any>(`/api/support-resistance`),
+  supportResistancePremium: (strike: number, type: "CE" | "PE") =>
+    req<any>(`/api/support-resistance/premium?strike=${strike}&type=${type}`),
   version: () => req<any>("/api/version"),
   systemVerify: () => req<any>("/api/system-verify"),
   aiChangelog: (limit = 30) => req<any>(`/api/ai-changelog?limit=${limit}`),
