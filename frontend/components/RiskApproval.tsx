@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { displayLabel, displayReasons } from "@/lib/labels";
 
 const mark = (ok: boolean | null) =>
   ok === true ? { s: "✓", c: "text-terminal-bull" }
@@ -21,8 +22,8 @@ function Section({ title, rows }: { title: string; rows: any[] }) {
         return (
           <div key={i} className="flex items-baseline gap-2 text-[11px]">
             <span className={`${m.c} w-3`}>{m.s}</span>
-            <span className="text-gray-200">{c.name}</span>
-            <span className="ml-auto text-terminal-muted text-right truncate max-w-[55%]" title={c.detail}>{c.detail}</span>
+            <span className="text-gray-200">{displayLabel(c.name)}</span>
+            <span className="ml-auto text-terminal-muted text-right truncate max-w-[55%]" title={c.detail}>{displayLabel(c.detail)}</span>
           </div>
         );
       })}
@@ -55,7 +56,7 @@ export function RiskApproval() {
 
       {d.blockers?.length > 0 && (
         <div className="text-[11px] text-terminal-bear border border-terminal-bear/40 rounded p-1.5">
-          Blocked by: {d.blockers.join(" · ")}
+          Blocked by: {displayReasons(d.blockers).join(" · ")}
         </div>
       )}
 

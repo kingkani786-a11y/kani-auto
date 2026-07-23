@@ -51,7 +51,7 @@ export function ExecutionControlCenter() {
             <div className="mt-1 space-y-0.5">
               {eg.blocker_research.map((r: any, i: number) => (
                 <div key={i} className="text-[11px] text-terminal-muted">
-                  ▸ {r.module}:{" "}
+                  ▸ {displayLabel(r.module)}:{" "}
                   {r.status === "NO DATA YET" ? "no settled verdicts yet" : (
                     <>
                       saved {r.saved_pct}% / missed {r.missed_pct}%

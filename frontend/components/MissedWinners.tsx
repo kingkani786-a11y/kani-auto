@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useMarket } from "@/lib/store";
+import { displayLabel } from "@/lib/labels";
 
 export function MissedWinners() {
   const { decision } = useMarket();
@@ -18,7 +19,7 @@ export function MissedWinners() {
         <span><span className="stat-label">Missed (Today)</span> <span className="font-bold text-terminal-warn">{m.missed_today}</span></span>
         <span><span className="stat-label">Profit Lost (Today)</span> <span className="font-bold text-terminal-bear">+{m.potential_lost_pts ?? 0} pts</span></span>
         <span><span className="stat-label">Largest (Today)</span> <span className="font-mono">+{m.max_missed_pts}</span></span>
-        <span><span className="stat-label">Top Blocker (Today)</span> <span className="text-terminal-bear">{m.worst_blocker ?? "—"}</span></span>
+        <span><span className="stat-label">Top Blocker (Today)</span> <span className="text-terminal-bear">{displayLabel(m.worst_blocker) ?? "—"}</span></span>
         <Link href="/report-card" className="text-[11px] px-2.5 py-1 rounded border border-terminal-border text-terminal-muted hover:border-terminal-accent hover:text-white">
           Review →
         </Link>

@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { useMarket } from "@/lib/store";
 import { api } from "@/lib/api";
-import { displayReasons } from "@/lib/labels";
+import { displayReasons, displayLabel } from "@/lib/labels";
 
 const STARS = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 const STRENGTH_WORD = ["—", "Early", "Building", "Strong", "Very Strong", "Explosive"];
@@ -94,7 +94,7 @@ export function MissedMoveProtection() {
             </div>
             {research && research.status !== "NO DATA YET" && (
               <div className="text-[11px] text-terminal-muted">
-                Entering against "{research.module}" historically: saved {research.saved_pct}% /
+                Entering against "{displayLabel(research.module)}" historically: saved {research.saved_pct}% /
                 missed {research.missed_pct}%
                 {research.solo_missed_pct != null && ` (solo-missed ${research.solo_missed_pct}%)`}
                 {" "}— research only, not an approval.

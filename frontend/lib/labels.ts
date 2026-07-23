@@ -9,25 +9,30 @@
 // "Kill Switch: ...", conditions[].name === "Kill Switch") keeps its exact
 // value — this module only transforms what gets RENDERED, at the last
 // possible step, and nowhere else.
-export const DISPLAY_LABEL: Record<string, string> = {
-  "Kill Switch": "Execution Lock",
-};
-
-/** Map a bare label/name (e.g. a checklist row name, a Tile label) for display. */
+/**
+ * Substring replace, not exact-match: risk_approval.py:59 emits the compound
+ * literal "Daily risk / Kill Switch" as a checklist row name — an exact-match
+ * dict lookup silently passed it through unmapped (caught 2026-07-23 from a
+ * live dashboard capture showing raw "Kill Switch" in Risk Approval and the
+ * Top Blocker stat). Any future compound label containing the term is now
+ * covered without needing its own dict entry.
+ */
 export function displayLabel(name: string | undefined | null): string {
   if (!name) return name ?? "";
-  return DISPLAY_LABEL[name] ?? name;
+  return name.replace(/Kill Switch/g, "Execution Lock");
 }
 
 /**
- * Map a backend reason STRING that may carry a "Kill Switch: <reason>" prefix
- * (execution_gate.blocking_reasons format: `f"{c['name']}: {c['reason']}"`,
- * execution_gate.py:120) to its display form. Only the prefix is rewritten;
- * the reason text itself (which never contains the label) is untouched.
+ * Map a backend reason/blocker STRING for display. Originally anchored to only
+ * the "Kill Switch: <reason>" prefix format (execution_gate.blocking_reasons,
+ * execution_gate.py:120) — too narrow: risk_approval.py's blockers array can
+ * carry the bare compound "Daily risk / Kill Switch" with no colon, which the
+ * anchored regex silently passed through unmapped (2026-07-23 live capture).
+ * Same substring replace as displayLabel; kept as a separate export since
+ * call sites read as "reason" vs "label" and may diverge later.
  */
 export function displayReason(reason: string | undefined | null): string {
-  if (!reason) return reason ?? "";
-  return reason.replace(/^Kill Switch:/, "Execution Lock:");
+  return displayLabel(reason);
 }
 
 /** Map every string in a blocking_reasons / waiting_on array for display. */
