@@ -13,6 +13,7 @@ import { useMarket } from "@/lib/store";
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 const EVIDENCE_LABEL: Record<string, string> = {
   vwap: "VWAP", swing: "Swing", volume_node: "Vol Node", cpr: "CPR", oi_wall: "OI Wall",
+  volume: "Volume", price_action: "Price Action",
 };
 
 function EvidenceChips({ ev }: { ev: any }) {

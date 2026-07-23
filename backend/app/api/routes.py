@@ -447,10 +447,30 @@ async def support_resistance_ep():
                 cpr_lines[f"{label}_{k}"] = v
 
     if result.get("ready") and spot_cmp:
-        support_resistance.attach_evidence(result, spot_cmp, vwap=vwap,
-                                            gamma_wall=gamma_wall, volume_profile=vp, cpr_lines=cpr_lines)
+        support_resistance.attach_evidence(result, spot_cmp, vwap=vwap, gamma_wall=gamma_wall,
+                                            volume_profile=vp, cpr_lines=cpr_lines, candles=state.candles)
         result["hero"] = support_resistance.hero_card(result, state.candles)
+        # Priority 11 (owner, 2026-07-24): Gamma Wall already computed by
+        # expiry.py — surfaced here (not re-derived) so the Hero Card can show
+        # it without a second engine call.
+        if result["hero"] and gamma_wall:
+            result["hero"]["gamma_wall"] = gamma_wall
+            result["hero"]["gamma_wall_distance"] = round(abs(spot_cmp - gamma_wall), 2)
     return result
+
+
+@router.get("/market-structure")
+async def market_structure_ep():
+    """Market Structure — Phase 3 (item #5 Module 3, 2026-07-24). HH/HL/LH/LL
+    swing labeling, BOS/CHOCH classification, Buy/Sell-side liquidity zones +
+    Stop Hunt detection, Auto Fibonacci + Golden Zone, and a two-point Auto
+    Trendline — all from structure.py's own already-computed pivots/labels/
+    event (no re-derivation). Read-only."""
+    layers = (state.intelligence or {}).get("layers") or {}
+    struct = layers.get("structure") or {}
+    if not struct:
+        return {"ready": False, "reason": "structure engine has not run yet this session"}
+    return {"ready": True, **struct}
 
 
 @router.get("/support-resistance/premium")

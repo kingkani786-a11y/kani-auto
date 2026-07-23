@@ -24,6 +24,7 @@ const STAGE_STYLE: Record<string, { badge: string; border: string; label: string
 
 const EVIDENCE_LABEL: Record<string, string> = {
   vwap: "VWAP", swing: "Swing", volume_node: "Volume Node", cpr: "CPR", oi_wall: "OI Wall",
+  volume: "Volume", price_action: "Price Action",
 };
 
 export function SRHeroCard() {
@@ -67,10 +68,20 @@ export function SRHeroCard() {
         <div>
           <div className="text-lg font-bold tabular-nums text-white">
             {ev.count ?? "—"}/{ev.total ?? "—"}
+            {ev.confidence_pct != null && <span className="text-[11px] text-terminal-muted"> ({ev.confidence_pct}%)</span>}
           </div>
+          {/* Evidence-agreement ratio (owner, 2026-07-24) — how many of the 7
+              sources independently agree, NOT a fabricated confidence score. */}
           <div className="text-[9px] text-terminal-muted">Evidence</div>
         </div>
       </div>
+
+      {hero.gamma_wall != null && (
+        <div className="flex items-center justify-between text-[10px] border-t border-terminal-border pt-1.5">
+          <span className="text-terminal-muted">Gamma Wall</span>
+          <span className="tabular-nums text-white">{hero.gamma_wall} <span className="text-terminal-muted">({hero.gamma_wall_distance} pts away)</span></span>
+        </div>
+      )}
 
       {/* Why here — evidence checklist, not a "confidence %" (owner: probability
           only in Forecast AI; elsewhere observed/evidence). YES/NO per source,

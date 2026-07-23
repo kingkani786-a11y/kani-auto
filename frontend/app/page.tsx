@@ -39,6 +39,7 @@ import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
 import { SRHeroCard } from "@/components/SRHeroCard";
 import { SRHeatMap } from "@/components/SRHeatMap";
 import { SupportResistancePanel } from "@/components/SupportResistancePanel";
+import { MarketStructurePanel } from "@/components/MarketStructurePanel";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
 import { AIChangelog } from "@/components/AIChangelog";
@@ -453,6 +454,7 @@ export default function Dashboard() {
               staged in Research mode alongside other new/evolving engines
               until it accumulates live evidence. */}
           <SafeBoundary name="Support Resistance"><SupportResistancePanel /></SafeBoundary>
+          <SafeBoundary name="Market Structure"><MarketStructurePanel /></SafeBoundary>
           <SafeBoundary name="Market Path"><MarketPathPanel /></SafeBoundary>
           <SafeBoundary name="Alpha"><AlphaPanel /></SafeBoundary>
           <SafeBoundary name="Entry Score Timeline"><EntryScoreTimeline /></SafeBoundary>

@@ -244,10 +244,41 @@ def period_pivots(daily_candles: list[dict[str, Any]], period: str) -> dict[str,
 # output, never re-derived. A level with more independently-agreeing sources
 # is not "more confident" (no such score is invented) — it just lists what
 # agrees, same discipline as the AI Decision Matrix's own PASS/FAIL rows. ───
+def _recent_volume_spike(candles: list[dict[str, Any]], level: float, tol: float) -> bool:
+    """Distinct from volume_node (POC/VAH/VAL confluence) — a raw volume
+    surge on a candle that actually touched the level, recently."""
+    if len(candles) < 6:
+        return False
+    recent = candles[-10:]
+    vols = [c.get("volume", 0) for c in recent[:-1]]
+    avg = sum(vols) / len(vols) if vols else 0
+    if avg <= 0:
+        return False
+    for c in recent:
+        near = (c["low"] - tol) <= level <= (c["high"] + tol)
+        if near and c.get("volume", 0) >= VOL_CONFIRM_MULT * avg:
+            return True
+    return False
+
+
+def _recent_price_action(candles: list[dict[str, Any]], level: float, tol: float) -> bool:
+    """A rejection wick at the level in one of the last few candles — same
+    'near' test as _touch_stats, just checked on recent candles only."""
+    for c in (candles or [])[-5:]:
+        near = (c["low"] - tol) <= level <= (c["high"] + tol)
+        if not near:
+            continue
+        rng = max(c["high"] - c["low"], 1e-9)
+        if (c["high"] - c["close"]) / rng > 0.5 or (c["close"] - c["low"]) / rng > 0.5:
+            return True
+    return False
+
+
 def attach_evidence(levels_result: dict[str, Any], cmp: float,
                      vwap: float | None = None, gamma_wall: float | None = None,
                      volume_profile: dict[str, Any] | None = None,
-                     cpr_lines: dict[str, Any] | None = None) -> dict[str, Any]:
+                     cpr_lines: dict[str, Any] | None = None,
+                     candles: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     if not levels_result.get("ready"):
         return levels_result
     tol = cmp * TOUCH_TOL_PCT / 100 if cmp else 0
@@ -264,8 +295,16 @@ def attach_evidence(levels_result: dict[str, Any], cmp: float,
             "volume_node": _near(level, vp.get("poc")) or _near(level, vp.get("vah")) or _near(level, vp.get("val")),
             "cpr": any(_near(level, v) for v in cpr_vals),
             "oi_wall": _near(level, gamma_wall),
+            "volume": _recent_volume_spike(candles or [], level, tol),
+            "price_action": _recent_price_action(candles or [], level, tol),
         }
-        return {**ev, "count": sum(1 for v in ev.values() if v), "total": len(ev)}
+        count = sum(1 for v in ev.values() if v)
+        total = len(ev)
+        # owner, 2026-07-24: an OBSERVED source-agreement ratio (how many of
+        # the 7 sources above independently agree), never a fabricated
+        # "AI confidence" score — same discipline as bounce_pct/break_pct.
+        return {**ev, "count": count, "total": total,
+                "confidence_pct": round(count / total * 100, 1) if total else None}
 
     for row in levels_result.get("resistance", []) + levels_result.get("support", []):
         row["evidence"] = _evidence(row["level"])

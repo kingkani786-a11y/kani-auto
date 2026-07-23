@@ -85,6 +85,7 @@ export const api = {
   supportResistance: () => req<any>(`/api/support-resistance`),
   supportResistancePremium: (strike: number, type: "CE" | "PE") =>
     req<any>(`/api/support-resistance/premium?strike=${strike}&type=${type}`),
+  marketStructure: () => req<any>(`/api/market-structure`),
   version: () => req<any>("/api/version"),
   systemVerify: () => req<any>("/api/system-verify"),
   aiChangelog: (limit = 30) => req<any>(`/api/ai-changelog?limit=${limit}`),
