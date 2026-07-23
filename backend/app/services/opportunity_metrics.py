@@ -45,6 +45,16 @@ GIVEBACK_CLOSE = 0.70 # …AND only once it has given back ≥70% of the run. A
 #                       a new one — this stops one oscillating strike from being
 #                       chopped into 20+ phantom episodes (measurement integrity)
 EXHAUST_OFF_PEAK = 0.90  # premium ≤ 90% of peak after the peak = exhaustion
+STALE_CLOSE_S = 300   # no tick for 5 min ⇒ the strike left the ATM window and the
+#                       radar stopped feeding it. premium_radar.py:313 drops a track
+#                       after 120s of no update and then NEVER calls record() for
+#                       that key again — so nothing can ever satisfy the normal
+#                       close condition and the episode is stuck open forever
+#                       (2026-07-22: 57 episodes open >1h). The measurement layer
+#                       had no reaper mirroring the radar's stale-track drop; this
+#                       is it. 300s = a comfortable margin past the radar's 120s so
+#                       a brief ATM re-entry is never mistaken for abandonment.
+SWEEP_EVERY_S = 60    # how often record() runs the stale-episode reaper (throttle)
 LAYER_CONFIRM = 55.0  # a decision-engine layer "confirms" at ≥55 (matches the
 #                       dashboard checklist, e.g. "OI 39 < 55") — declared, tune from evidence
 
@@ -84,6 +94,7 @@ _day: str | None = None
 _seq = 0                                 # opportunity number, per day
 _seen_keys: set[str] = set()             # keys tracked at least once today
 _last_ckpt = 0.0                         # last open-episode checkpoint write
+_last_sweep = 0.0                        # last stale-episode sweep (reaper throttle)
 _restored = False                        # open episodes restored after (re)start?
 CKPT_EVERY_S = 10                        # checkpoint cadence (measurement only)
 
@@ -96,6 +107,15 @@ def _roll_day() -> None:
     global _day, _seq
     d = _today()
     if d != _day:
+        # Close any still-open episodes to the OLD day before clearing, so a clean
+        # cross-midnight (a process that never restarted) does not silently discard
+        # the day's last open movers. _day is still the old day here, so these
+        # write to the correct jsonl. Same eventful-only rule as the stale sweep.
+        if _day is not None:
+            for ep in list(_eps.values()):
+                if ep["peak"] > ep["base"] * (1 + STIR_PCT / 100) or ep.get("alert_ts") is not None:
+                    ep["close_reason"] = ep.get("close_reason") or "EOD"
+                    _close_episode(ep)
         _eps.clear(); _closed.clear(); _seen_keys.clear(); _seq = 0
         _day = d
 
@@ -143,6 +163,11 @@ def _restore_open() -> None:
         _eps.update(snap.get("eps") or {})
         _seen_keys.update(snap.get("seen") or [])
         _seq = max(_seq, int(snap.get("seq") or 0))
+        # A same-day restart resurrects the open set INCLUDING strikes that had
+        # already left ATM before the restart (their last_seen is old). Reap them
+        # now instead of waiting for a fresh tick that will never come for a
+        # drifted strike — otherwise a restart re-inflates the stuck-open count.
+        _sweep_stale(time.time())
     except Exception:
         pass
 
@@ -169,6 +194,13 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
             "ideal_prem": None, "ideal_ts": None,
             "_low_since_alert": None, "_low_ts": None,
             "reason": None, "traj": [], "last_traj_ts": 0.0, "started": now,
+            # last_seen = the last tick for this key. When a strike leaves the ATM
+            # window the radar stops feeding it (premium_radar.py:313), last_seen
+            # freezes, and the stale sweep reaps the episode after STALE_CLOSE_S.
+            # close_reason records HOW an episode ended (EXHAUST / STALE / EOD) so
+            # a reaped close — whose exhaust was never observed — is never silently
+            # trusted as a true exhaustion in later forensics.
+            "last_seen": now, "close_reason": None,
             # decision-engine + indicator context, snapshotted at the two moments
             # that answer "why": when the move was born (+5%) and when it became a
             # real runner (+30%). This is the JOIN the black box was missing.
@@ -204,6 +236,7 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
                                     (ist - open_t).total_seconds() > 15 * 60)
     if symbol:
         ep["symbol"] = symbol
+    ep["last_seen"] = now        # freezes the moment the strike leaves ATM → stale sweep
 
     if ep["move_start_ts"] is None and premium < ep["base"]:
         ep["base"], ep["base_ts"] = premium, now  # track the true pre-move low
@@ -267,9 +300,11 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
     gain = ep["peak"] - ep["base"]
     exhausted = premium <= ep["base"] + (1 - GIVEBACK_CLOSE) * gain
     if moved and exhausted and now - ep["peak_ts"] > CLOSE_GAP_S:
+        ep["close_reason"] = "EXHAUST"
         _close_episode(ep)
         _eps[key] = _new_ep(strike, typ, premium, now)
 
+    _sweep_stale(now)            # reap episodes whose strike left ATM (throttled)
     _checkpoint_open(now)        # P0: durable open-episode snapshot (~10s)
 
 
@@ -523,6 +558,9 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         # PRIMARY = counts toward the C6 verdict · SECONDARY = expiry, separate
         # · EXCLUDED = unknown conditions or a feed/broker outage
         "validation_bucket": _validation_bucket(ep.get("session_type"), _rc),
+        # how the episode ended: EXHAUST (true give-back), STALE (strike left ATM,
+        # exhaust unobserved), EOD (still open at day roll). None = legacy line.
+        "close_reason": ep.get("close_reason"),
         "engine": ep.get("snap_run") or ep.get("snap_start"),  # decision context join
     }
 
@@ -538,6 +576,35 @@ def _close_episode(ep: dict[str, Any]) -> None:
             f.write(json.dumps(bb, ensure_ascii=False) + "\n")
     except Exception:
         pass
+
+
+def _sweep_stale(now: float) -> None:
+    """Close episodes whose strike left the ATM window (measurement integrity).
+
+    premium_radar drops a track after 120s of no update (premium_radar.py:313)
+    and then never calls record() for that key again, so the episode's normal
+    close condition (moved + exhausted + quiet) can never be met and it stays
+    open forever — 2026-07-22 accumulated 57 episodes stuck open >1h. This is the
+    reaper the measurement layer was missing, mirroring the radar's own drop.
+
+    An EVENTFUL episode (it moved ≥STIR_PCT, or it alerted) is black-boxed with
+    close_reason='STALE' — it carries real measurement (a runner/fade/false whose
+    exhaust simply went unobserved when the strike left ATM), and the tag keeps
+    that unobserved exhaust honest in forensics. A flat, never-alerted strike
+    carried no measurement and is dropped without a black-box line, so the log is
+    not flooded with non-events (which is what the 57 mostly were)."""
+    global _last_sweep
+    if now - _last_sweep < SWEEP_EVERY_S:
+        return
+    _last_sweep = now
+    for key, ep in list(_eps.items()):
+        if now - ep.get("last_seen", ep.get("started", now)) <= STALE_CLOSE_S:
+            continue
+        eventful = ep["peak"] > ep["base"] * (1 + STIR_PCT / 100) or ep.get("alert_ts") is not None
+        if eventful:
+            ep["close_reason"] = "STALE"
+            _close_episode(ep)
+        _eps.pop(key, None)
 
 
 def _read_disk_today() -> list[dict[str, Any]]:
