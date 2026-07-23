@@ -520,6 +520,18 @@ class MarketService:
             levels=levels, breadth=scanner.breadth(), kill_switch=ks,
         )
 
+        # Calibration Watch (owner, 2026-07-23, item #4) — observational only,
+        # no calibration/kill-switch logic touched. Same extraction memory.
+        # track_signal already uses below, just also recorded for the daily
+        # WATCH trigger (calibration_watch.py).
+        try:
+            from . import calibration_watch as _cal_watch
+            _sig_conf = float(packet["signal"].get("dynamic_confidence")
+                               or packet["signal"].get("confidence") or 0) or None
+            _cal_watch.record(_cal, _sig_conf)
+        except Exception:
+            pass
+
         # lifecycle context update + outcome tracking for historical accuracy
         prev_state = self.lifecycle.state
         self.lifecycle.on_analysis(packet, packet["layers"]["structure"], spot)

@@ -1,8 +1,12 @@
 "use client";
-// Phase 14 — Kill Switch banner. Capital-protection veto, top of dashboard.
-// Display only: it reflects the FORCE-WAIT state the backend already computed.
+// Phase 14 — Execution Lock banner (owner, 2026-07-23, item #3: renamed from
+// "Kill Switch" for display only — the internal `killSwitch` state/identifier,
+// and every backend field name under it, are UNCHANGED; see lib/labels.ts).
+// Capital-protection veto, top of dashboard. Display only: it reflects the
+// FORCE-WAIT state the backend already computed.
 
 import { useMarket } from "@/lib/store";
+import { displayReasons } from "@/lib/labels";
 
 export function KillSwitchBanner() {
   const { killSwitch } = useMarket();
@@ -20,23 +24,43 @@ export function KillSwitchBanner() {
   const dot = active ? "bg-terminal-bear animate-pulse" : "bg-terminal-warn";
   const label = active ? "text-terminal-bear" : "text-terminal-warn";
 
-  const reasons: string[] = active ? killSwitch.reasons || [] : killSwitch.caution || [];
+  const reasons: string[] = displayReasons(active ? killSwitch.reasons : killSwitch.caution);
 
   return (
     <div className={`panel border ${tone} py-3`}>
-      {/* Layer separation: the Risk Engine blocks EXECUTION only. The
-          Analysis + Opportunity engines never stop — so we say so, loudly,
-          right above the block. (Owner's institutional-desk design.) */}
-      <div className="flex items-center gap-2 text-[11px] font-semibold text-terminal-bull mb-2 pb-2 border-b border-terminal-border/40">
-        <span className="w-2 h-2 rounded-full bg-terminal-bull animate-pulse" />
-        AI ANALYSING — market read, radar, thinking & opportunities all running.
-      </div>
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className={`w-2.5 h-2.5 rounded-full ${dot}`} />
-        <span className={`text-sm font-bold tracking-wider ${label}`}>
-          {active ? "⚠ EXECUTION BLOCKED — new entries disabled" : `EXECUTION CAUTION — ${level}`}
-        </span>
-      </div>
+      {active ? (
+        // Exact owner-specified banner (2026-07-23): the layer-separation
+        // proof stated as a plain status grid, not prose — "Analysis LIVE /
+        // Radar LIVE / AI LIVE / Execution BLOCKED" is the Two-Layer Law
+        // (155/155 episodes recorded 2026-07-22 while this was active all day).
+        <div className="mb-2 pb-2 border-b border-terminal-border/40">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-terminal-bear animate-pulse" />
+            <span className="text-sm font-bold tracking-wider text-terminal-bear">
+              🔴 EXECUTION LOCK ACTIVE
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-semibold pl-4">
+            <div className="text-terminal-bull">Analysis&nbsp; : LIVE</div>
+            <div className="text-terminal-bull">Radar&nbsp;&nbsp;&nbsp;&nbsp; : LIVE</div>
+            <div className="text-terminal-bull">AI&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : LIVE</div>
+            <div className="text-terminal-bear">Execution: BLOCKED</div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-terminal-bull mb-2 pb-2 border-b border-terminal-border/40">
+          <span className="w-2 h-2 rounded-full bg-terminal-bull animate-pulse" />
+          AI ANALYSING — market read, radar, thinking & opportunities all running.
+        </div>
+      )}
+      {!active && (
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className={`w-2.5 h-2.5 rounded-full ${dot}`} />
+          <span className={`text-sm font-bold tracking-wider ${label}`}>
+            EXECUTION CAUTION — {level}
+          </span>
+        </div>
+      )}
       <ul className="text-xs text-gray-200 space-y-0.5 mb-1">
         {reasons.map((r, i) => (
           <li key={i} className="flex gap-2">

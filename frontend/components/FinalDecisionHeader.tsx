@@ -5,6 +5,7 @@
 // authoritative verdict) — no new logic.
 
 import { useMarket } from "@/lib/store";
+import { displayReason } from "@/lib/labels";
 
 export function FinalDecisionHeader() {
   const { decision, exitIntel } = useMarket();
@@ -27,7 +28,7 @@ export function FinalDecisionHeader() {
     reason = `All mandatory layers confirmed · ${ec.passed ?? "—"}/${ec.total ?? "—"} · quality gate PASS`;
   } else {
     emoji = "🟡"; status = "WAIT"; tone = "text-terminal-warn border-terminal-warn/50 bg-terminal-warn/5";
-    reason = (gate.blocking_reasons && gate.blocking_reasons[0])
+    reason = displayReason(gate.blocking_reasons && gate.blocking_reasons[0])
       || `Institutional confirmation pending (${ec.passed ?? 0}/${ec.total ?? 0} layers)`;
   }
 

@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useMarket } from "@/lib/store";
 import { api } from "@/lib/api";
+import { displayReasons } from "@/lib/labels";
 
 const STARS = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 const STRENGTH_WORD = ["—", "Early", "Building", "Strong", "Very Strong", "Explosive"];
@@ -30,8 +31,10 @@ export function MissedMoveProtection() {
   const eg = (decision as any)?.execution_gate || {};
   const ready = !!eg.gate_passed;
   const strike = (decision as any)?.strike || {};
+  // display-mapped (owner, 2026-07-23, item #3): "Kill Switch: ..." renders as
+  // "Execution Lock: ..."; the backend field/value itself is untouched.
   const missing: string[] = ready ? [] :
-    (eg.blocking_reasons?.length ? eg.blocking_reasons : eg.waiting_on || []).slice(0, 4);
+    displayReasons((eg.blocking_reasons?.length ? eg.blocking_reasons : eg.waiting_on || []).slice(0, 4));
   const research = (eg.blocker_research || [])[0];
 
   if (episodes.length === 0 && moveAlertCount === 0) return null; // calm until MODE speaks

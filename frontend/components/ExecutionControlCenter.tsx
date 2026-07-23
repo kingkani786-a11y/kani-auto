@@ -4,6 +4,7 @@
 // reasons. Derivation-only display (does not mutate the decision pipeline).
 
 import { useMarket } from "@/lib/store";
+import { displayLabel, displayReasons } from "@/lib/labels";
 
 const stTone = (s: string) =>
   s === "PASS" ? "text-terminal-bull" : s === "FAIL" ? "text-terminal-bear" : "text-terminal-warn";
@@ -42,7 +43,7 @@ export function ExecutionControlCenter() {
       {!eg.gate_passed && eg.blocking_reasons?.length > 0 && (
         <div className="mb-2 text-xs">
           <span className="text-terminal-bear font-semibold">Blocked by:</span>{" "}
-          <span className="text-gray-300">{eg.blocking_reasons.join(" · ")}</span>
+          <span className="text-gray-300">{displayReasons(eg.blocking_reasons).join(" · ")}</span>
           {/* RC1.16.6 — Incident #001 explainability: each blocker's own
               ledger track record — "AI saw it; the rule refused, and this is
               that rule's history." Research display only, never an override. */}
@@ -66,14 +67,14 @@ export function ExecutionControlCenter() {
         </div>
       )}
       {!eg.gate_passed && eg.blocking_reasons?.length === 0 && eg.waiting_on?.length > 0 && (
-        <div className="mb-2 text-[11px] text-terminal-muted">Waiting on: {eg.waiting_on.join(", ")}</div>
+        <div className="mb-2 text-[11px] text-terminal-muted">Waiting on: {eg.waiting_on.map(displayLabel).join(", ")}</div>
       )}
 
       {/* mandatory conditions grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-1">
         {(eg.conditions || []).map((c: any) => (
           <div key={c.name} className="flex items-center justify-between text-[11px] border-b border-terminal-border/20 py-0.5">
-            <span className="text-terminal-muted">{c.name}</span>
+            <span className="text-terminal-muted">{displayLabel(c.name)}</span>
             <span className={`font-bold ${stTone(c.status)}`}>{c.status}</span>
           </div>
         ))}

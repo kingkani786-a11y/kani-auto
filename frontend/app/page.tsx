@@ -33,6 +33,10 @@ import { DecisionContract } from "@/components/DecisionContract";
 import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { TradeNowCard } from "@/components/TradeNowCard";
+import { BlockReasonHero } from "@/components/BlockReasonHero";
+import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
+import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
+import { SupportResistancePanel } from "@/components/SupportResistancePanel";
 import { BuildVersion } from "@/components/BuildVersion";
 import { SystemVerify } from "@/components/SystemVerify";
 import { AIChangelog } from "@/components/AIChangelog";
@@ -286,6 +290,15 @@ export default function Dashboard() {
       <SafeBoundary name="AI Health">
         <AIHealthStrip />
       </SafeBoundary>
+      {/* Item #1 (owner, 2026-07-23) — the #0 stuck-episode fix's own tally:
+          open/recovered/dropped, live. Item #4 — observational calibration
+          WATCH trigger (2026-07-22 trace), no scoring logic touched. */}
+      <SafeBoundary name="Measurement Health">
+        <MeasurementHealthCard />
+      </SafeBoundary>
+      <SafeBoundary name="Calibration Watch">
+        <CalibrationWatchCard />
+      </SafeBoundary>
       <SafeBoundary name="Feed Diagnostics">
         <FeedDiagnostics />
       </SafeBoundary>
@@ -363,9 +376,21 @@ export default function Dashboard() {
         <SafeModeBanner />
       </SafeBoundary>
 
-      {/* PHASE 14 — Kill Switch (capital-protection veto) above the action */}
-      <SafeBoundary name="Kill Switch">
+      {/* PHASE 14 — Execution Lock (capital-protection veto) above the action.
+          Display label only (owner, 2026-07-23, item #3) — internal
+          KillSwitchBanner/killSwitch identifier is unchanged. */}
+      <SafeBoundary name="Execution Lock">
         <KillSwitchBanner />
+      </SafeBoundary>
+
+      {/* BLOCK REASON HERO (owner, 2026-07-23, item #2 — most-requested):
+          "top of dashboard, highest visual priority". Placed directly after
+          Safe Mode / Execution Lock — this project's existing highest-
+          priority capital-protection banners stay literally first; this is
+          the top of the DECISION content beneath them. Renders nothing when
+          there's no candidate move being blocked (quiet market = quiet UI). */}
+      <SafeBoundary name="Block Reason">
+        <BlockReasonHero />
       </SafeBoundary>
 
       {/* V29.x — Trading Mode (one screen) vs Research Mode (full depth) */}
@@ -411,6 +436,10 @@ export default function Dashboard() {
               from an earlier build phase); TradeNowCard is now the one hero. */}
           <SafeBoundary name="Execution Card"><ExecutionCard /></SafeBoundary>
           <SafeBoundary name="Strike Queue"><StrikeQueue /></SafeBoundary>
+          {/* Item #5 (owner, 2026-07-23) — Phase 2 kickoff, spot levels only;
+              staged in Research mode alongside other new/evolving engines
+              until it accumulates live evidence. */}
+          <SafeBoundary name="Support Resistance"><SupportResistancePanel /></SafeBoundary>
           <SafeBoundary name="Market Path"><MarketPathPanel /></SafeBoundary>
           <SafeBoundary name="Alpha"><AlphaPanel /></SafeBoundary>
           <SafeBoundary name="Entry Score Timeline"><EntryScoreTimeline /></SafeBoundary>

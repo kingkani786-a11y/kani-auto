@@ -73,6 +73,8 @@ def contract() -> dict[str, Any]:
                 "trade_light": {"color": "RED", "dot": "🔴", "label": "NO TRADE"},
                 "best_strike": None,
                 "buy_checklist": [], "buy_checklist_score": {"passed": 0, "measured": 0, "total": 7},
+                "block_reason_hero": {"active": False, "strike": None, "type": None, "reason": None,
+                                      "execution_lock": "CLEAR", "manual_entry_available": True},
                 "invalidations": [], "instruction": "Standing aside.",
                 "signal_ts": None, "as_of": int(time.time()),
                 "note": "Degraded honest fallback — display layer only."}
@@ -342,6 +344,32 @@ def _contract() -> dict[str, Any]:
     buy_checklist_score = {"passed": sum(1 for v in _known if v),
                            "measured": len(_known), "total": len(buy_checklist)}
 
+    # ── Block Reason Hero (owner, 2026-07-23, item #2 — most-requested):
+    # "MOVE DETECTED, ENTRY BLOCKED, WHY" at the top, instead of a bare
+    # "NO TRADE". Pure re-presentation of eg.blocking_reasons (already the
+    # gate's own verdict, execution_gate.py:120) — no new gate, no new
+    # decision. Shown only when there IS a candidate move the gate is
+    # actually blocking (a strike the engine selected/considered, via the
+    # same _card used by best_strike above) — a quiet market with nothing
+    # moving gets no hero, not a permanent "blocked" banner shouting about
+    # nothing. The reason string is kept in its RAW backend form (still
+    # literally "Kill Switch: ..." where that's the cause) — the Execution
+    # Lock display rename (item #3) is applied only at the frontend edge
+    # (lib/labels.ts), so this contract, execution_gate.py, and
+    # missed_winner.py's string-match all keep the exact same value.
+    _ks = state.kill_switch or {}
+    _hero_reason = (eg.get("blocking_reasons") or [None])[0] or (why[0] if why else None)
+    block_reason_hero = {
+        "active": bool((not is_trade) and _card.get("strike")),
+        "strike": _card.get("strike"), "type": _card.get("type"),
+        "reason": _hero_reason,
+        "execution_lock": "ACTIVE" if _ks.get("active") else "CLEAR",
+        # The system never places orders (standing doctrine) — manual entry via
+        # the trader's own broker terminal is always physically available. This
+        # is a constant fact about the platform's design, not a per-cycle signal.
+        "manual_entry_available": True,
+    }
+
     return {
         "action": action,
         "is_trade": is_trade,
@@ -363,6 +391,7 @@ def _contract() -> dict[str, Any]:
         "best_strike": best_strike,
         "buy_checklist": buy_checklist,
         "buy_checklist_score": buy_checklist_score,
+        "block_reason_hero": block_reason_hero,
         "invalidations": _invalidations(dec, tech),
         "instruction": ("If ANY invalidation occurs → EXIT immediately."
                         if is_trade else

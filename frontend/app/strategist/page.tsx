@@ -95,10 +95,11 @@ export default function StrategistPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
-      {/* Kill switch banner */}
+      {/* Execution Lock banner — display label only (owner, 2026-07-23, item #3);
+          internal s.kill_switch identifier is unchanged, this is a UI rename. */}
       {s.kill_switch?.active && (
         <div className="panel border-terminal-bear/60 bg-terminal-bear/10 py-2.5">
-          <div className="text-sm font-bold text-terminal-bear tracking-wider">KILL SWITCH ACTIVE — FORCE WAIT</div>
+          <div className="text-sm font-bold text-terminal-bear tracking-wider">EXECUTION LOCK ACTIVE — FORCE WAIT</div>
           <div className="text-xs text-gray-200 mt-1">{(s.kill_switch.reasons || []).join("; ")}</div>
         </div>
       )}

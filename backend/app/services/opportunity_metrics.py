@@ -97,6 +97,15 @@ _last_ckpt = 0.0                         # last open-episode checkpoint write
 _last_sweep = 0.0                        # last stale-episode sweep (reaper throttle)
 _restored = False                        # open episodes restored after (re)start?
 CKPT_EVERY_S = 10                        # checkpoint cadence (measurement only)
+# Observability only (owner, 2026-07-23 — Measurement Health card, item #1).
+# A flat/never-alerted episode carries no measurement, so _sweep_stale() drops
+# it without a black-box line (by design — see its docstring). That silence is
+# exactly what a "Dropped" counter on the dashboard needs to show, so it is
+# counted here. This is the ONLY touch to this file this session — a bare
+# increment inside the sweep's existing flat-branch, day-scoped like every
+# other counter above. It changes no close/reap DECISION: which episodes get
+# dropped vs. reaped is unchanged, this just tallies what already happens.
+_dropped_today = 0
 
 
 def _today() -> str:
@@ -104,7 +113,7 @@ def _today() -> str:
 
 
 def _roll_day() -> None:
-    global _day, _seq
+    global _day, _seq, _dropped_today
     d = _today()
     if d != _day:
         # Close any still-open episodes to the OLD day before clearing, so a clean
@@ -116,7 +125,7 @@ def _roll_day() -> None:
                 if ep["peak"] > ep["base"] * (1 + STIR_PCT / 100) or ep.get("alert_ts") is not None:
                     ep["close_reason"] = ep.get("close_reason") or "EOD"
                     _close_episode(ep)
-        _eps.clear(); _closed.clear(); _seen_keys.clear(); _seq = 0
+        _eps.clear(); _closed.clear(); _seen_keys.clear(); _seq = 0; _dropped_today = 0
         _day = d
 
 
@@ -593,7 +602,7 @@ def _sweep_stale(now: float) -> None:
     that unobserved exhaust honest in forensics. A flat, never-alerted strike
     carried no measurement and is dropped without a black-box line, so the log is
     not flooded with non-events (which is what the 57 mostly were)."""
-    global _last_sweep
+    global _last_sweep, _dropped_today
     if now - _last_sweep < SWEEP_EVERY_S:
         return
     _last_sweep = now
@@ -604,6 +613,8 @@ def _sweep_stale(now: float) -> None:
         if eventful:
             ep["close_reason"] = "STALE"
             _close_episode(ep)
+        else:
+            _dropped_today += 1     # observability only (item #1) — same drop, now counted
         _eps.pop(key, None)
 
 
@@ -645,7 +656,8 @@ def report() -> dict[str, Any]:
     opportunity today (disk) plus still-open episodes in memory. This is what
     makes the day's measurement survive a backend reload (historical-aware)."""
     _roll_day()
-    disk_rows = [_row_from_bb(b) for b in _read_disk_today()]        # all closed today
+    _raw_today = _read_disk_today()                                  # raw persisted lines today
+    disk_rows = [_row_from_bb(b) for b in _raw_today]                 # all closed today
     open_eps = [e for e in _eps.values() if e["peak"] > e["base"] * (1 + STIR_PCT / 100)]
     open_rows = [{**_classify(e), "root_cause": _root_cause(e, _classify(e))} for e in open_eps]
     rows = disk_rows + open_rows                                     # closed(disk) + open(live)
@@ -706,6 +718,29 @@ def report() -> dict[str, Any]:
                  f"(stir +{STIR_PCT:.0f}%, runner +{RUNNER_PCT:.0f}%, early "
                  f"<+{EARLY_MAX_PCT:.0f}%, false <+{REAL_MOVE_PCT:.0f}% in "
                  f"{FALSE_WINDOW_S // 60}m) — tune from evidence. Measurement only."),
+        # Measurement Health (owner, 2026-07-23 — item #1). open_episodes is the
+        # live count, exactly as spec'd. status is NOT literally "open==0" —
+        # dozens of episodes legitimately open mid-session is normal operation,
+        # not a defect (that would make the card cry wolf all day, every day).
+        # The real #0 bug was STALE-and-stuck open episodes past STALE_CLOSE_S;
+        # open_stale (open AND already past the reaper's own threshold, i.e.
+        # waiting on the next throttled sweep tick) is the honest degradation
+        # signal, so status is keyed off that instead.
+        "measurement_health": {
+            "open_episodes": len(_eps),
+            "open_stale": sum(1 for e in _eps.values()
+                               if time.time() - e.get("last_seen", e.get("started", 0)) > STALE_CLOSE_S),
+            "recovered_today": sum(1 for b in _raw_today if b.get("close_reason") in ("STALE", "EOD")),
+            "dropped_today": _dropped_today,
+            "status": "DEGRADED" if any(
+                time.time() - e.get("last_seen", e.get("started", 0)) > STALE_CLOSE_S
+                for e in _eps.values()) else "HEALTHY",
+            "note": ("open_episodes = live in-flight count (normal to be >0 all "
+                     "session); open_stale/status flag episodes stuck PAST the "
+                     "reaper threshold — that combination is the real fault "
+                     "signal #0 fixed. recovered_today/dropped_today are the "
+                     "reaper's own tally for today."),
+        },
         "as_of": int(time.time()),
     }
 

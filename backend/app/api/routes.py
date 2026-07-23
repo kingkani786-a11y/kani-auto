@@ -392,6 +392,28 @@ async def decision_contract_ep():
     return decision_contract.contract()
 
 
+@router.get("/calibration-watch")
+async def calibration_watch_ep():
+    """Calibration Watch (item #4, 2026-07-23) — observational only: today's
+    peak signal confidence vs. calibration score, and the pre-registered
+    WATCH trigger (2026-07-22 trace). Does not touch calibration scoring."""
+    from ..services import calibration_watch
+    return calibration_watch.report()
+
+
+@router.get("/support-resistance")
+async def support_resistance_ep():
+    """Dynamic Support/Resistance — Phase 2 kickoff (item #5, 2026-07-23).
+    Spot levels from swing-fractal clustering + touch/bounce/break stats on
+    live candle history. Premium S/R deferred (see engine docstring — no
+    persisted full-session premium series exists yet). Read-only."""
+    from ..engines import support_resistance
+    spot_cmp = (state.spot or {}).get("ltp")
+    result = support_resistance.spot_levels(state.candles, cmp=spot_cmp)
+    result["premium_available"] = support_resistance.premium_levels_available()
+    return result
+
+
 @router.get("/opportunity-log")
 async def opportunity_log_ep(limit: int = 50):
     """Opportunity Black Box — the durable per-opportunity learning log (today).

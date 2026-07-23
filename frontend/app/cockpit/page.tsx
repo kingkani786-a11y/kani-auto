@@ -80,9 +80,11 @@ export default function CockpitPage() {
         <Tile label="Validation" value={vd ? `${vd.pass}✓ ${vd.warning}⚠ ${vd.fail}✗` : "—"} href="/research" />
       </div>
 
-      {/* Kill switch / safe mode status (when nominal) */}
+      {/* Execution Lock / safe mode status (when nominal) — display label only
+          (owner, 2026-07-23, item #3); internal `killSwitch` state/identifier
+          is unchanged, this is a UI rename. */}
       <div className="grid grid-cols-2 gap-3">
-        <Tile label="Kill Switch" value={killSwitch?.level ?? (ks ? "ACTIVE" : "SAFE")}
+        <Tile label="Execution Lock" value={killSwitch?.level ?? (ks ? "ACTIVE" : "SAFE")}
               tone={ks ? "text-terminal-bear" : "text-terminal-bull"} />
         <Tile label="Safe Mode" value={safe ? "ACTIVE" : "NOMINAL"}
               tone={safe ? "text-terminal-bear" : "text-terminal-bull"} />
