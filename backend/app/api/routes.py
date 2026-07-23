@@ -423,7 +423,7 @@ async def support_resistance_ep():
     (readiness signal only — the Decision Engine still decides BUY/WAIT/EXIT).
     Read-only."""
     from ..engines import support_resistance
-    from . import period_pivot_cache
+    from ..services import period_pivot_cache
 
     spot_cmp = (state.spot or {}).get("ltp")
     result = support_resistance.spot_levels(state.candles, cmp=spot_cmp)
