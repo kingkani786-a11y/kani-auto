@@ -15,6 +15,17 @@ from typing import Any
 _CORE = ["Trend", "MTF", "OI", "Greeks", "Liquidity", "Institutional", "Structure"]
 
 
+def _truncate(text: str, limit: int = 80) -> str:
+    """Word-boundary truncation — the plain `text[:80]` this replaced cut mid-
+    word with no ellipsis (e.g. 'forecasts mis-tuned' -> 'forecasts mis-tun',
+    live-observed 2026-07-24), reading as broken/cut-off text rather than an
+    intentionally shortened reason."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return (cut or text[:limit]) + "…"
+
+
 def evaluate(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, Any],
              data_quality: str, kill_switch: dict | None, safe_mode: dict | None,
              market_dna: dict | None) -> dict[str, Any]:
@@ -31,11 +42,11 @@ def evaluate(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str,
 
     # ---- hard overrides first (capital protection > opportunity) ----
     if ks.get("active"):
-        add("Kill Switch", "FAIL", "; ".join(ks.get("reasons", []))[:80] or "active")
+        add("Kill Switch", "FAIL", _truncate("; ".join(ks.get("reasons", []))) or "active")
     else:
         add("Kill Switch", "PASS", "clear")
     if sm.get("active"):
-        add("Safe Mode", "FAIL", "; ".join(sm.get("triggers", []))[:80] or "active")
+        add("Safe Mode", "FAIL", _truncate("; ".join(sm.get("triggers", []))) or "active")
     else:
         add("Safe Mode", "PASS", "nominal")
     # data quality
