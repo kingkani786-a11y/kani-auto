@@ -14,6 +14,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from ..core.text import truncate_at_word
+
 _TIER = [(850, "Institutional ★★★★★"), (700, "Platinum ★★★★"), (600, "Gold ★★★"),
          (500, "Silver ★★"), (0, "Bronze ★")]
 _POINT_LADDER = [5, 10, 20, 30, 50, 100]
@@ -138,7 +140,7 @@ def build(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, An
         reason = eg.get("blocking_reasons") or [decision.get("reason", "confluence not aligned")]
         return {
             "ready": True, "is_trade": False,
-            "actionable": f"WAIT — {('; '.join(reason))[:140]}",
+            "actionable": f"WAIT — {truncate_at_word('; '.join(reason), 140)}",
             "opportunity_radar": radar,
             "point_capture": point_capture,
             "trade_style": trade_style, "style_reason": style_reason,

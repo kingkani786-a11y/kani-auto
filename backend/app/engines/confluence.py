@@ -17,6 +17,7 @@ import time
 from typing import Any
 
 from ..config import settings
+from ..core.text import truncate_at_word
 from . import (
     early_warning, expiry as expiry_eng, market_profile, mtf, narrator,
     orderflow, probability, quality, regime, risk, smart_money,
@@ -313,7 +314,8 @@ def run(
     confirmations: list[str] = []
     # Phase 14 — Kill Switch overrides everything (capital protection first)
     if kill_switch and kill_switch.get("active"):
-        vetoes.append("KILL SWITCH (FORCE WAIT): " + "; ".join(kill_switch.get("reasons", []))[:160])
+        vetoes.append("KILL SWITCH (FORCE WAIT): "
+                       + truncate_at_word("; ".join(kill_switch.get("reasons", [])), 160))
 
     for name in applicable:
         s = layers[name][score_key]

@@ -17,6 +17,7 @@ from ..broker.dhan import BrokerError, DhanClient, MarketClosedError
 from ..broker.instruments import get_instrument
 from ..config import settings
 from ..core.state import state, is_market_open
+from ..core.text import truncate_at_word
 from ..engines import (anomaly, confluence, decision as decision_eng,
                        dom as dom_eng, index_analytics, smart_money)
 from ..engines.lifecycle import Lifecycle
@@ -725,7 +726,7 @@ class MarketService:
             _ks_active = bool(ks.get("active"))
             if _ks_active and not getattr(self, "_prev_ks_active", False):
                 await alerts.send("SL", f"{inst.symbol} — KILL SWITCH ACTIVATED",
-                                  "; ".join(ks.get("reasons", []))[:140], inst.symbol)
+                                  truncate_at_word("; ".join(ks.get("reasons", [])), 140), inst.symbol)
             self._prev_ks_active = _ks_active
 
             if dq == "POOR" and getattr(self, "_prev_dq_alert", "") != "POOR":
