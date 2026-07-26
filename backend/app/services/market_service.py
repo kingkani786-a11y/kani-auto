@@ -595,7 +595,7 @@ class MarketService:
 
         # V10 decision synthesis: collapse everything into the 3-second view
         lc_snap = self.lifecycle.snapshot()
-        decision = decision_eng.build(packet, lc_snap, spot, inst.lot_size)
+        decision = decision_eng.build(packet, lc_snap, spot)
 
         # Phase 28 — Probability Ladder (derivation-only): P(reach T1/T2/T3) + P(SL)
         try:

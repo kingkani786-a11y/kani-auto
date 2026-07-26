@@ -259,10 +259,15 @@ export function ScalpingTool() {
         </div>
       ) : null}
 
-      {/* V30 — Commander Brief: the whole plan as ONE sentence (real fields only) */}
+      {/* V30 — Commander Brief: the whole plan as ONE sentence (real fields
+          only). Owner Step 7 (Risk Panel Final, 2026-07-26) Rule 11 trim:
+          this used to print "BUY" here — a second decision-labelled surface
+          next to risk numbers, always visible on the main dashboard. The
+          Hero (TradeNowCard) is the only place that says BUY; this stays
+          "PLAN" either way, describing the same strike/premium/SL/targets. */}
       {sq?.premium_sl != null && (
         <div className="mt-2 pt-2 border-t border-terminal-border/50 text-[12px] text-gray-200">
-          🎖 <span className="font-semibold">{isBuy ? "BUY" : "PLAN"}: {sq.strike} {sq.type} @ ₹{sq.premium}</span>
+          🎖 <span className="font-semibold">PLAN: {sq.strike} {sq.type} @ ₹{sq.premium}</span>
           <span className="text-terminal-muted"> → book ~70% at T1 </span><span className="font-mono text-terminal-bull">₹{sq.premium_t1}</span>
           <span className="text-terminal-muted"> → runner to T3 </span><span className="font-mono text-terminal-bull">₹{sq.premium_t3}</span>
           <span className="text-terminal-muted"> · SL </span><span className="font-mono text-terminal-bear">₹{sq.premium_sl}</span>

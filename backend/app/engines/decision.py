@@ -10,12 +10,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..config import settings
-
-# Confidence scaling -> lot sizing band (fraction of max safe lots)
-def _lot_band(conviction: str) -> float:
-    return {"HIGH": 1.0, "MODERATE": 0.5, "LOW": 0.25}.get(conviction, 0.0)
-
 
 def _market_state(regime: str, phases: list[str], adx: float, atr_pct: float) -> tuple[str, str]:
     """Returns (state, emoji-label). SCALPING when fast/volatile but tradable."""
@@ -120,7 +114,7 @@ def _one_line_reason(is_trade: bool, state: str, action: str,
 
 
 def build(packet: dict[str, Any], lifecycle: dict[str, Any],
-          spot: float, lot_size: int) -> dict[str, Any]:
+          spot: float) -> dict[str, Any]:
     sig = packet["signal"]
     layers = packet["layers"]
     regime = layers.get("regime", {}).get("regime", "")
@@ -140,14 +134,15 @@ def build(packet: dict[str, Any], lifecycle: dict[str, Any],
     if state == "AVOID":
         action = "NO TRADE" if not is_trade else "WAIT"
 
-    # Recommended lots: confidence scaling × max safe lots from risk budget
-    max_safe_lots = 0
-    rec_lots = 0
-    if is_trade and sig.get("entry") and sig.get("stop_loss"):
-        per_lot_risk = abs(sig["entry"] - sig["stop_loss"]) * lot_size
-        budget = settings.capital * settings.risk_per_trade_pct / 100.0
-        max_safe_lots = int(budget / per_lot_risk) if per_lot_risk > 0 else 0
-        rec_lots = max(int(max_safe_lots * _lot_band(conviction)), 1 if max_safe_lots else 0)
+    # Owner Step 7 (Risk Panel Final, 2026-07-26): removed the "recommended
+    # lots"/"max safe lots" sizing that used to live here — it multiplied the
+    # UNDERLYING index's point-risk by lot_size, as if that were an option
+    # buyer's rupee risk, which is wrong (an option buyer's actual risk is
+    # the PREMIUM difference, not the index's point move). This disagreed
+    # with the correct premium-based sizing market_service.py separately
+    # computes into decision["position_sizing"] (portfolio_risk.position_size
+    # fed the real premium entry/stop) — RiskApproval.tsx and routes.py's
+    # /portfolio/risk now both read that single correct source instead.
 
     reason = _one_line_reason(is_trade, state, action, sig, layers)
 
@@ -181,8 +176,6 @@ def build(packet: dict[str, Any], lifecycle: dict[str, Any],
         "conviction_label": conviction_label,
         "action": action,
         "is_trade": is_trade and state != "AVOID",
-        "recommended_lots": rec_lots,
-        "max_safe_lots": max_safe_lots,
         "next_add_levels": [sig.get("target1")] if is_trade else [],
         "entry": sig.get("entry"),
         "stop_loss": sig.get("stop_loss"),

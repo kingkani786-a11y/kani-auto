@@ -92,6 +92,24 @@ def _tier(trade_score: float) -> str:
     return "Bronze ★"
 
 
+# Owner Step 7 (Risk Panel Final, 2026-07-26) fix: `build()` used to read
+# `micro["eta_min"]` where `micro` was never defined anywhere in this file —
+# a NameError on every real BUY signal, silently swallowed by the caller's
+# bare except, so this card never rendered on a live trade. Root cause: the
+# hold-time estimate needs the SAME declared-band discipline already used by
+# _LADDER/_POINT_TIME above (never a computed/fabricated ETA) — this maps a
+# point-distance to that same band, numerically, for card["hold_minutes"].
+_TIER_HOLD_MINUTES = {"QUICK": (2, 5), "FAST": (5, 10), "TREND": (10, 30),
+                      "RUNNER": (30, 60), "MEGA": (60, 180)}
+
+
+def _hold_minutes_for(pts: float) -> tuple[int, int]:
+    for _, mode, _lo, hi, _t in _LADDER:
+        if pts <= hi:
+            return _TIER_HOLD_MINUTES[mode]
+    return _TIER_HOLD_MINUTES["MEGA"]
+
+
 def build(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, Any],
           strike: dict[str, Any], spot: float) -> dict[str, Any]:
     di = decision.get("intelligence_synthesis") or {}
@@ -168,7 +186,7 @@ def build(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, An
         prem_lo = prem_hi = None
     pts_lo, pts_hi = round(em * 0.2) or 8, round(em * 0.4) or 20
     prob = int(round(base_prob))
-    hold = micro["eta_min"]
+    hold_lo, hold_hi = _hold_minutes_for(pts_lo)
     grade = (di.get("trade_quality") or {}).get("score", 0)
 
     card = {
@@ -177,7 +195,7 @@ def build(layers: dict[str, Any], signal: dict[str, Any], decision: dict[str, An
         "expected_premium": [prem_lo, prem_hi],
         "expected_points": [pts_lo, pts_hi],
         "probability": prob,
-        "hold_minutes": [max(3, hold - 4), hold + 7] if hold else [5, 15],
+        "hold_minutes": [hold_lo, hold_hi],
         "tier": _tier(grade),
         "exit_rule": "Exit on VWAP reclaim or probability < 60%",
         "targets": [decision.get("target1"), decision.get("target2"), decision.get("target3")],

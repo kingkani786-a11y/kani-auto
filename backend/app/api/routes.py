@@ -1007,11 +1007,16 @@ async def portfolio_risk():
     pf = portfolio_risk.portfolio(paper.list_trades(), settings.capital, settings.risk_per_trade_pct)
     sizing = None
     sig = state.signal
+    dec = state.decision or {}
     if sig and sig.get("signal") not in (None, "NO TRADE"):
-        inst = get_instrument(state.symbol)
-        sizing = portfolio_risk.position_size(
-            settings.capital, settings.risk_per_trade_pct,
-            sig["entry"], sig["stop_loss"], inst.lot_size)
+        # Owner Step 7 (Risk Panel Final, 2026-07-26) fix: this used to call
+        # position_size() with the UNDERLYING index entry/stop — not the
+        # option premium an actual buyer risks — a third number that could
+        # disagree with RiskApproval.tsx and ScalpingTool.tsx for the same
+        # trade. Now reuses the SAME premium-based decision["position_sizing"]
+        # every other risk surface reads (portfolio_risk.position_size fed
+        # the real premium entry/stop, computed once in market_service.py).
+        sizing = dict(dec.get("position_sizing") or {})
         # ---- AI Execution Assistant (M9) ----
         prob = (state.intelligence.get("layers", {}).get("probability") or {})
         pos = float(prob.get("prob_success") or 50) / 100
@@ -1019,9 +1024,11 @@ async def portfolio_risk():
         heat = float(pf.get("portfolio_heat_pct") or 0)
         suit = (float(sig.get("grade_score") or 0) * 0.5
                 + pos * 100 * 0.3 + max(0, 100 - heat) * 0.2)
+        # capital_required is already qty × premium_entry (both premium-
+        # based) — consistent basis, unlike the old qty(premium) × entry(index)
+        cap_req = sizing.get("capital_required") or 0
         sizing.update({
-            "capital_allocation_pct": round(
-                sizing["qty"] * sig["entry"] / settings.capital * 100, 1) if settings.capital else 0,
+            "capital_allocation_pct": round(cap_req / settings.capital * 100, 1) if settings.capital else 0,
             "max_risk": round(settings.capital * settings.risk_per_trade_pct / 100, 0),
             "expected_drawdown": prob.get("expected_drawdown"),
             "risk_adjusted_reward": round(rr * pos, 2),

@@ -46,13 +46,27 @@ def approve() -> dict[str, Any]:
         prob = dec.get("probability")
     liq = (layers.get("liquidity") or {}).get("score")
 
-    # ── position size — reuse the engine's own sizing + declared risk budget ──
-    cap = float(settings.capital or 0)
-    risk_pct = float(settings.risk_per_trade_pct or 0)
-    risk_amt = round(cap * risk_pct / 100.0, 0) if cap else None
+    # ── position size — owner Step 7 (Risk Panel Final, 2026-07-26) fix:
+    # this used to be TWO separate, disagreeing computations — a flat
+    # capital% "risk_amt" that never looked at entry/stop despite its own
+    # comment claiming reuse, and index-point sizing (dec.recommended_lots/
+    # max_safe_lots) that used the UNDERLYING's point move as if that were
+    # an option buyer's risk. Now reads the SAME premium-based sizing
+    # market_service.py already computes into decision["position_sizing"]
+    # (portfolio_risk.position_size fed the real premium entry/stop) — the
+    # same number ScalpingTool.tsx already shows, so the two panels can no
+    # longer disagree on "the" position size for the same trade.
+    ps_data = dec.get("position_sizing") or {}
+    cap = float(ps_data.get("capital") or settings.capital or 0)
+    risk_pct = float(ps_data.get("risk_pct") or settings.risk_per_trade_pct or 0)
+    risk_amt = ps_data.get("risk_amount")
+    max_loss = ps_data.get("capital_required")  # full premium paid — the honest worst case
+    max_lots = ps_data.get("lots") if ps_data.get("lot_size", 1) not in (1, None) else ps_data.get("qty")
+    # same confidence-scaling decision.py's own sizing already applies
+    _LOT_BAND = {"HIGH": 1.0, "MODERATE": 0.5, "LOW": 0.25}
+    rec_lots = (int(max_lots * _LOT_BAND.get(dec.get("conviction"), 0.0))
+                if isinstance(max_lots, (int, float)) else None)
     reward_amt = round(risk_amt * rr, 0) if (risk_amt and rr) else None
-    rec_lots = dec.get("recommended_lots")
-    max_lots = dec.get("max_safe_lots")
 
     # ── ACCOUNT RISK ──
     account = [
@@ -106,7 +120,8 @@ def approve() -> dict[str, Any]:
         "position_size": {
             "capital": cap, "risk_pct": risk_pct,
             "recommended_lots": rec_lots, "max_lots": max_lots,
-            "risk_amount": risk_amt, "reward_amount": reward_amt, "rr": rr,
+            "risk_amount": risk_amt, "max_loss": max_loss,
+            "reward_amount": reward_amt, "rr": rr,
             "entry": entry, "stop_loss": stop,
         },
         "note": ("Approval gate — capital & market safety only; it never decides "

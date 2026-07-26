@@ -34,6 +34,7 @@ import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { TradeNowCard } from "@/components/TradeNowCard";
 import { BlockReasonHero } from "@/components/BlockReasonHero";
 import { EvidencePanel } from "@/components/EvidencePanel";
+import { TradeRiskPanel } from "@/components/TradeRiskPanel";
 import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
 import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
 import { SRHeroCard } from "@/components/SRHeroCard";
@@ -278,6 +279,15 @@ export default function Dashboard() {
           Panel (here) -> Support & Resistance -> Market Structure. */}
       <SafeBoundary name="Evidence">
         <EvidencePanel />
+      </SafeBoundary>
+
+      {/* TRADE RISK PANEL (owner Step 7, 2026-07-26) — Stop Loss, Risk,
+          R:R, Position Size, Max Loss, Next Invalidation. Never a decision,
+          never BUY/SELL — see component header. Not the same component as
+          SignalPanels.tsx's RiskPanel (unrelated qualitative-market-risk
+          scope on /advanced). */}
+      <SafeBoundary name="Trade Risk">
+        <TradeRiskPanel />
       </SafeBoundary>
 
       {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts.

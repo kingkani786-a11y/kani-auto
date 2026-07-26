@@ -66,11 +66,15 @@ export function RiskApproval() {
         <Section title="Trade Quality" rows={d.sections?.quality || []} />
       </div>
 
-      {/* Position size — risk-based, informational */}
-      <div className="border-t border-terminal-border pt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+      {/* Position size — risk-based, informational. Risk (loss if SL hits)
+          and Max Loss (full premium paid — the honest worst case) are
+          different quantities, owner Step 7 (Risk Panel Final, 2026-07-26)
+          — shown separately so they're never confused. */}
+      <div className="border-t border-terminal-border pt-2 grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
         <div><div className="text-sm font-semibold tabular-nums text-white">₹{(ps.capital || 0).toLocaleString("en-IN")}</div><div className="text-[9px] text-terminal-muted">Capital</div></div>
         <div><div className="text-sm font-semibold tabular-nums text-white">{ps.recommended_lots ?? "—"}{ps.max_lots ? ` / ${ps.max_lots}` : ""}</div><div className="text-[9px] text-terminal-muted">Rec / Max lots ({ps.risk_pct}%)</div></div>
-        <div><div className="text-sm font-semibold tabular-nums text-terminal-bear">{ps.risk_amount ? `₹${ps.risk_amount.toLocaleString("en-IN")}` : "—"}</div><div className="text-[9px] text-terminal-muted">Risk</div></div>
+        <div><div className="text-sm font-semibold tabular-nums text-terminal-bear">{ps.risk_amount ? `₹${ps.risk_amount.toLocaleString("en-IN")}` : "—"}</div><div className="text-[9px] text-terminal-muted">Risk (to SL)</div></div>
+        <div><div className="text-sm font-semibold tabular-nums text-terminal-bear">{ps.max_loss ? `₹${ps.max_loss.toLocaleString("en-IN")}` : "—"}</div><div className="text-[9px] text-terminal-muted">Max Loss (premium)</div></div>
         <div><div className="text-sm font-semibold tabular-nums text-terminal-bull">{ps.reward_amount ? `₹${ps.reward_amount.toLocaleString("en-IN")}` : "—"}</div><div className="text-[9px] text-terminal-muted">Reward{ps.rr ? ` (1:${ps.rr})` : ""}</div></div>
       </div>
 
