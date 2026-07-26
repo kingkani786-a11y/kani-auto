@@ -102,6 +102,20 @@ jobs:
         with:
           fetch-depth: 0   # smoke-test.sh runs `git rev-parse --short HEAD`
 
+      - name: Environment Validation
+        run: |
+          # backend/.env is gitignored (correctly — it can hold real secrets
+          # on a dev machine) so a fresh CI checkout never has one. Without
+          # this, docker-compose.yml's `env_file: ./backend/.env` would fail
+          # the build here with a missing-file error on every single CI run.
+          # A CI smoke test needs no real secrets (Gemini/Supabase are lazy
+          # and optional — the app runs fine without them per requirements.txt's
+          # own comment) — an empty file satisfies compose and is honest about
+          # containing nothing.
+          touch backend/.env
+          chmod +x scripts/validate-env.sh
+          ./scripts/validate-env.sh
+
       - name: Run smoke test
         # No BACKEND_PORT/FRONTEND_PORT set — CI runners are single-tenant,
         # the defaults (8000/3000) are fine; that env-var override exists for
