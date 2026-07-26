@@ -84,9 +84,38 @@ No functional break resulted (the still-old backend degraded gracefully
 against the new frontend fields) and the owner reviewed and accepted the
 outcome. Full detail in `docs/V7_FINAL_REGRESSION_REPORT.md`.
 
-## What's next — V8.0
+## What's next
 
-Per the owner's own direction, V8.0 planning starts fresh after this
-freeze, covering: AI Learning, Performance Optimization, Institutional
-Replay, Auto Journal Intelligence, Strategy Evolution, Advanced Analytics.
+**Before V8.0 — a live observation phase, bug-fixes only** (owner decision,
+2026-07-27): V7.0 is feature-complete but not yet battle-tested against a
+live, connected, trading session. Before any V8.0 work starts:
+
+1. 2-3 days of live-market observation.
+2. Full trading in Broker Connected mode.
+3. Any bugs found → bug fix only, no scope creep.
+4. Performance profiling.
+5. False-signal check.
+6. Voice narration verification (live, audible).
+7. Memory-leak / API-latency check.
+
+Only after this phase does V8.0 planning begin. See
+`docs/V7_STATUS.md` for the live-tracked status of this checklist.
+
+## What's next — V8.0 (not started; candidates only)
+
+Per the owner's own direction, V8.0 planning starts only after the
+observation phase above. Candidate areas the owner has named (not
+commitments, not scoped, not started):
+
+- Institutional Order Flow Engine
+- Options Flow Intelligence
+- Dealer Positioning
+- AI Learning Engine
+- Replay Intelligence
+- Auto Strategy Builder
+- AI Research Lab
+- Portfolio AI
+- Position Sizing AI
+- Autonomous Assistant
+
 No V8.0 work begins under this release.
