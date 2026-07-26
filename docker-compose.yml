@@ -31,19 +31,29 @@ services:
       start_period: 20s
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # MUST be a build arg, not `environment:` below — verified live
+        # 2026-07-26: next.config.mjs's rewrites() is evaluated at `next
+        # build` time and frozen into the routing manifest, not re-read when
+        # the standalone server starts. A runtime-only BACKEND_URL silently
+        # had no effect (proxy kept using the http://localhost:8000 default
+        # baked in at build time, logging ECONNREFUSED).
+        BACKEND_URL: http://backend:8000
     ports:
       - "3000:3000"
-    environment:
-      # Reaches the backend by its Compose service name, not localhost —
-      # read by next.config.mjs's rewrites() at server start.
-      BACKEND_URL: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      # 127.0.0.1, not localhost — this compose-level healthcheck OVERRIDES
+      # the Dockerfile's own HEALTHCHECK entirely (compose wins when both
+      # exist); fixing only the Dockerfile copy earlier had no effect, which
+      # is what actually cost the time here, not a build-cache problem.
+      # Alpine/musl resolves "localhost" to ::1 first; Next.js binds IPv4 only.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
       interval: 15s
       timeout: 5s
       retries: 3
