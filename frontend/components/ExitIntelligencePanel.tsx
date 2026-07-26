@@ -114,8 +114,8 @@ export function ExitIntelligencePanel() {
           <div className="grid grid-cols-2 gap-2 mt-2 text-[11px]">
             <Kv k={`Support ${sr.support_strength ?? "—"}%`} v={fmt(sr.support)} />
             <Kv k={`Resist ${sr.resistance_strength ?? "—"}%`} v={fmt(sr.resistance)} />
-            <Kv k="Break Prob" v={`${fmt(sr.break_probability, 0)}%`} />
-            <Kv k="Reject Prob" v={`${fmt(sr.reject_probability, 0)}%`} />
+            <Kv k="Break Prob" v={sr.break_probability != null ? `${fmt(sr.break_probability, 0)}%` : "—"} />
+            <Kv k="Reject Prob" v={sr.reject_probability != null ? `${fmt(sr.reject_probability, 0)}%` : "—"} />
           </div>
         </div>
       </div>

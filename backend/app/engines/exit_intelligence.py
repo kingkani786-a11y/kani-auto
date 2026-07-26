@@ -33,34 +33,38 @@ def _reversal_base(layers: dict[str, Any], direction: str) -> float:
     return max(5.0, min(75.0, base))
 
 
-def _booking_zone(layers: dict[str, Any], spot: float, direction: str) -> dict[str, Any]:
-    """Likely institutional profit-booking zone ahead of the position."""
+def _booking_zone(layers: dict[str, Any], sr_levels: dict[str, Any], spot: float,
+                   direction: str) -> dict[str, Any]:
+    """Likely institutional profit-booking zone ahead of the position.
+
+    Owner Step 3 (S/R Finalization) Principles 1+4+6: the zone boundary is
+    always a real support_resistance.py level (the single S/R source of
+    truth, ranked by actual touch/bounce history) — Gamma Wall and liquidity
+    clusters are confirmation REASONS only, they never define the level
+    themselves, and `strength` is that level's own engine-derived
+    strength_score, never an invented count-based formula."""
+    side = "resistance" if direction == "BULL" else "support"
+    rows = sr_levels.get(side) or []
+    if not rows:
+        return {"zone": None, "strength": 0, "reason": "No clear booking zone ahead", "level_row": None}
+    row = rows[0]  # nearest engine-ranked level on this side, already touch/bounce-scored
+    level = row["level"]
+    buf = max(abs(level) * 0.0006, 5)
     struct = layers.get("structure", {})
     gw = layers.get("expiry", {}).get("gamma_wall")
-    if direction == "BULL":
-        cand = [x for x in (struct.get("resistance"), gw, *(struct.get("liquidity_above") or [])) if x and x > spot]
-        level = min(cand) if cand else None
-    else:
-        cand = [x for x in (struct.get("support"), gw, *(struct.get("liquidity_below") or [])) if x and x < spot]
-        level = max(cand) if cand else None
-    if not level:
-        return {"zone": None, "strength": 0, "reason": "No clear booking zone ahead"}
-    buf = max(abs(level) * 0.0006, 5)
-    reasons = []
+    reasons = ["Prior " + ("supply" if direction == "BULL" else "demand")]
     if gw and abs(level - gw) < buf * 1.5:
         reasons.append("Gamma wall")
-    if level in (struct.get("liquidity_above") or []) + (struct.get("liquidity_below") or []):
+    liq = (struct.get("liquidity_above") or []) if direction == "BULL" else (struct.get("liquidity_below") or [])
+    if any(abs(level - x) < buf * 1.5 for x in liq):
         reasons.append("Liquidity cluster")
-    if level in (struct.get("resistance"), struct.get("support")):
-        reasons.append("Prior " + ("supply" if direction == "BULL" else "demand"))
-    pcr = layers.get("oi", {}).get("pcr")
-    strength = min(95, 50 + len(reasons) * 14 + (10 if pcr and ((pcr < 0.9) == (direction == "BULL")) else 0))
-    return {"zone": [round(level - buf, 1), round(level + buf, 1)], "strength": round(strength, 0),
-            "reason": " + ".join(reasons) or "Structural level"}
+    return {"zone": [round(level - buf, 1), round(level + buf, 1)],
+            "strength": row["strength_score"], "strength_stars": row["strength_stars"],
+            "reason": " + ".join(reasons), "level_row": row}
 
 
 def analyze(layers: dict[str, Any], lifecycle: dict[str, Any], signal: dict[str, Any],
-            spot: float) -> dict[str, Any]:
+            spot: float, candles: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     state = lifecycle.get("state", "")
     active = state in ("ENTRY", "TARGET")
     direction = lifecycle.get("direction") or signal.get("direction") or "NONE"
@@ -69,6 +73,14 @@ def analyze(layers: dict[str, Any], lifecycle: dict[str, Any], signal: dict[str,
     targets = lifecycle.get("targets") or [signal.get("target1"), signal.get("target2"), signal.get("target3")]
     hit = int(lifecycle.get("targets_hit") or 0)
 
+    # Owner Step 3 Principle 1 — Spot S/R single source of truth: read the
+    # real engine's own touch/bounce-scored levels, never structure.py's
+    # single-last-swing-pivot value (that was a second, disagreeing S/R).
+    from . import support_resistance
+    sr_levels = support_resistance.spot_levels(candles, cmp=spot) if candles else {"ready": False}
+    if not sr_levels.get("ready"):
+        sr_levels = {"resistance": [], "support": []}
+
     base_rev = _reversal_base(layers, direction)
     reversal_curve = {
         "current": round(base_rev, 0),
@@ -76,7 +88,7 @@ def analyze(layers: dict[str, Any], lifecycle: dict[str, Any], signal: dict[str,
         "near_t2": round(min(95, base_rev + 40), 0),
         "near_t3": round(min(96, base_rev + 58), 0),
     }
-    booking = _booking_zone(layers, spot, direction) if active else {"zone": None, "strength": 0, "reason": "—"}
+    booking = _booking_zone(layers, sr_levels, spot, direction) if active else {"zone": None, "strength": 0, "reason": "—"}
     mom = abs(float((signal.get("tech") or {}).get("momentum") or 0))
     adx = float(layers.get("trend", {}).get("adx") or 0)
     momentum_strength = round(max(0, min(100, 40 + mom * 50 + max(adx - 18, 0) * 1.2)), 0)
@@ -117,15 +129,24 @@ def analyze(layers: dict[str, Any], lifecycle: dict[str, Any], signal: dict[str,
     else:
         action, reason = "HOLD", "Thesis intact, momentum holding"
 
-    # support / resistance strength
-    struct = layers.get("structure", {})
+    # Support / resistance — owner Step 3 Principles 1, 5, 6: every field here
+    # comes from support_resistance.py's own engine (the single S/R source of
+    # truth), never a second calculation. "strength" is the engine's real
+    # strength_score (touches + bounce_pct), never an invented count-based
+    # formula; "break/reject_probability" are the engine's real observed
+    # break_pct/bounce_pct for the level directly ahead of this position —
+    # never a momentum-derived guess wearing an observed-history name.
+    nearest_res = sr_levels["resistance"][0] if sr_levels.get("resistance") else None
+    nearest_sup = sr_levels["support"][0] if sr_levels.get("support") else None
+    ahead = nearest_res if direction == "BULL" else nearest_sup
     sr = {
-        "support": struct.get("support"), "resistance": struct.get("resistance"),
-        "support_strength": round(min(95, 50 + len(struct.get("liquidity_below") or []) * 12), 0),
-        "resistance_strength": round(min(95, 50 + len(struct.get("liquidity_above") or []) * 12), 0),
+        "support": nearest_sup["level"] if nearest_sup else None,
+        "resistance": nearest_res["level"] if nearest_res else None,
+        "support_strength": nearest_sup["strength_score"] if nearest_sup else None,
+        "resistance_strength": nearest_res["strength_score"] if nearest_res else None,
+        "break_probability": ahead["break_pct"] if ahead else None,
+        "reject_probability": ahead["bounce_pct"] if ahead else None,
     }
-    sr["break_probability"] = round(min(90, momentum_strength * 0.7), 0)
-    sr["reject_probability"] = round(100 - sr["break_probability"], 0)
 
     # V28 re-entry — SAFETY RULE FIRST: never suggest re-entry into a weakening
     # or flipped trend; otherwise score the pullback quality (trend strength +

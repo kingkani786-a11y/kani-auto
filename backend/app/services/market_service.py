@@ -1032,7 +1032,7 @@ class MarketService:
         # Exit Intelligence (derivation-only; active when a trade is live)
         try:
             from ..engines import exit_intelligence
-            state.exit_intel = exit_intelligence.analyze(packet["layers"], lc_snap, packet["signal"], spot)
+            state.exit_intel = exit_intelligence.analyze(packet["layers"], lc_snap, packet["signal"], spot, state.candles)
         except Exception:
             log.exception("exit intelligence failed")
 

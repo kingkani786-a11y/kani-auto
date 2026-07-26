@@ -3,12 +3,15 @@
 // Spot levels (swing-fractal clustering + real touch/bounce/break stats from
 // candle history), CPR (daily/weekly/monthly pivots — fixed formula, not
 // tuned), per-level evidence (VWAP/Volume Node/CPR/OI Wall confluence — each
-// read from its own owning engine, never re-derived), and Premium S/R for
-// the current ATM strike (persisted tick log, same math reused unchanged).
+// read from its own owning engine, never re-derived).
+//
+// Owner Step 3 (S/R Finalization) Principle 2: Spot and Premium S/R are
+// NEVER shown in the same panel. Premium S/R lives exclusively in
+// PremiumSRStrip.tsx — this panel used to embed a PremiumSR sub-component
+// too, which contradicted that rule; removed 2026-07-26.
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { useMarket } from "@/lib/store";
 
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 const EVIDENCE_LABEL: Record<string, string> = {
@@ -56,54 +59,8 @@ function PivotRow({ label, p }: { label: string; p: any }) {
   );
 }
 
-function PremiumSR({ atm }: { atm: number | null }) {
-  const [ce, setCe] = useState<any>(null);
-  const [pe, setPe] = useState<any>(null);
-  useEffect(() => {
-    if (!atm) return;
-    const load = () => {
-      api.supportResistancePremium(atm, "CE").then(setCe).catch(() => {});
-      api.supportResistancePremium(atm, "PE").then(setPe).catch(() => {});
-    };
-    load();
-    const id = setInterval(load, 20000);
-    return () => clearInterval(id);
-  }, [atm]);
-  if (!atm) return null;
-
-  const Row = ({ typ, d }: { typ: string; d: any }) => {
-    if (!d) return null;
-    if (!d.ready) {
-      return <div className="text-[10px] text-terminal-muted">{atm} {typ}: {d.reason || "insufficient premium history today"}</div>;
-    }
-    return (
-      <div className="text-[10px] space-y-0.5">
-        <div className="text-terminal-muted font-semibold">{atm} {typ} · premium {d.cmp}</div>
-        {d.resistance.map((l: any) => (
-          <div key={l.label} className="flex justify-between text-terminal-bear">
-            <span>{l.label} (R)</span><span>₹{l.level} · {l.touches}× · {l.bounce_pct ?? "—"}%</span>
-          </div>
-        ))}
-        {d.support.map((l: any) => (
-          <div key={l.label} className="flex justify-between text-terminal-bull">
-            <span>{l.label} (S)</span><span>₹{l.level} · {l.touches}× · {l.bounce_pct ?? "—"}%</span>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-2 border-t border-terminal-border/40">
-      <Row typ="CE" d={ce} />
-      <Row typ="PE" d={pe} />
-    </div>
-  );
-}
-
 export function SupportResistancePanel() {
   const [r, setR] = useState<any>(null);
-  const { atm } = useMarket();
   useEffect(() => {
     const load = () => api.supportResistance?.().then(setR).catch(() => {});
     load();
@@ -115,7 +72,7 @@ export function SupportResistancePanel() {
   return (
     <div className="panel border border-terminal-border/60">
       <div className="flex items-baseline justify-between mb-2">
-        <div className="panel-title mb-0">Dynamic Support / Resistance <span className="text-[10px] text-terminal-muted font-normal">(spot + premium)</span></div>
+        <div className="panel-title mb-0">Dynamic Support / Resistance <span className="text-[10px] text-terminal-muted font-normal">(spot)</span></div>
         {r.cmp != null && <span className="text-xs text-terminal-muted">CMP {r.cmp}</span>}
       </div>
       {!r.ready ? (
@@ -142,7 +99,6 @@ export function SupportResistancePanel() {
           <PivotRow label="Monthly" p={r.cpr.monthly} />
         </div>
       )}
-      <PremiumSR atm={atm ?? null} />
     </div>
   );
 }
