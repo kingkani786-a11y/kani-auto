@@ -44,7 +44,15 @@ def approve() -> dict[str, Any]:
     prob = (layers.get("probability") or {}).get("prob_success")
     if prob is None:
         prob = dec.get("probability")
-    liq = (layers.get("liquidity") or {}).get("score")
+    # Owner Step 9 (Explainability Final, 2026-07-27) fix: this used to read
+    # layers.get("liquidity") — a key that never existed anywhere in
+    # confluence.py's output (the raw layer is called "order_flow"; a
+    # differently-shaped "Liquidity" row lives under
+    # intelligence.decision_matrix.rows) — so this check silently always
+    # evaluated to unknown/None, never actually blocking or passing. Now
+    # reads the real Decision Matrix "Liquidity" row's score.
+    _dm_rows = ((layers.get("intelligence") or {}).get("decision_matrix") or {}).get("rows") or []
+    liq = next((r.get("score") for r in _dm_rows if r.get("layer") == "Liquidity"), None)
 
     # ── position size — owner Step 7 (Risk Panel Final, 2026-07-26) fix:
     # this used to be TWO separate, disagreeing computations — a flat

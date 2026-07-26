@@ -35,6 +35,7 @@ import { TradeNowCard } from "@/components/TradeNowCard";
 import { BlockReasonHero } from "@/components/BlockReasonHero";
 import { EvidencePanel } from "@/components/EvidencePanel";
 import { TradeRiskPanel } from "@/components/TradeRiskPanel";
+import { AIDealerPanel } from "@/components/AIDealerPanel";
 import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
 import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
 import { SRHeroCard } from "@/components/SRHeroCard";
@@ -288,6 +289,14 @@ export default function Dashboard() {
           scope on /advanced). */}
       <SafeBoundary name="Trade Risk">
         <TradeRiskPanel />
+      </SafeBoundary>
+
+      {/* AI DEALER (owner Step 9, 2026-07-27) — pure narrator over the Hero
+          + Execution Status + WHY HERE + Evidence + Structure + Risk + S/R,
+          all already computed above. Never a decision, never a second
+          opinion — see component header. */}
+      <SafeBoundary name="AI Dealer">
+        <AIDealerPanel />
       </SafeBoundary>
 
       {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts.

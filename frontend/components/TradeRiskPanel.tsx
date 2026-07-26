@@ -22,6 +22,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { displayReasons } from "@/lib/labels";
 
 export function TradeRiskPanel() {
   const [rc, setRc] = useState<any>(null);
@@ -40,7 +41,12 @@ export function TradeRiskPanel() {
   const ps = ra?.position_size || {};
   const slIndex = rc?.exit_plan?.stop_loss;
   const slPremium = rc?.premium_plan?.stop_loss;
-  const invalidations: string[] = rc?.invalidations || [];
+  // Owner Step 9 (Explainability Final, 2026-07-27) fix: this used to
+  // render raw backend strings, which could still say "Kill Switch"
+  // instead of the dashboard's display-only "Execution Lock" rename —
+  // now passed through the same displayReasons() helper every other
+  // blocking-reason surface already uses.
+  const invalidations: string[] = displayReasons(rc?.invalidations || []);
 
   if (slIndex == null && slPremium == null && !ps.risk_amount && invalidations.length === 0) return null;
 

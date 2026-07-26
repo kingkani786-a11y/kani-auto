@@ -13,6 +13,39 @@ from typing import Any
 from ..core.state import state
 
 
+def _ai_dealer_speech(c: dict[str, Any]) -> list[str]:
+    """Owner Step 9 (Explainability Final, 2026-07-27) — speaks the AI
+    Dealer's own already-computed verdict (decision_contract.py's
+    `ai_dealer` field). Pure restatement: every line here is a real field
+    from the contract, nothing invented, no second opinion. This is the
+    ONLY function that composes the concise verdict+reason+target/stop
+    speech format — the fuller Radio rundown below (`briefing()`) is a
+    separate, older feature and is left as-is except for leading with
+    this dealer speech."""
+    ad = c.get("ai_dealer") or {}
+    lines: list[str] = ["Cloud AI Dealer.", "Current verdict.", (ad.get("verdict") or "WAIT") + "."]
+    if ad.get("is_buy"):
+        reasons = [w["label"] for w in (ad.get("why_buy") or []) if w.get("ok")]
+        if reasons:
+            lines.append("Reason.")
+            lines.append(", ".join(reasons) + ".")
+        pp = c.get("premium_plan") or {}
+        if pp.get("target1") is not None:
+            lines.append("Target.")
+            lines.append(f"{pp['target1']}.")
+        if pp.get("stop_loss") is not None:
+            lines.append("Stop.")
+            lines.append(f"{pp['stop_loss']}.")
+    else:
+        reasons = [w["label"] for w in (ad.get("why_not_buy") or [])]
+        if reasons:
+            lines.append("Reason.")
+            for r in reasons[:3]:
+                lines.append(r + ".")
+        lines.append("No Trade." if not c.get("is_trade") else "Standing aside.")
+    return lines
+
+
 def _layers() -> dict[str, Any]:
     return (state.intelligence.get("layers") or {})
 
@@ -181,6 +214,14 @@ def briefing() -> dict[str, Any]:
     sig = state.signal or {}
     dec = state.decision or {}
     lines: list[str] = ["Cloud AI Trading Radio. Current market update."]
+
+    # Owner Step 9 (Explainability Final, 2026-07-27) — lead with the AI
+    # Dealer's own concise verdict speech before the fuller rundown below.
+    try:
+        from . import decision_contract as _dc
+        lines.extend(_ai_dealer_speech(_dc.contract()))
+    except Exception:
+        pass
 
     spot = (state.spot or {}).get("ltp")
     if spot:
@@ -512,16 +553,26 @@ def answer(question: str) -> dict[str, Any]:
         an = intel.get("market_animal") or {}
         ex = intel.get("expansion") or {}
         if "safest" in q:
+            # Owner Step 9 (Explainability Final, 2026-07-27) Golden Rule fix:
+            # this used to say "Take trades only at grade A/B with confirmed
+            # structure" — an invented rule, not a restatement of a real
+            # field. Now states the CURRENT grade/structure reading instead.
             return {"answer": f"Safest stance: {dec.get('primary_action','WAIT')} — {dec.get('reason','wait for confluence')}. "
                               f"Risk view: {cap.get('category','—')}.",
-                    "points": ["Take trades only at grade A/B with confirmed structure.",
+                    "points": [f"Current grade {sig.get('grade','—')} · structure score {L.get('Structure','—')}.",
                                f"Capital risk: {cap.get('capital_risk','—')}."],
                     "confidence": int(sig.get("dynamic_confidence") or sig.get("confidence") or 0)}
         if any(w in q for w in ("aggressive", "explosive")):
+            # Golden Rule fix: "Only if structure + institutions align;
+            # respect the kill switch" was generated advice, not a fact.
+            # Now restates the current structure/institutional/kill-switch
+            # readings instead.
+            ks_now = state.kill_switch or {}
             return {"answer": f"Most aggressive read: {an.get('animal','—')} with runner prob "
                               f"{ex.get('runner_probability','—')}% (expected ≈ {ex.get('expected_move','—')} pts). "
                               "Higher reward, higher risk — size down.",
-                    "points": ["Only if structure + institutions align; respect the kill switch."],
+                    "points": [f"Structure score {L.get('Structure','—')} · institutional score {L.get('Institutional','—')}.",
+                               f"Execution Lock: {'ACTIVE' if ks_now.get('active') else 'clear'}."],
                     "confidence": int(ex.get("runner_probability") or 0)}
         # highest-probability / best trade
         if dec.get("is_trade"):
@@ -569,8 +620,12 @@ def answer(question: str) -> dict[str, Any]:
             return {"answer": f"Re-entry: {re.get('plan', re.get('action','wait for a fresh confirmed setup'))}.",
                     "points": [f"Conditions: {re.get('condition','structure reclaim + momentum')}."],
                     "confidence": int(re.get("confidence") or 40)}
-        return {"answer": "Re-enter only on a fresh confirmed setup (structure reclaim + momentum + confluence). "
-                          "Don't average a losing trade.", "points": [], "confidence": 40}
+        # Golden Rule fix (Step 9, 2026-07-27): "Don't average a losing
+        # trade" was advice, not a restatement of a computed field. This
+        # branch fires when there's no re_entry object at all — state that
+        # honestly instead.
+        return {"answer": "No re-entry reading available right now — the exit engine has not published a re-entry plan.",
+                "points": [], "confidence": 0}
 
     # ---- intent: market DNA / similar setups ----
     if "dna" in q or "similar" in q or "historical" in q or "in the past" in q:

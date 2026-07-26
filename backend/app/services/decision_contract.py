@@ -38,21 +38,101 @@ def _layers() -> dict[str, float]:
     return out
 
 
-def _invalidations(dec: dict, tech: dict) -> list[str]:
-    """Pre-stated exit conditions from data we actually have — never invented."""
+def _invalidations(dec: dict, tech: dict, cpr_pivot: float | None = None,
+                    struct: dict | None = None) -> list[str]:
+    """Pre-stated exit conditions from data we actually have — never invented.
+
+    Owner Step 9 (Explainability Final, 2026-07-27) extended this with 2 more
+    conditions from the target INVALIDATION list — both from data that
+    already exists elsewhere (CPR pivot: support_resistance.py; swing
+    break: structure.py's bos_choch), just newly threaded across this
+    function's boundary. No new computation."""
     inv: list[str] = []
     sl = dec.get("stop_loss")
     if sl:
         inv.append(f"Price crosses stop {round(float(sl), 1)}")
     vwap = tech.get("vwap")
+    bullish = (dec.get("action") or "").endswith("CALL")
     if vwap:
-        side = "below" if (dec.get("action") or "").endswith("CALL") else "above"
+        side = "below" if bullish else "above"
         inv.append(f"Sustained break {side} VWAP {round(float(vwap), 1)}")
+    if cpr_pivot:
+        side = "below" if bullish else "above"
+        inv.append(f"Sustained break {side} CPR pivot {round(float(cpr_pivot), 1)}")
+    if struct and struct.get("bos_choch") == "CHOCH":
+        inv.append("Swing broken (Change of Character against the prevailing sequence)")
     ks = state.kill_switch or {}
     inv.append("Kill Switch / Safe Mode trips (capital protection)")
     if ks.get("active"):
         inv[-1] += " — ACTIVE NOW"
     return inv
+
+
+def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, Any],
+               spot: float | None, cpr_pivot: float | None, sr_resistance: float | None,
+               premium_plan: dict[str, Any], invalidations: list[str],
+               risk_ok: bool | None) -> dict[str, Any]:
+    """AI Dealer — owner Step 9 (Explainability Final, 2026-07-27). A PURE
+    NARRATOR: reads ONLY already-computed fields from this contract + the
+    canonical Evidence/Structure/S-R/Risk engines (Steps 3/5/6/7). It NEVER
+    computes a new score, never gates/vetoes anything, and never gives a
+    second opinion — Golden Rule: introduces zero new information, only
+    translates already-verified dashboard state into plain checklists.
+    Decision stays with the Hero (TradeNowCard) alone — this never states
+    a verdict of its own, only restates the Hero's existing one."""
+    eg = dec.get("execution_gate") or {}
+    gated = eg.get("final_decision") or dec.get("primary_action") or "WAIT"
+    is_buy = gated in ("BUY CALL", "BUY PUT")
+    direction = sig.get("direction") or "NEUTRAL"
+    bullish = direction == "BULL"
+
+    tech = sig.get("tech") or {}
+    vwap = tech.get("vwap")
+    struct = raw_layers.get("structure") or {}
+    gamma_wall = (raw_layers.get("expiry") or {}).get("gamma_wall")
+    cap = raw_layers.get("capital_protection") or {}
+    dm_rows = ((raw_layers.get("intelligence") or {}).get("decision_matrix") or {}).get("rows") or []
+    _row = lambda name: next((r for r in dm_rows if r.get("layer") == name), None)  # noqa: E731
+    vol_row = _row("Volume Profile")
+    liq_row = _row("Liquidity")
+    bos = struct.get("bos_choch")
+
+    def _side_ok(level: float | None) -> bool:
+        return bool(level and spot) and ((spot >= level) if bullish else (spot <= level))
+
+    why_buy = [
+        {"label": "VWAP", "ok": _side_ok(vwap)},
+        {"label": "Gamma Support", "ok": _side_ok(gamma_wall)},
+        {"label": "Structure BOS", "ok": bos == "BOS"},
+        {"label": "CPR Above" if bullish else "CPR Below", "ok": _side_ok(cpr_pivot)},
+        {"label": "Volume Confirmation", "ok": bool(vol_row and vol_row.get("verdict") == "PASS")},
+        {"label": "Risk Approved", "ok": bool(risk_ok)},
+    ]
+    ks = state.kill_switch or {}
+    why_not_buy_all = [
+        {"label": "Execution Lock", "active": bool(ks.get("active"))},
+        {"label": "Low Liquidity", "active": bool(liq_row and liq_row.get("verdict") == "FAIL")},
+        {"label": "No BOS", "active": bos != "BOS"},
+        {"label": "Weak Volume", "active": bool(vol_row and vol_row.get("verdict") == "FAIL")},
+        {"label": "High Risk", "active": cap.get("category") in ("HIGH", "CRITICAL", "EXTREME", "DANGER")},
+    ]
+
+    return {
+        "verdict": gated,
+        "is_buy": is_buy,
+        # WHY BUY always shown (evidence for the current bias either way);
+        # WHY NOT BUY only lists reasons that are ACTUALLY active right now —
+        # never a hypothetical list, never padding with inactive reasons.
+        "why_buy": why_buy,
+        "why_not_buy": [w for w in why_not_buy_all if w["active"]],
+        "next_level": {
+            "next_resistance": sr_resistance,
+            "next_premium_target": premium_plan.get("target1"),
+            "gamma_wall": gamma_wall,
+        },
+        "invalidation": invalidations,
+        "note": "Pure narration of already-verified dashboard state — never a decision, never a second opinion.",
+    }
 
 
 def contract() -> dict[str, Any]:
@@ -76,6 +156,9 @@ def contract() -> dict[str, Any]:
                 "block_reason_hero": {"active": False, "strike": None, "type": None, "reason": None,
                                       "execution_lock": "CLEAR", "manual_entry_available": True},
                 "invalidations": [], "instruction": "Standing aside.",
+                "ai_dealer": {"verdict": "WAIT", "is_buy": False, "why_buy": [], "why_not_buy": [],
+                             "next_level": {}, "invalidation": [],
+                             "note": "Contract builder degraded — no narration available this cycle."},
                 "signal_ts": None, "as_of": int(time.time()),
                 "note": "Degraded honest fallback — display layer only."}
 
@@ -376,6 +459,29 @@ def _contract() -> dict[str, Any]:
         "manual_entry_available": True,
     }
 
+    # ── AI Dealer inputs (owner Step 9, Explainability Final, 2026-07-27) —
+    # on-demand reads of the canonical S/R/Structure engines, same pattern
+    # Step 3 used to fix exit_intelligence.py (support_resistance.py is the
+    # single S/R source of truth; nothing here recomputes it).
+    _spot = (state.spot or {}).get("ltp")
+    _raw_layers = (state.intelligence or {}).get("layers") or {}
+    _cpr_pivot = None
+    _sr_resistance = None
+    try:
+        from ..engines import support_resistance as _sr
+        _prev = _raw_layers.get("institutional_levels") or {}
+        _daily_cpr = _sr.daily_cpr(_prev.get("prev_day_high"), _prev.get("prev_day_low"),
+                                    _prev.get("prev_day_close"))
+        _cpr_pivot = _daily_cpr.get("pivot") if _daily_cpr else None
+        if state.candles and _spot:
+            _sr_levels = _sr.spot_levels(state.candles, cmp=_spot)
+            if _sr_levels.get("ready") and _sr_levels.get("resistance"):
+                _sr_resistance = _sr_levels["resistance"][0]["level"]
+    except Exception:
+        pass
+    _struct_raw = _raw_layers.get("structure") or {}
+    _invalidations_list = _invalidations(dec, tech, cpr_pivot=_cpr_pivot, struct=_struct_raw)
+
     return {
         "action": action,
         "is_trade": is_trade,
@@ -398,7 +504,9 @@ def _contract() -> dict[str, Any]:
         "buy_checklist": buy_checklist,
         "buy_checklist_score": buy_checklist_score,
         "block_reason_hero": block_reason_hero,
-        "invalidations": _invalidations(dec, tech),
+        "invalidations": _invalidations_list,
+        "ai_dealer": _ai_dealer(dec, sig, _raw_layers, _spot, _cpr_pivot, _sr_resistance,
+                                premium_plan, _invalidations_list, risk_ok),
         "instruction": ("If ANY invalidation occurs → EXIT immediately."
                         if is_trade else
                         "Standing aside — re-evaluated every engine cycle."),

@@ -22,16 +22,22 @@ def explain(layers: dict[str, Any], signal: dict[str, Any],
 
     side = "CE (call)" if direction == "BULL" else "PE (put)" if direction == "BEAR" else "—"
 
+    # Owner Step 9 (Explainability Final, 2026-07-27) Golden Rule fix: these
+    # used to read as imperative advice ("Buy a CE because...", "so don't
+    # buy either") — this engine is reachable through brain.py/Voice, which
+    # must never give a second opinion, only restate what the platform
+    # already computed. Same real reasoning, descriptive instead of
+    # imperative phrasing.
     if direction == "BULL":
-        out["why_ce"] = ("Buy a CE because the read is up: trend, structure and flow lean bullish, "
+        out["why_ce"] = ("CE (call) is favored: trend, structure and flow lean bullish, "
                          "so a call gains as price rises.")
-        out["why_pe"] = "Not a PE — a put would lose money in an up-move, which is the current bias."
+        out["why_pe"] = "PE (put) is not favored — a put would lose money in an up-move, which is the current bias."
     elif direction == "BEAR":
-        out["why_pe"] = ("Buy a PE because the read is down: trend and flow lean bearish, "
+        out["why_pe"] = ("PE (put) is favored: trend and flow lean bearish, "
                          "so a put gains as price falls.")
-        out["why_ce"] = "Not a CE — a call would lose money in a down-move, which is the current bias."
+        out["why_ce"] = "CE (call) is not favored — a call would lose money in a down-move, which is the current bias."
     else:
-        out["why_ce"] = out["why_pe"] = "No clear direction yet — neither side has an edge, so don't buy either."
+        out["why_ce"] = out["why_pe"] = "No clear direction yet — neither side has an edge."
 
     if strike.get("strike"):
         out["why_strike"] = (f"Strike {strike.get('strike')} {strike.get('type','')} is picked for the best "
