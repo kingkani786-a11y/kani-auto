@@ -33,6 +33,12 @@ output, neither of which existed in this session's off-hours verification.
 | 6 | Voice narration verification (live, audible) | ⏳ Not started | Off-hours session verified the *text* (`brain._ai_dealer_speech()`, 3 synthetic scenarios) and that the UI shell renders — actual spoken audio in a real browser session with sound enabled is unverified |
 | 7 | Memory-leak / API-latency check | ⏳ Not started | Needs sustained live runtime to observe |
 
+## Bugs found & fixed during this phase
+
+| Date | Bug | Root cause | Fix |
+|------|-----|-----------|-----|
+| 2026-07-27 | Live site rendered as unstyled plain HTML, "WS OFFLINE" badge, everything stuck on "Loading…" | A `next dev` scratch instance (for a regression-test browser check) was run from the live frontend's own directory, silently overwriting the production `.next` build with dev-mode artifacts. The already-running server kept serving HTML referencing the old (now-deleted) hashed asset filenames — every CSS/JS request 400'd for real visitors. | Proper `npm run build` (confirmed `BUILD_ID` present + correctly hashed chunks) + frontend-only restart (`launchctl kickstart`, owner-approved). Verified: all assets 200, dark theme renders, WS badge green. |
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
