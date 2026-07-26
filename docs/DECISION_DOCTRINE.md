@@ -57,6 +57,31 @@ Corollary consistency rules (docs/QUALITY.md "Consistency Rules"):
    `app/core/clock.py` (RC1.16); no module builds its own timezone object.
    See docs/ARCHITECTURE.md "Market State & Time Source Map".
 
+## Rule 11 — One Hero → One Decision (Hero Hierarchy Rule)
+
+*Locked by owner 2026-07-26, ahead of V7.0 Step 2 (Hero Dashboard Finalization),
+explicitly to prevent the class of duplicate-panel/duplicate-confidence drift
+the 2026-07-26 Dashboard Cleanup Audit found and fixed.*
+
+> The Hero Card (`TradeNowCard` — the Trade Light verdict, confidence, best
+> strike, R:R, evidence score) is the ONLY Primary Decision surface on the
+> dashboard. No other panel may contradict it. Every other panel is
+> supporting evidence for the Hero's own decision — never a second, competing
+> verdict, score, confidence, or probability computed independently.
+
+Fixed role hierarchy (do not blur these across panels):
+- **Hero → Decision** — the one verdict.
+- **Evidence → Why** — S/R, Structure, Fibonacci, evidence chips: why the Hero decided this.
+- **Risk → Can I trade?** — SL, R:R, position size, capital gates.
+- **Structure → Market context** — HH/HL/LH/LL, BOS/CHOCH, liquidity, trendline.
+- **Explainability → AI reasoning** — WHY / WHY NOT / NEXT LEVEL / INVALIDATION, voiced.
+
+Note: `SRHeroCard` ("S/R Hero") is NOT the Hero under this rule despite the
+shared name — it is explicitly self-documented as "not a Trade Light," i.e.
+an Evidence surface. Only `TradeNowCard` is the Hero. Any future panel named
+"Hero"/"Primary"/anything implying a verdict must route through the same
+`decisionContract()` the real Hero reads — never compute its own score.
+
 ## Rule 9 — Repeated Evidence
 
 > **Correlation is not enough; changes require repeated evidence.**

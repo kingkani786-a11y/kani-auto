@@ -36,6 +36,8 @@ import { BlockReasonHero } from "@/components/BlockReasonHero";
 import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
 import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
 import { SRHeroCard } from "@/components/SRHeroCard";
+import { PremiumSRStrip } from "@/components/PremiumSRStrip";
+import { ExecutionStatusStrip } from "@/components/ExecutionStatusStrip";
 import { SRHeatMap } from "@/components/SRHeatMap";
 import { SupportResistancePanel } from "@/components/SupportResistancePanel";
 import { MarketStructurePanel } from "@/components/MarketStructurePanel";
@@ -182,6 +184,91 @@ export default function Dashboard() {
         <SRHeroCard />
       </SafeBoundary>
 
+      {/* ═══ Step 2 — Hero Dashboard Finalization (2026-07-26) ═══
+          Rule 11 "One Hero → One Decision": everything below is Active
+          Market / Spot Price / Premium S/R / Execution Status / WHY HERE —
+          context and evidence around the Hero above, never a second verdict.
+          Moved up from ~30 panels down (was buried below the V20 action
+          stack) so the full top-of-page set the roadmap specifies is
+          actually together at the top, not scattered. */}
+
+      {/* TOP BAR — Active Market (symbol/timeframe) + Spot Price */}
+      <div className="panel py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <select value={symbol} onChange={(e) => pickSymbol(e.target.value)} disabled={switching}
+          className="bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm font-mono font-bold focus:border-terminal-accent outline-none disabled:opacity-60">
+          <optgroup label="INDEX">
+            {symbols.filter((s) => s.market_type === "INDEX").map((s) => <option key={s.symbol} value={s.symbol}>{s.symbol}</option>)}
+          </optgroup>
+          <optgroup label="COMMODITY">
+            {symbols.filter((s) => s.market_type === "COMMODITY").map((s) => <option key={s.symbol} value={s.symbol}>{s.symbol}</option>)}
+          </optgroup>
+          {current === undefined && <option value={symbol}>{symbol}</option>}
+        </select>
+
+        <div className="flex gap-0.5 bg-terminal-bg rounded-lg p-0.5 border border-terminal-border">
+          {TIMEFRAMES.map((t) => (
+            <button key={t} onClick={() => setTf(t)}
+              className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition-colors ${
+                tf === t ? "bg-terminal-accent text-black font-bold" : "text-terminal-muted hover:text-white"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <div className="ml-auto flex items-center gap-3">
+          <span key={sp?.ts}
+            className={`font-mono text-lg font-bold ${sp?.tick_dir === "up" ? "tick-up" : sp?.tick_dir === "down" ? "tick-down" : ""}`}>
+            {fmt(sp?.ltp)}
+          </span>
+          <span className={`font-mono text-xs ${(sp?.change ?? 0) >= 0 ? "text-terminal-bull" : "text-terminal-bear"}`}>
+            {sp ? `${sp.change >= 0 ? "+" : ""}${fmt(sp.change)} (${sp.change_pct ?? 0}%)` : ""}
+          </span>
+          <span className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold tracking-wider ${
+            live ? "bg-terminal-bull/15 text-terminal-bull" : "bg-terminal-warn/15 text-terminal-warn"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${live ? "bg-terminal-bull animate-pulse" : "bg-terminal-warn"}`} />
+            {live ? "LIVE" : "DELAYED"}
+          </span>
+        </div>
+      </div>
+
+      {/* PHASE 4/11 — calm Market-Closed banner (amber, with countdown) */}
+      <SafeBoundary name="Market Status">
+        <MarketStatusBanner />
+      </SafeBoundary>
+
+      {/* Premium S/R — nearest ATM CE/PE level only; full breakdown stays in
+          Advanced SupportResistancePanel. Spot vs Premium never mixed. */}
+      <SafeBoundary name="Premium S/R">
+        <PremiumSRStrip />
+      </SafeBoundary>
+
+      {/* Execution Status — Final Decision + Gate PASS/BLOCKED only, sourced
+          from the same execution_gate the Hero's own contract reads. Full
+          conditions grid stays in Advanced ExecutionControlCenter. */}
+      <SafeBoundary name="Execution Status">
+        <ExecutionStatusStrip />
+      </SafeBoundary>
+
+      {/* PHASE D — Safe Mode (disaster recovery) — highest-priority banner */}
+      <SafeBoundary name="Safe Mode">
+        <SafeModeBanner />
+      </SafeBoundary>
+
+      {/* PHASE 14 — Execution Lock (capital-protection veto) above the action.
+          Display label only (owner, 2026-07-23, item #3) — internal
+          KillSwitchBanner/killSwitch identifier is unchanged. */}
+      <SafeBoundary name="Execution Lock">
+        <KillSwitchBanner />
+      </SafeBoundary>
+
+      {/* BLOCK REASON HERO (owner, 2026-07-23, item #2 — most-requested):
+          "top of dashboard, highest visual priority" — WHY HERE. Renders
+          nothing when there's no candidate move being blocked (quiet
+          market = quiet UI). */}
+      <SafeBoundary name="Block Reason">
+        <BlockReasonHero />
+      </SafeBoundary>
+
       {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts.
           Market tier (owner's ③): kept visible in Simple — an option buyer's
           opportunity radar, not a developer tool. */}
@@ -255,7 +342,10 @@ export default function Dashboard() {
         </SafeBoundary>
       )}
 
-      {/* THE decision card — first thing on screen */}
+      {/* Execution-detail card (owner Rule 11, 2026-07-26): TRUST%/AI Master
+          Score here are supporting execution metrics — position sizing,
+          entry window, candle clock — not a second verdict. The Hero Card
+          (TradeNowCard) at the top of the page is the one decision. */}
       <SafeBoundary name="Live Candle">
         <LiveCandleCommand tf={tf} />
       </SafeBoundary>
@@ -328,75 +418,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* TOP BAR */}
-      <div className="panel py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <select value={symbol} onChange={(e) => pickSymbol(e.target.value)} disabled={switching}
-          className="bg-terminal-bg border border-terminal-border rounded-lg px-3 py-2 text-sm font-mono font-bold focus:border-terminal-accent outline-none disabled:opacity-60">
-          <optgroup label="INDEX">
-            {symbols.filter((s) => s.market_type === "INDEX").map((s) => <option key={s.symbol} value={s.symbol}>{s.symbol}</option>)}
-          </optgroup>
-          <optgroup label="COMMODITY">
-            {symbols.filter((s) => s.market_type === "COMMODITY").map((s) => <option key={s.symbol} value={s.symbol}>{s.symbol}</option>)}
-          </optgroup>
-          {current === undefined && <option value={symbol}>{symbol}</option>}
-        </select>
-
-        <div className="flex gap-0.5 bg-terminal-bg rounded-lg p-0.5 border border-terminal-border">
-          {TIMEFRAMES.map((t) => (
-            <button key={t} onClick={() => setTf(t)}
-              className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition-colors ${
-                tf === t ? "bg-terminal-accent text-black font-bold" : "text-terminal-muted hover:text-white"}`}>
-              {t}
-            </button>
-          ))}
-        </div>
-
-        <div className="ml-auto flex items-center gap-3">
-          <span key={sp?.ts}
-            className={`font-mono text-lg font-bold ${sp?.tick_dir === "up" ? "tick-up" : sp?.tick_dir === "down" ? "tick-down" : ""}`}>
-            {fmt(sp?.ltp)}
-          </span>
-          <span className={`font-mono text-xs ${(sp?.change ?? 0) >= 0 ? "text-terminal-bull" : "text-terminal-bear"}`}>
-            {sp ? `${sp.change >= 0 ? "+" : ""}${fmt(sp.change)} (${sp.change_pct ?? 0}%)` : ""}
-          </span>
-          <span className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold tracking-wider ${
-            live ? "bg-terminal-bull/15 text-terminal-bull" : "bg-terminal-warn/15 text-terminal-warn"}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${live ? "bg-terminal-bull animate-pulse" : "bg-terminal-warn"}`} />
-            {live ? "LIVE" : "DELAYED"}
-          </span>
-        </div>
-      </div>
-
-      {/* PHASE 4/11 — calm Market-Closed banner (amber, with countdown) */}
-      <SafeBoundary name="Market Status">
-        <MarketStatusBanner />
-      </SafeBoundary>
-
       {/* Market-closed Daily Review — keeps the screen alive after hours */}
       <SafeBoundary name="Daily Review">
         <DailyReview />
-      </SafeBoundary>
-
-      {/* PHASE D — Safe Mode (disaster recovery) — highest-priority banner */}
-      <SafeBoundary name="Safe Mode">
-        <SafeModeBanner />
-      </SafeBoundary>
-
-      {/* PHASE 14 — Execution Lock (capital-protection veto) above the action.
-          Display label only (owner, 2026-07-23, item #3) — internal
-          KillSwitchBanner/killSwitch identifier is unchanged. */}
-      <SafeBoundary name="Execution Lock">
-        <KillSwitchBanner />
-      </SafeBoundary>
-
-      {/* BLOCK REASON HERO (owner, 2026-07-23, item #2 — most-requested):
-          "top of dashboard, highest visual priority". Placed directly after
-          Safe Mode / Execution Lock — this project's existing highest-
-          priority capital-protection banners stay literally first; this is
-          the top of the DECISION content beneath them. Renders nothing when
-          there's no candidate move being blocked (quiet market = quiet UI). */}
-      <SafeBoundary name="Block Reason">
-        <BlockReasonHero />
       </SafeBoundary>
 
       {/* V29.x — Trading Mode (one screen) vs Research Mode (full depth) */}
