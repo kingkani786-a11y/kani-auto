@@ -81,8 +81,17 @@ export default function BrainPage() {
                     {m.points.map((p, j) => <li key={j}>▸ {p}</li>)}
                   </ul>
                 )}
+                {/* Owner Step 8 (Remove Fake Metrics, 2026-07-26): this is
+                    the brain's own self-assessed certainty in ITS ANSWER —
+                    a mix of real signal-derived values and static per-
+                    template estimates, not a validated trading probability.
+                    Labeled accordingly so it's never mistaken for a
+                    calibrated confidence. */}
                 {m.confidence != null && m.role === "ai" && m.confidence > 0 && (
-                  <div className="mt-1 text-[10px] text-terminal-muted">confidence {m.confidence}%</div>
+                  <div className="mt-1 text-[10px] text-terminal-muted"
+                    title="Self-assessed answer confidence — not a validated trading probability.">
+                    answer confidence {m.confidence}%
+                  </div>
                 )}
               </div>
             </div>

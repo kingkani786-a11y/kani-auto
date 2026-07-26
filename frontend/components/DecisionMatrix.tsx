@@ -48,10 +48,18 @@ export function DecisionMatrix() {
         ))}
       </div>
 
+      {/* Owner Step 8 (Remove Fake Metrics, 2026-07-26): this is confluence.py's
+          5-threshold FORCE-WAIT gate (backend field still named "calibration"
+          for compatibility) — an unrelated, declared-threshold computation
+          from the REAL, outcome-based calibration_score shown in
+          CalibrationWatchCard.tsx ("Calibration Watch"). Labeled "Signal
+          Gate" here so the same word "Calibration" doesn't imply these are
+          the same thing. */}
       {cal && (
         <div className="mt-3 pt-2 border-t border-terminal-border/50 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
-          <span className={`font-bold ${cal.passed ? "text-terminal-bull" : "text-terminal-bear"}`}>
-            Calibration {cal.passed ? "PASS" : "FORCE WAIT"}
+          <span className={`font-bold ${cal.passed ? "text-terminal-bull" : "text-terminal-bear"}`}
+            title="Declared 5-threshold gate — not the same as Calibration Watch's outcome-based calibration score.">
+            Signal Gate {cal.passed ? "PASS" : "FORCE WAIT"}
           </span>
           {["data_quality", "signal_confidence", "institutional", "market_alignment", "risk_environment"].map((k) => (
             cal[k] ? (

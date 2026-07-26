@@ -359,12 +359,18 @@ def run(
         vetoes.append(f"NO TRADE ZONE: {layers['no_trade_zone']['reason']}")
     if layers["traps"]["detected"] and layers["traps"]["trap_confidence"] >= 55:
         vetoes.append(f"TRAP RISK: {layers['traps']['summary']} ({layers['traps']['trap_confidence']:.0f}%)")
-    # Engine 10 calibration: FORCE WAIT if any calibration check fails
+    # Engine 10 signal gate: FORCE WAIT if any of the 5 declared thresholds
+    # fail. Owner Step 8 (Remove Fake Metrics, 2026-07-26): this string used
+    # to say "CALIBRATION", colliding with the unrelated, REAL outcome-based
+    # calibration_score (services/analytics.py, shown in Calibration Watch)
+    # — renamed here to avoid implying this declared-threshold gate is that
+    # validated calibration. The dict key ("calibration") is left as-is to
+    # avoid a wider payload-shape change; only user-facing text changed.
     if calibration_failed:
         names = {"data_quality": "data quality", "signal_confidence": "confidence",
                  "institutional": "institutional confirmation", "market_alignment": "market alignment",
                  "risk_environment": "risk environment"}
-        vetoes.append("CALIBRATION (FORCE WAIT): " + ", ".join(names[k] for k in calibration_failed)
+        vetoes.append("SIGNAL GATE (FORCE WAIT): " + ", ".join(names[k] for k in calibration_failed)
                       + " below required")
 
     # ---- trade levels (geometry chosen so T1 itself clears 1:2, V10) ----

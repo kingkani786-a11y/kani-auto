@@ -48,6 +48,10 @@ export function ConfidenceEvolution() {
           {ce.action_hint}
         </div>
       )}
+      {/* Owner Step 8 (Remove Fake Metrics, 2026-07-26) fix: ce.note (the
+          "probabilities, not certainty" disclaimer) was computed by the
+          backend but never read here — now shown. */}
+      {ce.note && <div className="text-[10px] text-terminal-muted/70 mt-1">{ce.note}</div>}
     </div>
   );
 }

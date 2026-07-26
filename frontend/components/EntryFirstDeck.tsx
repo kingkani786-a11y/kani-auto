@@ -1,7 +1,17 @@
 "use client";
 // ENTRY-FIRST DECK — Sections 1–6. Pure presentation over existing store data
 // (main signal + strike + decision + lifecycle + warning). No logic changes.
+//
+// Owner Step 8 (Remove Fake Metrics, 2026-07-26): the top row used to show
+// 4 differently-sourced numbers side by side (Confidence/Signal Score/
+// Execution/Entry Probability — near-identical names, different formulas,
+// no disclosure) — the exact "which number do I trust" pattern this step
+// exists to end. None are fabricated from nothing (all are declared,
+// disclosed blends of real inputs), but showing 4 undisclosed look-alikes
+// together was the problem. Now: ONE primary number (Confidence), the
+// other 3 collapsed into a labeled, disclosed breakdown.
 
+import { useState } from "react";
 import { useMarket } from "@/lib/store";
 
 const fmt = (n?: number | null, d = 2) =>
@@ -61,6 +71,7 @@ function Tag({ k, v, tone }: { k: string; v: React.ReactNode; tone?: string }) {
 }
 
 export function EntryFirstDeck() {
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const { signal, decision, strike, layers, lifecycle, warning, spot, status } = useMarket();
   const L = layers as any;
   const isIndex = status?.market_type === "INDEX";
@@ -159,13 +170,34 @@ export function EntryFirstDeck() {
           )}
           <span className="ml-auto text-xs text-terminal-muted">{decision?.reason ?? ""}</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <Chip label="Confidence" value={conf != null ? `${Math.round(conf)}%` : "—"} />
-          <Chip label="Signal Score" value={signal?.confidence != null ? `${Math.round(signal.confidence)}/100` : "—"} />
-          <Chip label="Execution" value={execScore != null ? `${Math.round(execScore)}/100` : "—"} />
           <Chip label="Trade Quality" value={signal?.grade ?? "—"} tone={qualTone(signal?.grade)} />
-          <Chip label="Entry Probability" value={ep != null ? `${Math.round(ep)}/100` : "—"} />
+          <button type="button" onClick={() => setShowBreakdown((v) => !v)}
+            className="bg-terminal-bg rounded-lg px-3 py-2 border border-terminal-border/50 text-left hover:border-terminal-accent/50">
+            <div className="text-[9px] uppercase tracking-wider text-terminal-muted">Breakdown</div>
+            <div className="font-mono text-sm font-bold text-terminal-accent">{showBreakdown ? "Hide ▴" : "Show ▾"}</div>
+          </button>
         </div>
+        {showBreakdown && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 pt-2 border-t border-terminal-border/40 text-[11px]">
+            <div>
+              <div className="text-terminal-muted">Signal Score <span className="font-mono text-white">{signal?.confidence != null ? `${Math.round(signal.confidence)}/100` : "—"}</span></div>
+              <div className="text-[10px] text-terminal-muted/70">Raw 7-factor composite (trend/structure/OI/greeks/volume/momentum/liquidity) — a different blend than "Confidence" above, despite the similar name.</div>
+            </div>
+            <div>
+              <div className="text-terminal-muted">Execution <span className="font-mono text-white">{execScore != null ? `${Math.round(execScore)}/100` : "—"}</span></div>
+              <div className="text-[10px] text-terminal-muted/70">Strike-quality blend (delta/OI/volume/spread/distance) — how good this specific strike is, not the trade signal.</div>
+            </div>
+            <div>
+              <div className="text-terminal-muted">Entry Probability <span className="font-mono text-white">{ep != null ? `${Math.round(ep)}/100` : "—"}</span></div>
+              <div className="text-[10px] text-terminal-muted/70">10-input banded blend — a declared heuristic, not a backtested win-rate.</div>
+            </div>
+            <div className="sm:col-span-3 text-[10px] text-terminal-muted/70 italic">
+              All declared formula blends of real inputs — none are validated/calibrated probabilities.
+            </div>
+          </div>
+        )}
       </section>
 
       {/* MARKET CONTEXT strip (Row 2/3) — VIX · bias · regime · strength ·

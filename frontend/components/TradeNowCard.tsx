@@ -75,7 +75,7 @@ export function TradeNowCard() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-        <div>
+        <div title="Declared confidence blend — not a validated/backtested probability.">
           <div className="text-lg font-bold tabular-nums text-white">{c.confidence != null ? `${c.confidence}%` : "—"}</div>
           <div className="text-[10px] text-terminal-muted">Confidence</div>
         </div>

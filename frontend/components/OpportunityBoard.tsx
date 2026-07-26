@@ -36,7 +36,7 @@ export function OpportunityBoard() {
         <span className="font-mono font-bold">
           {c.symbol}{c.strike ? <span className={c.type === "CE" ? " text-terminal-bull" : " text-terminal-bear"}> {Math.round(c.strike)} {c.type}</span> : null}
         </span>
-        <span className="font-mono">AI {Math.round(c.ai_score)}</span>
+        <span className="font-mono" title="Declared blend: 50% momentum score + 50% strike-quality score — not a validated AI confidence rating.">AI {Math.round(c.ai_score)}</span>
       </div>
       <div className="flex items-center justify-between text-terminal-muted">
         <span>

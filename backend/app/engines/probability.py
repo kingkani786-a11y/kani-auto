@@ -1,9 +1,13 @@
 """Layer 9 — Probability Engine.
 
 Converts the confluence edge into probability of success/failure and an
-IV- (or ATR-) based expected move and range. POS is a calibrated logistic
-of the score edge, damped by regime quality — it is an estimate of edge,
-not a guarantee.
+IV- (or ATR-) based expected move and range. POS is a DECLARED logistic
+formula (centered on zero edge, damped by regime quality) — it is NOT
+validated/backtested against real settled outcomes (that is
+services/analytics.py's calibration_score, a separate, unrelated
+computation). Treat POS as an estimate of edge, never a guarantee, and
+never confuse the word "calibrated" here with that real calibration
+(owner Step 8, Remove Fake Metrics, 2026-07-26).
 """
 from __future__ import annotations
 

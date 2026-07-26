@@ -104,7 +104,12 @@ export function MarketPathPanel() {
           ✕ Path cancels if {mp.failure_level.level} ({mp.failure_level.name}) breaks
         </div>
       )}
-      <div className="text-[10px] text-terminal-muted mt-1">🔄 {mp.live_note || mp.note}</div>
+      {/* Owner Step 8 (Remove Fake Metrics, 2026-07-26) fix: `mp.live_note`
+          is a fixed string that's always truthy, so `live_note || note`
+          permanently shadowed the real disclaimer (mp.note) — it never
+          reached the screen. Both now shown, disclaimer first. */}
+      {mp.note && <div className="text-[10px] text-terminal-muted mt-1">{mp.note}</div>}
+      {mp.live_note && <div className="text-[10px] text-terminal-muted/70 mt-0.5">🔄 {mp.live_note}</div>}
     </div>
   );
 }

@@ -62,6 +62,10 @@ export function CandleProjection() {
         {cp.direction} · expected move {cp.expected_move} pts · ETA {cp.candles[cp.candles.length - 1].eta_min}m
         {cp.cone_95_range && <> · ~95% range {cp.cone_95_range[0]}–{cp.cone_95_range[1]}</>}
       </div>
+      {/* Owner Step 8 (Remove Fake Metrics, 2026-07-26) fix: cp.note (the
+          "probabilities, not certainty" disclaimer) was computed by the
+          backend but never read here — now shown. */}
+      {cp.note && <div className="text-[10px] text-terminal-muted/70 mt-0.5 text-center">{cp.note}</div>}
     </div>
   );
 }
