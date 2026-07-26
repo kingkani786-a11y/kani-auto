@@ -1,23 +1,27 @@
 "use client";
-// PHASE 27 + 26 + Confidence Explainer. Entry-timing zone, premium forecast,
-// and per-engine confidence breakdown — all derivation-only from the decision.
+// PHASE 27 + Confidence Explainer. Entry-timing zone and per-engine
+// confidence breakdown — derivation-only from the decision.
+//
+// Owner Step 4 (Premium Panel Final, 2026-07-26): the Premium Forecast box
+// that used to sit here was a duplicate of PremiumTimeline.tsx's "Premium
+// Roadmap" panel — both rendered the identical decision.premium_forecast
+// object. Removed here; PremiumTimeline.tsx is the one canonical Premium
+// panel (it also carries strike identity + a "Now" anchor point).
 
 import { useMarket } from "@/lib/store";
 
 const zoneTone = (z?: string) =>
   z === "BEST ENTRY" ? "text-terminal-bull" : z === "GOOD ENTRY" ? "text-terminal-bull"
   : z === "LATE ENTRY" ? "text-terminal-warn" : "text-terminal-bear";
-const classTone = (c?: string) =>
-  c === "EXPLOSIVE" || c === "STRONG" ? "text-terminal-bull" : c === "MODERATE" ? "text-terminal-warn" : "text-terminal-bear";
 
 export function EntryZonePremium() {
   const { decision } = useMarket();
   const d: any = decision || {};
-  const ez = d.entry_zone, pf = d.premium_forecast, cb = d.confidence_breakdown;
-  if (!ez?.ready && !pf?.ready && !cb?.ready) return null;
+  const ez = d.entry_zone, cb = d.confidence_breakdown;
+  if (!ez?.ready && !cb?.ready) return null;
 
   return (
-    <div className="grid lg:grid-cols-3 gap-4">
+    <div className="grid lg:grid-cols-2 gap-4">
       {/* Entry Zone */}
       {ez?.ready && (
         <div className="panel">
@@ -25,31 +29,6 @@ export function EntryZonePremium() {
           <div className={`text-xl font-bold ${zoneTone(ez.zone)}`}>{ez.zone}</div>
           <div className="text-xs text-terminal-muted mt-0.5">Score {ez.score}/100</div>
           <div className="text-xs text-gray-300 mt-1.5">{ez.reason}</div>
-        </div>
-      )}
-
-      {/* Premium Forecast */}
-      {pf?.ready && (
-        <div className="panel">
-          <div className="panel-title">Premium Forecast</div>
-          <div className="flex items-baseline gap-2">
-            <span className={`text-lg font-bold ${classTone(pf.classification)}`}>{pf.classification}</span>
-            <span className="text-xs text-terminal-muted">now ₹{pf.current_premium} · {pf.probability}% prob</span>
-          </div>
-          <div className="grid grid-cols-4 gap-1.5 mt-2 text-center">
-            {Object.entries(pf.forecasts).map(([h, v]: [string, any]) => (
-              <div key={h}>
-                <div className="stat-label">{h}</div>
-                <div className="text-xs font-mono">₹{v.premium}</div>
-                <div className={`text-[10px] ${v.change_pct >= 0 ? "text-terminal-bull" : "text-terminal-bear"}`}>
-                  {v.change_pct >= 0 ? "+" : ""}{v.change_pct}%
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-[10px] text-terminal-muted mt-1.5">
-            Exp +{pf.expected_expansion_pct}% vs decay −{pf.expected_decay_pct}% (θ {pf.theta_risk} · IV-crush {pf.iv_crush_risk})
-          </div>
         </div>
       )}
 
