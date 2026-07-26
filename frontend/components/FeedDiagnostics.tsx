@@ -63,7 +63,7 @@ export function FeedDiagnostics() {
             : !healthy
             ? <>Top failing: <span className="text-terminal-bear">{failing[0][0]} ({failing[0][1].status})</span> — WAIT may be data-driven</>
             : noChain
-            ? <>Feeds healthy. <span className="text-terminal-warn">No option chain for this instrument — OI / Greeks / Institutional stay neutral, so the full entry gate cannot arm. Scalp Radar is the applicable engine here.</span></>
+            ? <>Feeds healthy. <span className="text-terminal-warn">No option chain for this instrument — OI / Greeks / Institutional stay neutral, so the full entry gate cannot arm.</span></>
             : "All feeds healthy — any WAIT is market-driven, not data."}
         </span>
       </div>

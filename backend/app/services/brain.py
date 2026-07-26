@@ -1,7 +1,7 @@
 """AI Market Brain (Rule 12) — natural-language Q&A over EXISTING state.
 
 A rule-based reasoning layer (no external LLM, no new market data). It reads
-the intelligence the platform already computed (layers, decision, exit, scalp,
+the intelligence the platform already computed (layers, decision, exit,
 future, war room) and answers trader questions in probabilities — never
 certainty. If it can't map a question it explains what it can see instead.
 """
@@ -229,10 +229,6 @@ def briefing() -> dict[str, Any]:
         lines.append("No bearish opportunity.")
     elif opp.get("best_pe") and not opp.get("best_ce"):
         lines.append("No bullish opportunity.")
-
-    sc = state.scalp or {}
-    if sc.get("state") or sc.get("signal"):
-        lines.append(f"Scalping engine {str(sc.get('state') or sc.get('signal')).lower()}.")
 
     ladder = dec.get("probability_ladder") or {}
     for row in (ladder.get("rows") or ladder.get("ladder") or [])[:3]:

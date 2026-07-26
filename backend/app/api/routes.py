@@ -822,14 +822,6 @@ async def exit_intelligence():
     return state.exit_intel or {"active": False}
 
 
-@router.get("/scalp")
-async def scalp_radar():
-    """Scalp Radar V3 — independent execution intelligence (separate from main)."""
-    from ..services import scalp_state
-    base = state.scalp or {"active": False, "scalp_score": 0, "direction": "NONE"}
-    return {**base, "management": scalp_state.status(), "analytics": scalp_state.analytics()}
-
-
 @router.get("/decision")
 async def decision():
     """V10 ultra-simple decision view — the 3-second trader summary."""

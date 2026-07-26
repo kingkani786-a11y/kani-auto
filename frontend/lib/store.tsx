@@ -30,7 +30,6 @@ interface Store {
   strikes: StrikeReco[];
   coach: string[];
   decision: Decision | null;
-  scalp: any | null;
   exitIntel: any | null;
   killSwitch: any | null;
   safeMode: any | null;
@@ -61,7 +60,6 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   const [strikes, setStrikes] = useState<StrikeReco[]>([]);
   const [coach, setCoach] = useState<string[]>([]);
   const [decision, setDecision] = useState<Decision | null>(null);
-  const [scalp, setScalp] = useState<any | null>(null);
   const [exitIntel, setExitIntel] = useState<any | null>(null);
   const [killSwitch, setKillSwitch] = useState<any | null>(null);
   const [safeMode, setSafeMode] = useState<any | null>(null);
@@ -132,7 +130,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
             setChain([]); setAtm(null); setLayers({}); setStrike(null);
             setWarning(null); setNarrative([]); setStrikes([]); setCoach([]);
             setSignal(null); setRisk(null); setLifecycle(null); setDecision(null);
-            setScalp(null); setExitIntel(null);
+            setExitIntel(null);
           } else if (channel === "spot") {
             setSpot(data);
             setLastError(""); // data flowing again — clear stale banner
@@ -165,10 +163,6 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
             }
           } else if (channel === "scanner") {
             setScanRows(data || []);
-          } else if (channel === "scalp") {
-            setScalp(data || null);
-          } else if (channel === "scalp_mgmt") {
-            setScalp((prev: any) => (prev ? { ...prev, management: data } : prev));
           } else if (channel === "error") {
             setLastError(data.message || "");
           }
@@ -189,7 +183,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ status, spot, analytics, greeks, smartMoney, signal, risk, chain, atm, layers, strike, warning, narrative, lifecycle, alerts, scanRows, strikes, coach, decision, scalp, exitIntel, killSwitch, safeMode, wsOk, lastError, refreshStatus }}
+      value={{ status, spot, analytics, greeks, smartMoney, signal, risk, chain, atm, layers, strike, warning, narrative, lifecycle, alerts, scanRows, strikes, coach, decision, exitIntel, killSwitch, safeMode, wsOk, lastError, refreshStatus }}
     >
       {children}
     </Ctx.Provider>

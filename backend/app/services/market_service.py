@@ -133,13 +133,12 @@ class MarketService:
 
         # ---- HARD SYMBOL ISOLATION ----
         # Wipe EVERY per-symbol surface so no prior symbol's analysis, triggers,
-        # narrator, roadmap, decision or scalp can leak into the new one.
+        # narrator, roadmap or decision can leak into the new one.
         self.lifecycle.reset()
         state.spot = state.option_chain = state.analytics = {}
         state.greeks = state.smart_money = state.signal = state.risk = {}
         state.intelligence = {}      # <- held gamma wall / triggers / narrator / roadmap
         state.decision = {}
-        state.scalp = {}
         state.candles = []
         self._quote_meta.pop(inst.symbol, None)
         self._prev_quote.pop(inst.symbol, None)
@@ -149,8 +148,6 @@ class MarketService:
             confluence._prev_ctx.pop(inst.symbol, None)
             from ..engines import expiry as _exp
             _exp._prev.pop(inst.symbol, None)
-            from ..services import scalp_state
-            scalp_state.reset()
         except Exception:
             pass
 
@@ -344,16 +341,6 @@ class MarketService:
         except Exception:
             pass
 
-        # Scalp Radar V3 trade management — advance on the live tick (independent)
-        try:
-            from ..services import scalp_state
-            mgmt = scalp_state.on_tick(ltp)
-            if state.scalp:
-                state.scalp["management"] = mgmt
-            await manager.broadcast("scalp_mgmt", mgmt)
-        except Exception:
-            pass
-
         # lifecycle is price-driven between AI cycles
         if self.lifecycle.on_tick(ltp):
             snap = self.lifecycle.snapshot()
@@ -477,26 +464,6 @@ class MarketService:
             "smart_money": state.smart_money,
             "option_chain": state.option_chain,
         })
-
-        # ---- SCALP RADAR V2 (independent) — fast 5s read on cached candles ----
-        # Completely separate from the main signal; may fire while main = NO TRADE.
-        try:
-            from ..engines import scalp_radar
-            from ..services import scalp_state
-            spot_px = float(state.spot.get("ltp") or 0)
-            if state.candles and spot_px > 0:
-                # Layer 13: feed the main signal's direction so the scalp can
-                # flag itself COUNTER-TREND instead of conflicting with it.
-                main_dir = (state.signal or {}).get("direction") or ""
-                sc = scalp_radar.compute(state.candles, state.analytics, spot_px, main_dir)
-                scalp_state.on_signal(sc)                       # arm trade mgmt
-                sc["management"] = scalp_state.status()
-                sc["analytics"] = scalp_state.analytics()
-                state.scalp = sc
-                state.heartbeats["scalp"] = time.time()
-                await manager.broadcast("scalp", state.scalp)
-        except Exception:
-            log.exception("scalp radar tick failed")  # never affects main flow
 
     async def _ai_cycle(self) -> None:
         """Cloud AI Trader X cycle: 1m candles -> 10-layer confluence engine."""

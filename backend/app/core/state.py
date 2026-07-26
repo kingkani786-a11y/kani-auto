@@ -42,7 +42,6 @@ class AppState:
     risk: dict[str, Any] = field(default_factory=dict)
     candles: list[dict[str, Any]] = field(default_factory=list)
     intelligence: dict[str, Any] = field(default_factory=dict)  # full X-engine packet
-    scalp: dict[str, Any] = field(default_factory=dict)         # Scalp Radar V2 (independent)
     exit_intel: dict[str, Any] = field(default_factory=dict)    # Exit Intelligence (in-trade)
     heartbeats: dict[str, float] = field(default_factory=dict)  # engine -> last success ts
     watchlist: list[str] = field(default_factory=list)

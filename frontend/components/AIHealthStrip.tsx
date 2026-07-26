@@ -71,7 +71,7 @@ export function AIHealthStrip() {
       <Item label="Feed" value={latency != null ? `${latency} ms` : "—"}
             tone={latency == null ? "muted" : latency < 250 ? "green" : latency < 600 ? "amber" : "red"} />
       <Item label="Broker" value={status.connected ? "Connected" : "Offline"} tone={status.connected ? "green" : "red"} />
-      <Item label="AI Conf" value={conf != null ? `${conf}%` : "—"}
+      <Item label="AI Conviction" value={conf != null ? `${conf}%` : "—"}
             tone={conf == null ? "muted" : conf >= 75 ? "green" : conf >= 60 ? "amber" : "red"} />
       <Item label="Calibration" value={cal != null ? `${cal}/100` : "building"}
             tone={cal == null ? "muted" : cal >= 80 ? "green" : cal >= 65 ? "amber" : "red"} />

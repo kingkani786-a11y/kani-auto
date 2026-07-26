@@ -2,6 +2,14 @@
 // SECTION 1 + 24 — Execution Control Center + Final Execution Gate. One unified
 // panel: the gated final decision + the mandatory conditions and any blocking
 // reasons. Derivation-only display (does not mutate the decision pipeline).
+//
+// Note (2026-07-26 Dashboard Cleanup Audit): the old MissedMoveProtection card
+// read the same execution_gate.blocking_reasons/blocker_research shown below,
+// so it was removed as a duplicate. Its one unique contribution — live
+// move-episode facts — now lives in the standalone MoveObserverStrip
+// (frontend/components/MoveObserverStrip.tsx), kept Simple-mode visible per
+// the Incident #001 rule ("a building move must be visible even while the
+// Decision Layer says WAIT"), since this panel itself is Advanced-mode only.
 
 import { useMarket } from "@/lib/store";
 import { displayLabel, displayReasons } from "@/lib/labels";
@@ -34,7 +42,7 @@ export function ExecutionControlCenter() {
         </div>
         <div><div className="stat-label">Fire Score</div><div className="stat-value">{ec.fire_score ?? "—"}{ec.fire_band ? ` ${""}` : ""}</div></div>
         <div><div className="stat-label">Entry Grade</div><div className="stat-value">{(di.trade_quality || {}).grade ?? "—"}</div></div>
-        <div><div className="stat-label">Confidence</div><div className="stat-value">{di.conviction ?? "—"}%</div></div>
+        <div><div className="stat-label">AI Conviction</div><div className="stat-value">{di.conviction ?? "—"}%</div></div>
         <div><div className="stat-label">Maturity</div><div className="stat-value">{sm.maturity_score ?? "—"}</div></div>
         <div><div className="stat-label">Gate</div><div className={`stat-value ${eg.gate_passed ? "text-terminal-bull" : "text-terminal-bear"}`}>{eg.gate_passed ? "PASS" : "BLOCKED"}</div></div>
       </div>

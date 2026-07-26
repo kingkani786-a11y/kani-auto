@@ -29,7 +29,7 @@ export function DecisionIntelligence() {
           <div className={`stat-value text-lg ${decTone(di.final_decision)}`}>{di.final_decision}</div>
         </div>
         <div>
-          <div className="stat-label">Conviction</div>
+          <div className="stat-label">AI Conviction</div>
           <div className="stat-value text-lg">{di.conviction}%</div>
         </div>
         <div>

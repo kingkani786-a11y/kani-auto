@@ -8,7 +8,6 @@ import dynamic from "next/dynamic";
 import type { Candle, TradeLines } from "@/components/ProChart";
 import { SafeBoundary } from "@/components/SafeBoundary";
 import { EntryFirstDeck } from "@/components/EntryFirstDeck";
-import { ScalpRadarPanel } from "@/components/ScalpRadarPanel";
 import { ExitIntelligencePanel } from "@/components/ExitIntelligencePanel";
 import { DecisionMatrix } from "@/components/DecisionMatrix";
 import { KillSwitchBanner } from "@/components/KillSwitchBanner";
@@ -48,7 +47,7 @@ import { PremiumTimeline } from "@/components/PremiumTimeline";
 import { DailyReview } from "@/components/DailyReview";
 import { MarketPathPanel } from "@/components/MarketPathPanel";
 import { MissedWinners } from "@/components/MissedWinners";
-import { MissedMoveProtection } from "@/components/MissedMoveProtection";
+import { MoveObserverStrip } from "@/components/MoveObserverStrip";
 import { VoiceAssistant } from "@/components/VoiceAssistant";
 import { LiveCandleCommand } from "@/components/LiveCandleCommand";
 import { SmartAlertBar } from "@/components/SmartAlertBar";
@@ -57,7 +56,6 @@ import { PointCaptureStrip } from "@/components/PointCaptureStrip";
 import { ScalpingTool } from "@/components/ScalpingTool";
 import { IndexRadar } from "@/components/IndexRadar";
 import { OpportunityBoard } from "@/components/OpportunityBoard";
-import { TradeManagement } from "@/components/TradeManagement";
 import { MarketMemory } from "@/components/MarketMemory";
 import { GlobalStrip } from "@/components/GlobalStrip";
 import { FeedDiagnostics } from "@/components/FeedDiagnostics";
@@ -68,7 +66,7 @@ import { CandleProjection } from "@/components/CandleProjection";
 import { EntryZonePremium } from "@/components/EntryZonePremium";
 
 // Lazy-load the heavy chart (lightweight-charts) so the entry-first cards —
-// signal, strike, entry, targets, execution, scalp — paint first.
+// signal, strike, entry, targets, execution — paint first.
 const ProChart = dynamic(
   () => import("@/components/ProChart").then((m) => m.ProChart),
   { ssr: false, loading: () => (
@@ -109,7 +107,6 @@ export default function Dashboard() {
   };
   const showAdvanced = mode === "Advanced";     // dev/measurement tools + deep analysis
   const showMiddle = showAdvanced;              // Market section (Advanced only)
-  const showBottom = showAdvanced;              // Deep Analysis section (Advanced only)
 
   const onCandles = useCallback((_c: Candle[]) => {}, []);
   const onLines = useCallback((l: TradeLines) => setLines(l), []);
@@ -273,11 +270,6 @@ export default function Dashboard() {
         <IndexRadar />
       </SafeBoundary>
 
-      {/* V28 — AI Trade Management (shows only while a trade is live) */}
-      <SafeBoundary name="Trade Management">
-        <TradeManagement />
-      </SafeBoundary>
-
       {/* V16 — Scalping Tool: strike + entry details, visible while PREPARING */}
       <SafeBoundary name="Scalping Tool">
         <ScalpingTool />
@@ -319,8 +311,8 @@ export default function Dashboard() {
       <SafeBoundary name="Missed Winners">
         <MissedWinners />
       </SafeBoundary>
-      <SafeBoundary name="Missed Move Protection">
-        <MissedMoveProtection />
+      <SafeBoundary name="Move Observer">
+        <MoveObserverStrip />
       </SafeBoundary>
       <SafeBoundary name="Voice Assistant">
         <VoiceAssistant />
@@ -492,14 +484,6 @@ export default function Dashboard() {
 
       {/* EXIT INTELLIGENCE — always shown while a trade is live (capital safety) */}
       <SafeBoundary name="Exit Intelligence"><ExitIntelligencePanel /></SafeBoundary>
-
-      {/* ═══ BOTTOM — DEEP ANALYSIS (Institutional only) ═══ */}
-      {showBottom && (
-        <>
-          <div className="text-[10px] font-bold tracking-widest text-terminal-muted pt-2">DEEP ANALYSIS</div>
-          <SafeBoundary name="Scalp Radar"><ScalpRadarPanel /></SafeBoundary>
-        </>
-      )}
 
       <div className="flex justify-center">
         <Link href="/advanced"
