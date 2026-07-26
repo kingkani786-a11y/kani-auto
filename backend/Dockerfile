@@ -25,6 +25,12 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY app ./app
 
+# No .git directory is copied into the image, so _startup_commit()'s git
+# subprocess would always return "unknown" — baked in via build arg instead
+# (routes.py checks GIT_COMMIT env first, falls back to git for native runs).
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
+
 # CAT_DATA_DIR already exists as an env hook (opportunity_metrics.py,
 # premium_series.py, period_pivot_cache.py all honor it) — reused here to
 # redirect the black-box log directory onto the mounted volume, zero new code.

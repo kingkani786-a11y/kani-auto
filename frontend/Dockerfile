@@ -20,6 +20,11 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 ARG BACKEND_URL=http://localhost:8000
 ENV BACKEND_URL=$BACKEND_URL
+# No .git directory is copied into the image, so stamp-version.mjs's `prebuild`
+# git subprocess would always return "unknown" (also means sw.js's cache
+# name never busts between Docker deploys) — baked in via build arg instead.
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

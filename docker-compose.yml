@@ -15,9 +15,25 @@
 
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        # Reads GIT_COMMIT from the shell environment. Set it before building
+        # for a real version stamp:
+        #   GIT_COMMIT=$(git rev-parse --short HEAD) docker compose build
+        # CI does this automatically. Left unset, both Dockerfiles' own
+        # `ARG GIT_COMMIT=unknown` default applies — same honest "unknown"
+        # as before this fix, never a fabricated hash.
+        GIT_COMMIT: ${GIT_COMMIT:-}
     ports:
-      - "8000:8000"
+      # Overridable (BACKEND_PORT=8001 docker compose up) for a side-by-side
+      # smoke test alongside an already-running deployment on the default
+      # ports — replaces the docker-compose.override.yml approach used during
+      # Phase 1 verification, which hit a real incident: Compose MERGES
+      # (not replaces) a ports: list between base and override files, so an
+      # override meant to remap 8000->8001 left BOTH bound simultaneously.
+      # Env-var interpolation in one file has no such merge ambiguity.
+      - "${BACKEND_PORT:-8000}:8000"
     env_file:
       - ./backend/.env
     volumes:
@@ -41,8 +57,9 @@ services:
         # had no effect (proxy kept using the http://localhost:8000 default
         # baked in at build time, logging ECONNREFUSED).
         BACKEND_URL: http://backend:8000
+        GIT_COMMIT: ${GIT_COMMIT:-}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy

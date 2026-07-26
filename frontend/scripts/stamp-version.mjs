@@ -12,8 +12,14 @@ import { dirname, join } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const pub = join(here, "..", "public");
 
-let commit = "unknown";
-try { commit = execSync("git rev-parse --short HEAD", { cwd: here }).toString().trim(); } catch {}
+// Docker images don't ship a .git directory, so this always fell back to
+// "unknown" there — verified live 2026-07-26. GIT_COMMIT is baked in via a
+// Docker build ARG for container builds only; native (non-Docker) builds
+// are untouched and still resolve it from git directly.
+let commit = (process.env.GIT_COMMIT || "").trim() || "unknown";
+if (commit === "unknown") {
+  try { commit = execSync("git rev-parse --short HEAD", { cwd: here }).toString().trim(); } catch {}
+}
 const builtAt = new Date().toISOString();
 const swVersion = `cat-shell-${commit}`;
 

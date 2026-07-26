@@ -298,6 +298,15 @@ async def cortex_eod_report_ep():
 # commits landed without a restart). This is what makes the Build Version panel
 # honest: a "mismatch" now means the running code really differs.
 def _startup_commit() -> str:
+    # Docker images don't ship a .git directory (Dockerfile only COPYs the
+    # app source), so `git rev-parse` always fell back to "unknown" there —
+    # verified live 2026-07-26. GIT_COMMIT is baked in via a build ARG for
+    # Docker builds only; the git-subprocess path below is untouched and
+    # still what native (non-Docker) deployment uses.
+    import os
+    env_commit = os.environ.get("GIT_COMMIT", "").strip()
+    if env_commit:
+        return env_commit
     import subprocess
     try:
         return subprocess.check_output(
