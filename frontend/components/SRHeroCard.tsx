@@ -1,8 +1,7 @@
 "use client";
 // S/R HERO CARD (owner, 2026-07-23, item #5 Phase 2 — "Entry Decision
 // Platform" priority list, Priority 11). The single nearest actionable
-// support/resistance level + distance + strength + evidence + readiness
-// stage.
+// support/resistance level + distance + strength + readiness stage.
 //
 // This is NOT a second Trade Light. TradeNowCard above states the ONE
 // BUY/WAIT/EXIT verdict (owner 2026-07-21: "ஒரே BUY/WAIT verdict ஒரு
@@ -10,6 +9,13 @@
 // different axis. Its "stage" (WAIT/WATCHING/VOLUME_CONFIRM/CANDLE_CONFIRM/
 // BUY_READY) is a readiness signal into the Decision Engine, never a trade
 // decision of its own — the backend's own workflow note says so explicitly.
+//
+// Owner Step 6 (Evidence Panel Final, 2026-07-26): the per-source evidence
+// checklist (VWAP/CPR/Gamma Wall/Volume/Price Action) that used to live
+// here was removed — it's now the Evidence Panel's job, one rung down in
+// the locked hierarchy (Hero -> Execution Status -> WHY HERE -> Evidence
+// Panel -> Support & Resistance -> Market Structure). This card keeps only
+// its own level/distance/strength/stage facts.
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -20,11 +26,6 @@ const STAGE_STYLE: Record<string, { badge: string; border: string; label: string
   VOLUME_CONFIRM: { badge: "text-sky-400 border-sky-500/40", border: "border-sky-500/40", label: "VOLUME CONFIRM" },
   CANDLE_CONFIRM: { badge: "text-terminal-accent border-terminal-accent/40", border: "border-terminal-accent/40", label: "CANDLE CONFIRM" },
   BUY_READY: { badge: "text-terminal-bull border-terminal-bull/50", border: "border-terminal-bull/50", label: "BUY READY" },
-};
-
-const EVIDENCE_LABEL: Record<string, string> = {
-  vwap: "VWAP", swing: "Swing", volume_node: "Volume Node", cpr: "CPR", oi_wall: "OI Wall",
-  volume: "Volume", price_action: "Price Action",
 };
 
 export function SRHeroCard() {
@@ -41,7 +42,6 @@ export function SRHeroCard() {
 
   const stage = hero.workflow?.stage || "WAIT";
   const st = STAGE_STYLE[stage] || STAGE_STYLE.WAIT;
-  const ev = hero.evidence || {};
 
   return (
     <section className={`panel border-2 ${st.border} space-y-2`}>
@@ -52,7 +52,7 @@ export function SRHeroCard() {
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${st.badge}`}>{st.label}</span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+      <div className="grid grid-cols-3 gap-2 text-center">
         <div>
           <div className="text-lg font-bold tabular-nums text-white">{hero.level}</div>
           <div className="text-[9px] text-terminal-muted">{hero.label}</div>
@@ -65,15 +65,6 @@ export function SRHeroCard() {
           <div className="text-lg font-bold tabular-nums text-white">{hero.strength_stars}★</div>
           <div className="text-[9px] text-terminal-muted">Strength ({hero.strength_score})</div>
         </div>
-        <div>
-          <div className="text-lg font-bold tabular-nums text-white">
-            {ev.count ?? "—"}/{ev.total ?? "—"}
-            {ev.confidence_pct != null && <span className="text-[11px] text-terminal-muted"> ({ev.confidence_pct}%)</span>}
-          </div>
-          {/* Evidence-agreement ratio (owner, 2026-07-24) — how many of the 7
-              sources independently agree, NOT a fabricated confidence score. */}
-          <div className="text-[9px] text-terminal-muted">Evidence</div>
-        </div>
       </div>
 
       {hero.gamma_wall != null && (
@@ -82,18 +73,6 @@ export function SRHeroCard() {
           <span className="tabular-nums text-white">{hero.gamma_wall} <span className="text-terminal-muted">({hero.gamma_wall_distance} pts away)</span></span>
         </div>
       )}
-
-      {/* Why here — evidence checklist, not a "confidence %" (owner: probability
-          only in Forecast AI; elsewhere observed/evidence). YES/NO per source,
-          each read from its own owning engine, never re-derived here. */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] border-t border-terminal-border pt-1.5">
-        {Object.entries(EVIDENCE_LABEL).map(([k, label]) => (
-          <span key={k} className="flex items-center gap-1">
-            <span className={ev[k] ? "text-terminal-bull" : "text-terminal-muted"}>{ev[k] ? "✓" : "○"}</span>
-            <span className="text-terminal-muted">{label}</span>
-          </span>
-        ))}
-      </div>
 
       <div className="text-[10px] text-terminal-muted">
         {hero.workflow?.note || "Structure readiness only — the Decision Engine still decides BUY/WAIT/EXIT."}

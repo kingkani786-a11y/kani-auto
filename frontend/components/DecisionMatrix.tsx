@@ -2,6 +2,13 @@
 // P1 — AI Decision Matrix. Renders above the Final Signal: each confirmation
 // layer as PASS / FAIL / NEUTRAL with its reason (UI rule: explain every score).
 // Plus P3 Institutional Thoughts. Reads layers.intelligence (no new fetch).
+//
+// Owner Step 6 (Evidence Panel Final, 2026-07-26) trim: this grid is
+// evidence-adjacent (per-layer confirmation), so it no longer shows the
+// decision wording (dm.decision, e.g. "BUY CE"/"NO TRADE") or the
+// institutional-thoughts confidence% number — those belong on the Hero
+// (TradeNowCard) only, per Rule 11. The pass/fail grid and behavior
+// reasoning stay; only decision/confidence wording was removed.
 
 import { useMarket } from "@/lib/store";
 
@@ -27,7 +34,6 @@ export function DecisionMatrix() {
         <span className="text-xs font-mono">
           <span className="text-terminal-bull">{dm.passed}</span>
           <span className="text-terminal-muted"> / {dm.total} pass</span>
-          <span className="text-terminal-muted"> · {dm.decision}</span>
         </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -62,7 +68,7 @@ export function DecisionMatrix() {
           <span className="stat-label mr-1">Institutions likely:</span>
           {(it.likely || []).map((t: any, i: number) => (
             <span key={i} className="font-mono">
-              {t.behaviour} <span className="text-terminal-muted">{t.confidence}%</span>{i < it.likely.length - 1 ? " · " : ""}
+              {t.behaviour}{i < it.likely.length - 1 ? " · " : ""}
             </span>
           ))}
           {(it.not_yet || []).length > 0 && (

@@ -289,19 +289,24 @@ def attach_evidence(levels_result: dict[str, Any], cmp: float,
         return target is not None and abs(level - target) <= tol
 
     def _evidence(level: float) -> dict[str, Any]:
+        # Owner Step 6 (Evidence Panel Final, 2026-07-26): dropped "swing"
+        # (was hard-coded True for every row — "these ARE swing-clustered
+        # levels" — not a real check, carried no evidentiary information).
+        # Renamed "oi_wall" -> "gamma_wall": this field tests proximity to
+        # the Gamma Wall (expiry.py), not open-interest buildup — the old
+        # name implied a different signal than what it actually measured.
         ev = {
             "vwap": _near(level, vwap),
-            "swing": True,   # trivially true — these ARE swing-clustered levels
             "volume_node": _near(level, vp.get("poc")) or _near(level, vp.get("vah")) or _near(level, vp.get("val")),
             "cpr": any(_near(level, v) for v in cpr_vals),
-            "oi_wall": _near(level, gamma_wall),
+            "gamma_wall": _near(level, gamma_wall),
             "volume": _recent_volume_spike(candles or [], level, tol),
             "price_action": _recent_price_action(candles or [], level, tol),
         }
         count = sum(1 for v in ev.values() if v)
         total = len(ev)
         # owner, 2026-07-24: an OBSERVED source-agreement ratio (how many of
-        # the 7 sources above independently agree), never a fabricated
+        # the sources above independently agree), never a fabricated
         # "AI confidence" score — same discipline as bounce_pct/break_pct.
         return {**ev, "count": count, "total": total,
                 "confidence_pct": round(count / total * 100, 1) if total else None}

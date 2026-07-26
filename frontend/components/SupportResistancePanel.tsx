@@ -2,20 +2,27 @@
 // DYNAMIC SUPPORT/RESISTANCE — Phase 2 (owner, 2026-07-23, item #5).
 // Spot levels (swing-fractal clustering + real touch/bounce/break stats from
 // candle history), CPR (daily/weekly/monthly pivots — fixed formula, not
-// tuned), per-level evidence (VWAP/Volume Node/CPR/OI Wall confluence — each
-// read from its own owning engine, never re-derived).
+// tuned), per-level evidence (VWAP/Volume Node/CPR/Gamma Wall confluence —
+// each read from its own owning engine, never re-derived). This per-level
+// detail (why THIS level specifically is rated N stars) is distinct from
+// the Evidence Panel (evidence for the CURRENT trade as a whole) and stays
+// here per owner Step 6 sign-off.
 //
 // Owner Step 3 (S/R Finalization) Principle 2: Spot and Premium S/R are
 // NEVER shown in the same panel. Premium S/R lives exclusively in
 // PremiumSRStrip.tsx — this panel used to embed a PremiumSR sub-component
 // too, which contradicted that rule; removed 2026-07-26.
+//
+// Owner Step 6 (Evidence Panel Final, 2026-07-26): dropped "swing" (was
+// hard-coded true for every row, not a real check). Renamed "oi_wall" ->
+// "gamma_wall" — the field tests Gamma Wall proximity, not OI buildup.
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 const EVIDENCE_LABEL: Record<string, string> = {
-  vwap: "VWAP", swing: "Swing", volume_node: "Vol Node", cpr: "CPR", oi_wall: "OI Wall",
+  vwap: "VWAP", volume_node: "Vol Node", cpr: "CPR", gamma_wall: "Gamma Wall",
   volume: "Volume", price_action: "Price Action",
 };
 

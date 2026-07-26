@@ -33,6 +33,7 @@ import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { TradeNowCard } from "@/components/TradeNowCard";
 import { BlockReasonHero } from "@/components/BlockReasonHero";
+import { EvidencePanel } from "@/components/EvidencePanel";
 import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
 import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
 import { SRHeroCard } from "@/components/SRHeroCard";
@@ -267,6 +268,16 @@ export default function Dashboard() {
           market = quiet UI). */}
       <SafeBoundary name="Block Reason">
         <BlockReasonHero />
+      </SafeBoundary>
+
+      {/* EVIDENCE PANEL (owner Step 6, 2026-07-26) — the one place evidence
+          for the current trade lives (Price Action/Swing/VWAP/CPR/Gamma
+          Wall/OI/Volume/Market Structure). Never a decision, never BUY/SELL,
+          never a confidence or probability number — see component header.
+          Locked hierarchy: Hero -> Execution Status -> WHY HERE -> Evidence
+          Panel (here) -> Support & Resistance -> Market Structure. */}
+      <SafeBoundary name="Evidence">
+        <EvidencePanel />
       </SafeBoundary>
 
       {/* ⚡ EARLY WARNING — the earliest catch, before the move even starts.

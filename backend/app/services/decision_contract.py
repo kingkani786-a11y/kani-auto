@@ -167,7 +167,11 @@ def _contract() -> dict[str, Any]:
         return round(sum(vals) / len(vals) / 100 * 20) if vals else None
     ledger = [
         {"pillar": "Trend", "score": _p20("Trend")},
-        {"pillar": "Price Action", "score": _p20("Structure", "MTF")},
+        # Owner Step 6 (Evidence Panel Final, 2026-07-26): this pillar was
+        # labeled "Price Action" but averages Structure+MTF layer scores —
+        # a naming collision with support_resistance.py's REAL Price Action
+        # check (wick-rejection at a level). Renamed to avoid confusion.
+        {"pillar": "Structure/MTF", "score": _p20("Structure", "MTF")},
         {"pillar": "Institutional", "score": _p20("Institutional", "Smart Money", "OI")},
         {"pillar": "Momentum/Flow", "score": _p20("Futures", "Liquidity", "Volume Profile")},
         {"pillar": "Risk", "score": _p20("Risk")},
@@ -332,13 +336,15 @@ def _contract() -> dict[str, Any]:
          "ok": _vol >= 55 if isinstance(_vol, (int, float)) else None},
         {"key": "calibration", "label": "Calibration",
          "ok": _cal >= 55 if isinstance(_cal, (int, float)) else None},
-        # Structure stays UNMEASURED on purpose. The owner's instruction was
-        # explicit: BOS/CHOCH/HH/HL/LH/LL must exist first — "இவை வந்த பிறகுதான்
-        # 'Structure ✔' checklist-ல் சேர்க்க வேண்டும்". A generic structure layer
-        # score exists, but passing it off as this check would be exactly the
-        # fabricated confirmation the charter forbids.
-        {"key": "structure", "label": "Structure", "ok": None,
-         "note": "Market Structure Engine not built — not measured"},
+        # Owner Step 6 (Evidence Panel Final, 2026-07-26): this item stayed
+        # UNMEASURED until BOS/CHOCH/HH/HL/LH/LL existed — "இவை வந்த பிறகுதான்
+        # 'Structure ✔' checklist-ல் சேர்க்க வேண்டும்". That precondition was
+        # met and audited clean in Step 5 (structure.py, live since 2026-07-24),
+        # so this now reads the real Decision Matrix "Structure" row score —
+        # the same source _vol above reads for "Volume Profile" — not a new
+        # or fabricated check.
+        {"key": "structure", "label": "Structure",
+         "ok": layers.get("Structure") >= 55 if isinstance(layers.get("Structure"), (int, float)) else None},
     ]
     _known = [c["ok"] for c in buy_checklist if c["ok"] is not None]
     buy_checklist_score = {"passed": sum(1 for v in _known if v),
