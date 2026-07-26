@@ -1,0 +1,50 @@
+# Cloud AI Trader — local Docker deployment (owner decision, 2026-07-26):
+# runs on THIS Mac, replacing the LaunchAgent-managed processes — not a
+# remote server. Broker credentials (Dhan Client ID/Token) are NEVER passed
+# here — they go in via the Settings UI at runtime and live in
+# state.credentials (in-process memory only), same as the non-Docker
+# deployment. backend/.env carries only non-broker config (Supabase, app
+# password, Gemini/Anthropic key, capital/risk defaults) — see
+# backend/.env.example.
+#
+# Bind-mounts backend/data (not a named volume) so the black-box history
+# already on disk from months of testing continues, rather than starting a
+# Docker-managed volume from empty.
+#
+# Usage: docker compose up -d --build
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # Reaches the backend by its Compose service name, not localhost —
+      # read by next.config.mjs's rewrites() at server start.
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

@@ -15,6 +15,11 @@ const nextConfig = isStatic
     }
   : {
       reactStrictMode: true,
+      // Docker (2026-07-26): standalone bundles only the server + traced
+      // deps into .next/standalone — a fraction of a full node_modules copy.
+      // Additive to the existing web build; unrelated to the static branch
+      // above (Capacitor/Electron), which is untouched.
+      output: "standalone",
       async rewrites() {
         const backend = process.env.BACKEND_URL || "http://localhost:8000";
         return [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
