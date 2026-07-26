@@ -12,6 +12,13 @@ import { BuyChecklist } from "@/components/BuyChecklist";
 const GRADE_STARS: Record<string, number> = { "A+": 5, A: 4, B: 3, C: 2, D: 1 };
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 
+// Owner Step 10 (MTF Confluence, 2026-07-27) — same 5-timeframe row shown in
+// the owner's own spec example ("5m BUY / 15m BUY / 1H BUY / 4H BUY / Daily
+// BUY"); the engine also computes 1m/3m but those aren't shown here (same
+// reasoning as everywhere else this row appears — noisier, not the signal
+// that decides alignment/conflict).
+const MTF_HERO_TFS = ["5m", "15m", "1H", "4H", "Daily"];
+
 const fmt = (n: any) => (typeof n === "number" ? n.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "—");
 
 export function TradeNowCard() {
@@ -130,6 +137,37 @@ export function TradeNowCard() {
               {sw.prob_itm_pct != null && ` · ITM ${Math.round(sw.prob_itm_pct)}%`}
               {sw.delta != null && ` · Δ ${sw.delta}`}
               {sw.iv != null && ` · IV ${sw.iv}`}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MTF Confluence (owner Step 10, 2026-07-27) — pure re-presentation of
+          mtf_confluence.py's already-computed per-TF verdicts + alignment
+          stars / conflict flag (decision_contract.py's `mtf` field). Never a
+          second opinion — the Hero's own verdict above is unchanged by this;
+          this only shows whether the higher timeframes agree with it. */}
+      {c.mtf?.ready && (
+        <div className="border-t border-terminal-border pt-2">
+          <div className="flex items-baseline justify-between mb-1">
+            <span className="text-[10px] font-semibold text-terminal-muted uppercase tracking-wide">Multi-Timeframe</span>
+            {c.mtf.higher_tf_conflict ? (
+              <span className="text-[10px] font-bold text-terminal-bear">MTF CONFLICT</span>
+            ) : c.mtf.alignment_stars ? (
+              <span className="text-[10px] font-bold text-terminal-bull">MTF Alignment {stars(c.mtf.alignment_stars)}</span>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+            {MTF_HERO_TFS.map((label) => {
+              const v = c.mtf.timeframes?.[label]?.verdict;
+              if (!v) return null;
+              const tone = v === "BUY" ? "text-terminal-bull" : v === "SELL" ? "text-terminal-bear" : "text-terminal-muted";
+              return <span key={label} className={tone}>{label} {v}</span>;
+            })}
+          </div>
+          {c.mtf.higher_tf_conflict && (
+            <div className="text-[10px] text-terminal-bear mt-1">
+              A higher timeframe disagrees — see Execution Lock / Risk panel. Informational only, does not change position size.
             </div>
           )}
         </div>

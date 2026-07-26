@@ -24,7 +24,8 @@ _cache: dict[str, dict[str, Any]] = {}   # symbol -> {"ts": float, "weekly": {},
 
 def get(symbol: str) -> dict[str, Any]:
     c = _cache.get(symbol)
-    return {"weekly": c["weekly"], "monthly": c["monthly"]} if c else {"weekly": {}, "monthly": {}}
+    return ({"weekly": c["weekly"], "monthly": c["monthly"], "daily_candles": c.get("daily_candles", [])}
+            if c else {"weekly": {}, "monthly": {}, "daily_candles": []})
 
 
 def stale(symbol: str) -> bool:
@@ -43,6 +44,11 @@ async def refresh(client, inst) -> None:
             "ts": time.time(),
             "weekly": support_resistance.period_pivots(daily, "W"),
             "monthly": support_resistance.period_pivots(daily, "M"),
+            # Owner Step 10 (MTF Confluence, 2026-07-27): retained here so
+            # the Daily timeframe leg of MTF confluence can reuse this same
+            # fetch — zero new broker calls, same discipline as this
+            # module's own "cache-gated, refresh lazily" design.
+            "daily_candles": daily,
         }
     except Exception as e:
         log.warning("period pivot refresh failed for %s: %s", inst.symbol, e)

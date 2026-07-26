@@ -43,6 +43,30 @@ def _ai_dealer_speech(c: dict[str, Any]) -> list[str]:
             for r in reasons[:3]:
                 lines.append(r + ".")
         lines.append("No Trade." if not c.get("is_trade") else "Standing aside.")
+
+    # Owner Step 10 (MTF Confluence, 2026-07-27) — pure restatement of the
+    # engine's own already-computed higher_tf_conflict flag (Golden Rule: no
+    # new opinion, just plain-language translation of a fact that already
+    # exists on the contract). Silent when not yet ready — an honest "not
+    # enough bars yet" omission, never a fabricated verdict.
+    mtf = c.get("mtf") or {}
+    if mtf.get("ready"):
+        if mtf.get("higher_tf_conflict"):
+            tfs = mtf.get("timeframes") or {}
+            verdict = ad.get("verdict") or ""
+            hero_bias = "BUY" if verdict == "BUY CALL" else "SELL" if verdict == "BUY PUT" else None
+            conflict_tf = next((label for label in ("1H", "4H", "Daily")
+                                 if hero_bias and tfs.get(label, {}).get("verdict") not in (None, "NEUTRAL", hero_bias)),
+                                None)
+            if hero_bias and conflict_tf:
+                low_word = "bullish" if hero_bias == "BUY" else "bearish"
+                high_word = "bullish" if tfs[conflict_tf]["verdict"] == "BUY" else "bearish"
+                lines.append(f"Lower timeframe is {low_word}, but {conflict_tf} timeframe remains {high_word}.")
+            else:
+                lines.append("Higher timeframes are in conflict.")
+            lines.append("Waiting.")
+        else:
+            lines.append("Higher timeframes are aligned.")
     return lines
 
 

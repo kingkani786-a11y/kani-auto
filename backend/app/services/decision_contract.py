@@ -71,7 +71,7 @@ def _invalidations(dec: dict, tech: dict, cpr_pivot: float | None = None,
 def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, Any],
                spot: float | None, cpr_pivot: float | None, sr_resistance: float | None,
                premium_plan: dict[str, Any], invalidations: list[str],
-               risk_ok: bool | None) -> dict[str, Any]:
+               risk_ok: bool | None, mtf: dict[str, Any] | None = None) -> dict[str, Any]:
     """AI Dealer — owner Step 9 (Explainability Final, 2026-07-27). A PURE
     NARRATOR: reads ONLY already-computed fields from this contract + the
     canonical Evidence/Structure/S-R/Risk engines (Steps 3/5/6/7). It NEVER
@@ -100,6 +100,10 @@ def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, A
     def _side_ok(level: float | None) -> bool:
         return bool(level and spot) and ((spot >= level) if bullish else (spot <= level))
 
+    mtf = mtf or {}
+    mtf_ready = bool(mtf.get("ready"))
+    mtf_conflict = bool(mtf.get("higher_tf_conflict"))
+
     why_buy = [
         {"label": "VWAP", "ok": _side_ok(vwap)},
         {"label": "Gamma Support", "ok": _side_ok(gamma_wall)},
@@ -107,6 +111,10 @@ def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, A
         {"label": "CPR Above" if bullish else "CPR Below", "ok": _side_ok(cpr_pivot)},
         {"label": "Volume Confirmation", "ok": bool(vol_row and vol_row.get("verdict") == "PASS")},
         {"label": "Risk Approved", "ok": bool(risk_ok)},
+        # Owner Step 10 (MTF Confluence, 2026-07-27): ok=None (not shown as a
+        # cross) until the engine has enough bars to actually say something —
+        # same "unmeasured, not failed" convention every other None here uses.
+        {"label": "MTF Alignment", "ok": (not mtf_conflict) if mtf_ready else None},
     ]
     ks = state.kill_switch or {}
     why_not_buy_all = [
@@ -115,6 +123,7 @@ def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, A
         {"label": "No BOS", "active": bos != "BOS"},
         {"label": "Weak Volume", "active": bool(vol_row and vol_row.get("verdict") == "FAIL")},
         {"label": "High Risk", "active": cap.get("category") in ("HIGH", "CRITICAL", "EXTREME", "DANGER")},
+        {"label": "MTF Conflict", "active": mtf_ready and mtf_conflict},
     ]
 
     return {
@@ -131,6 +140,8 @@ def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, A
             "gamma_wall": gamma_wall,
         },
         "invalidation": invalidations,
+        "mtf": {"ready": mtf_ready, "higher_tf_conflict": mtf_conflict,
+                "alignment_pct": mtf.get("alignment_pct"), "alignment_stars": mtf.get("alignment_stars")},
         "note": "Pure narration of already-verified dashboard state — never a decision, never a second opinion.",
     }
 
@@ -156,8 +167,11 @@ def contract() -> dict[str, Any]:
                 "block_reason_hero": {"active": False, "strike": None, "type": None, "reason": None,
                                       "execution_lock": "CLEAR", "manual_entry_available": True},
                 "invalidations": [], "instruction": "Standing aside.",
+                "mtf": {"ready": False, "timeframes": {}, "note": "Contract builder degraded this cycle."},
                 "ai_dealer": {"verdict": "WAIT", "is_buy": False, "why_buy": [], "why_not_buy": [],
                              "next_level": {}, "invalidation": [],
+                             "mtf": {"ready": False, "higher_tf_conflict": False,
+                                     "alignment_pct": None, "alignment_stars": None},
                              "note": "Contract builder degraded — no narration available this cycle."},
                 "signal_ts": None, "as_of": int(time.time()),
                 "note": "Degraded honest fallback — display layer only."}
@@ -482,6 +496,16 @@ def _contract() -> dict[str, Any]:
     _struct_raw = _raw_layers.get("structure") or {}
     _invalidations_list = _invalidations(dec, tech, cpr_pivot=_cpr_pivot, struct=_struct_raw)
 
+    # ── MTF Confluence (owner Step 10, 2026-07-27) — pure passthrough of the
+    # engine's own result (backend/app/engines/mtf_confluence.py), computed
+    # once per cycle in market_service.py and published on state.decision.
+    # Nothing recomputed here; this contract only forwards it to the display
+    # surfaces (Hero table, Evidence row, Risk flag, AI Dealer/Voice) that
+    # need it, same "on-demand read of already-published state" pattern as
+    # every other field in this function.
+    _mtf = dec.get("mtf_confluence") or {"ready": False, "timeframes": {},
+                                          "note": "Waiting for enough bars at each timeframe."}
+
     return {
         "action": action,
         "is_trade": is_trade,
@@ -505,8 +529,9 @@ def _contract() -> dict[str, Any]:
         "buy_checklist_score": buy_checklist_score,
         "block_reason_hero": block_reason_hero,
         "invalidations": _invalidations_list,
+        "mtf": _mtf,
         "ai_dealer": _ai_dealer(dec, sig, _raw_layers, _spot, _cpr_pivot, _sr_resistance,
-                                premium_plan, _invalidations_list, risk_ok),
+                                premium_plan, _invalidations_list, risk_ok, mtf=_mtf),
         "instruction": ("If ANY invalidation occurs → EXIT immediately."
                         if is_trade else
                         "Standing aside — re-evaluated every engine cycle."),

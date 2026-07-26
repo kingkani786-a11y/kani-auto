@@ -201,6 +201,13 @@ class MarketService:
                     from . import period_pivot_cache
                     inst = get_instrument(state.symbol)
                     await period_pivot_cache.refresh(self.client, inst)
+                    # Owner Step 10 (MTF Confluence, 2026-07-27) — 4H candles,
+                    # cache-gated 20min (mtf_4h_cache.py). Same low-frequency
+                    # discipline as the pivot cache above; a 4H bar only
+                    # closes 6x/day so per-cycle refetching would be waste
+                    # that competes with the shared broker rate budget.
+                    from . import mtf_4h_cache
+                    await mtf_4h_cache.refresh(self.client, inst)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -1035,6 +1042,23 @@ class MarketService:
             state.exit_intel = exit_intelligence.analyze(packet["layers"], lc_snap, packet["signal"], spot, state.candles)
         except Exception:
             log.exception("exit intelligence failed")
+
+        # Owner Step 10 (MTF Confluence, 2026-07-27) — real per-timeframe
+        # analysis, additive only (see mtf_confluence.py's own docstring for
+        # why this never touches the existing mtf.py/calibration gate).
+        # 1m/3m/5m/15m/1H are resampled from the already-fetched state.candles
+        # (zero new broker calls); Daily/4H reuse their own low-frequency
+        # caches (period_pivot_cache.py, mtf_4h_cache.py — also zero new
+        # calls per cycle, refreshed on their own slow schedule above).
+        try:
+            from ..engines import mtf_confluence
+            from . import period_pivot_cache, mtf_4h_cache
+            _daily = period_pivot_cache.get(state.symbol).get("daily_candles") or []
+            _h4 = mtf_4h_cache.get(state.symbol)
+            decision["mtf_confluence"] = mtf_confluence.analyze(
+                state.candles, _h4, _daily, packet["signal"].get("direction"))
+        except Exception:
+            log.exception("mtf confluence failed")
 
         # Phase 3 audit: record this decision for forward-tracked validation
         try:

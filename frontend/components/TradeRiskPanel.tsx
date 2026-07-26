@@ -48,7 +48,15 @@ export function TradeRiskPanel() {
   // blocking-reason surface already uses.
   const invalidations: string[] = displayReasons(rc?.invalidations || []);
 
-  if (slIndex == null && slPremium == null && !ps.risk_amount && invalidations.length === 0) return null;
+  // Owner Step 10 (MTF Confluence, 2026-07-27) — display-only flag from the
+  // new mtf_confluence engine (decision_contract.py's `mtf` field). Per
+  // owner sign-off this is informational only for now; it does NOT reduce
+  // position size — any sizing change is a separate Trading Doctrine
+  // proposal once there's real evidence on how predictive this flag is.
+  const mtfReady = !!rc?.mtf?.ready;
+  const htfConflict = !!rc?.mtf?.higher_tf_conflict;
+
+  if (slIndex == null && slPremium == null && !ps.risk_amount && invalidations.length === 0 && !mtfReady) return null;
 
   return (
     <section className="panel border border-terminal-border/60">
@@ -87,6 +95,15 @@ export function TradeRiskPanel() {
           {invalidations.map((inv, i) => (
             <div key={i} className="text-terminal-muted">• {inv}</div>
           ))}
+        </div>
+      )}
+
+      {mtfReady && (
+        <div className="text-[10px] border-t border-terminal-border/40 mt-2 pt-1.5 flex items-center justify-between">
+          <span className="text-terminal-muted font-semibold uppercase">Higher Timeframe Conflict</span>
+          <span className={`font-bold ${htfConflict ? "text-terminal-bear" : "text-terminal-bull"}`}>
+            {htfConflict ? "YES" : "NO"}
+          </span>
         </div>
       )}
 

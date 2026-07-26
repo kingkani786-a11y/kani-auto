@@ -35,15 +35,26 @@ const STATUS_TONE: Record<Status, string> = {
 };
 const MARK: Record<Status, string> = { YES: "✓", NO: "○", "N/A": "–" };
 
+// Owner Step 10 (MTF Confluence, 2026-07-27) — the 5 timeframes shown in the
+// owner's own spec example ("5m ✓ / 15m ✓ / 1H ✓ / 4H ✓ / Daily ✓"); the
+// engine also computes 1m/3m but those are left off this row (noisier,
+// same "lower TF disagreement isn't a red flag" reasoning the engine itself
+// already applies to higher_tf_conflict).
+const MTF_ROW_TFS = ["5m", "15m", "1H", "4H", "Daily"];
+
 export function EvidencePanel() {
   const { layers } = useMarket();
   const [sr, setSr] = useState<any>(null);
   const [struct, setStruct] = useState<any>(null);
+  const [dc, setDc] = useState<any>(null);
 
   useEffect(() => {
     const load = () => {
       api.supportResistance().then(setSr).catch(() => {});
       api.marketStructure().then(setStruct).catch(() => {});
+      // Owner Step 10 (MTF Confluence, 2026-07-27) — same decision-contract
+      // source TradeRiskPanel/AI Dealer read, just this panel's own fields.
+      api.decisionContract().then(setDc).catch(() => {});
     };
     load();
     const id = setInterval(load, 10000);
@@ -58,7 +69,17 @@ export function EvidencePanel() {
   const volRow = dmRow("Volume Profile");
   const rowStatus = (r: any): Status => (!r ? "N/A" : r.verdict === "PASS" ? "YES" : r.verdict === "FAIL" ? "NO" : "N/A");
 
-  if (!ev && !dm?.rows && !structReady) return null;
+  // Owner Step 10 (MTF Confluence, 2026-07-27) — per-TF ✓/✗ against the
+  // Hero's OWN already-decided verdict (decision_contract.py's ai_dealer),
+  // reusing mtf_confluence.py's per-TF verdicts. Never a second opinion:
+  // ✓ means "this timeframe agrees with the Hero", not a new judgement.
+  const mtf = dc?.mtf;
+  const heroVerdict = dc?.ai_dealer?.verdict;
+  const heroBias = heroVerdict === "BUY CALL" ? "BUY" : heroVerdict === "BUY PUT" ? "SELL" : null;
+  const mtfTfs = mtf?.timeframes || {};
+  const mtfReady = !!mtf?.ready && !!heroBias;
+
+  if (!ev && !dm?.rows && !structReady && !mtfReady) return null;
 
   const rows: Row[] = [
     { label: "Price Action", status: ev ? (ev.price_action ? "YES" : "NO") : "N/A" },
@@ -85,6 +106,26 @@ export function EvidencePanel() {
           </div>
         ))}
       </div>
+
+      {mtfReady && (
+        <div className="text-[10px] border-t border-terminal-border/40 mt-2 pt-1.5">
+          <div className="text-terminal-muted font-semibold mb-1 uppercase">Multi Timeframe</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {MTF_ROW_TFS.map((label) => {
+              const v = mtfTfs[label]?.verdict;
+              const agrees = v === heroBias;
+              const has = v && v !== "NEUTRAL";
+              const cls = !has ? "text-terminal-muted/50" : agrees ? "text-terminal-bull" : "text-terminal-bear";
+              return (
+                <span key={label} className={cls}>
+                  {label} {has ? (agrees ? "✓" : "✗") : "–"}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="text-[10px] text-terminal-muted mt-2">
         Evidence only — never a BUY/SELL call, confidence, or probability. The decision stays with the Hero card above.
       </div>
