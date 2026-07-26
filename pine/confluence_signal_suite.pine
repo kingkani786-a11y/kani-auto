@@ -1,0 +1,490 @@
+//@version=6
+indicator("Confluence Signal Suite", shorttitle="CSS", overlay=true, max_lines_count=60, max_labels_count=500)
+
+// ============================= INPUTS =============================
+grpTrend = "Trend Filter"
+emaFastLen = input.int(21, "EMA Fast Length", minval=1, group=grpTrend)
+emaSlowLen = input.int(50, "EMA Slow Length", minval=1, group=grpTrend)
+adxLen     = input.int(14, "ADX Length", minval=1, group=grpTrend)
+adxThresh  = input.float(15.0, "ADX Trend Threshold", minval=0, group=grpTrend)
+stLen      = input.int(10, "Supertrend ATR Length", minval=1, group=grpTrend)
+stMult     = input.float(3.0, "Supertrend Multiplier", minval=0.1, step=0.1, group=grpTrend)
+minTrendScore = input.int(3, "Minimum Trend Score (of 4)", minval=1, maxval=4, group=grpTrend, tooltip="Lower = more signals, higher = stricter trend confirmation")
+
+grpVwap = "VWAP Mean-Reversion Bands"
+useVwapBands = input.bool(true, "Show VWAP Bands", group=grpVwap)
+vwapSrc      = input.source(hl2, "VWAP Source", group=grpVwap)
+vwapLookback = input.int(13, "Std Dev Lookback", minval=2, group=grpVwap)
+vwapMult     = input.float(2.0, "Std Dev Multiplier", minval=0.1, step=0.1, group=grpVwap)
+
+grpRange = "Range Filter (PRIMARY signal trigger)"
+rfPeriod   = input.int(100, "Sampling Period", minval=2, group=grpRange)
+rfMult     = input.float(3.0, "Range Multiplier", minval=0.1, step=0.1, group=grpRange)
+rfSrc      = input.source(close, "Range Filter Source", group=grpRange)
+useTrendGate = input.bool(false, "Require Trend agreement (fewer signals, may delay)", group=grpRange, tooltip="OFF = entry fires exactly on Range Filter flip (matches reference timing). ON = only trade in trend direction.")
+useFilterConfluence = input.bool(false, "Require Filter confluence (fewer false signals)", group=grpRange, tooltip="OFF = reference timing. ON = RSI/MACD/Volume/Squeeze must agree per Minimum Filter Score.")
+
+grpFilter = "Signal Filters"
+useRsiFilter  = input.bool(true, "RSI Filter", group=grpFilter)
+rsiLen        = input.int(14, "RSI Length", minval=1, group=grpFilter)
+useMacdFilter = input.bool(true, "MACD Filter", group=grpFilter)
+useVolFilter  = input.bool(true, "Volume Filter", group=grpFilter)
+volLen        = input.int(20, "Volume EMA Length", minval=1, group=grpFilter)
+useBBFilter   = input.bool(true, "Avoid Chop (Bollinger Squeeze Filter)", group=grpFilter)
+useMtfFilter  = input.bool(false, "Multi-Timeframe Confirmation", group=grpFilter)
+mtfRes        = input.timeframe("60", "Higher Timeframe", group=grpFilter)
+minFilterScore = input.int(2, "Minimum Filter Score (of 5)", minval=0, maxval=5, group=grpFilter, tooltip="How many of RSI/MACD/Volume/Squeeze/MTF must agree. 0=off (max signals), 5=all must agree (max strictness)")
+
+grpTarget = "Targets & Exit"
+useAtrTarget = input.bool(false, "Use ATR for Targets/SL instead of Points", group=grpTarget)
+atrLen       = input.int(14, "ATR Length", minval=1, group=grpTarget)
+target1Pts   = input.float(30.0, "Target 1 Points", minval=0, group=grpTarget)
+target2Pts   = input.float(60.0, "Target 2 Points", minval=0, group=grpTarget)
+t1AtrMult    = input.float(1.5, "Target 1 ATR Multiplier", minval=0.1, step=0.1, group=grpTarget)
+t2AtrMult    = input.float(3.0, "Target 2 ATR Multiplier", minval=0.1, step=0.1, group=grpTarget)
+slPoints     = input.float(20.0, "Stop Loss Points", minval=0, group=grpTarget)
+slAtrMult    = input.float(1.0, "Stop Loss ATR Multiplier", minval=0.1, step=0.1, group=grpTarget)
+useTrailSL   = input.bool(true, "Enable Trailing Stop Loss", group=grpTarget)
+trailPts     = input.float(20.0, "Trailing SL Points", minval=0, group=grpTarget)
+trailAtrMult = input.float(1.0, "Trailing SL ATR Multiplier", minval=0.1, step=0.1, group=grpTarget)
+showLevels   = input.bool(true, "Draw SL / Target lines", group=grpTarget)
+
+grpStyle = "Colors"
+colBuy        = input.color(color.new(color.lime, 0), "Buy / Long", group=grpStyle)
+colSell       = input.color(color.new(color.red, 0), "Sell / Short", group=grpStyle)
+colExit       = input.color(color.new(color.purple, 0), "Exit", group=grpStyle)
+colResistance = input.color(color.new(color.red, 0), "Resistance", group=grpStyle)
+colSupport    = input.color(color.new(color.green, 0), "Support", group=grpStyle)
+
+// ============================= TREND FILTER =============================
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+[diPlus, diMinus, adxVal] = ta.dmi(adxLen, adxLen)
+[stLine, stDir] = ta.supertrend(stMult, stLen)
+trendUp = stDir < 0
+
+trendScoreUp = (close > emaFast ? 1 : 0) + (emaFast > emaSlow ? 1 : 0) + (trendUp ? 1 : 0) + (adxVal > adxThresh ? 1 : 0)
+trendScoreDn = (close < emaFast ? 1 : 0) + (emaFast < emaSlow ? 1 : 0) + (not trendUp ? 1 : 0) + (adxVal > adxThresh ? 1 : 0)
+bullTrend = trendScoreUp >= minTrendScore
+bearTrend = trendScoreDn >= minTrendScore
+
+// ============================= VWAP BANDS =============================
+vwapBasis = ta.vwap(vwapSrc)
+vwapStdev = ta.stdev(vwapSrc, vwapLookback)
+vwapUpper = vwapBasis + vwapMult * vwapStdev
+vwapLower = vwapBasis - vwapMult * vwapStdev
+
+// ============================= RANGE FILTER (canonical, non-repainting) =============================
+// Smoothed average-range band; entry fires on the confirmed direction flip.
+smoothRange(x, t, m) =>
+    wper  = t * 2 - 1
+    avrng = ta.ema(math.abs(x - x[1]), t)
+    ta.ema(avrng, wper) * m
+
+rngFilt(x, r) =>
+    var float rf = na
+    prev = nz(rf[1], x)
+    rf := x > prev ? (x - r < prev ? prev : x - r) : (x + r > prev ? prev : x + r)
+    rf
+
+smrng = smoothRange(rfSrc, rfPeriod, rfMult)
+filt  = rngFilt(rfSrc, smrng)
+hband = filt + smrng
+lband = filt - smrng
+
+var float upCount = 0.0
+var float dnCount = 0.0
+upCount := filt > filt[1] ? nz(upCount[1]) + 1 : filt < filt[1] ? 0 : nz(upCount[1])
+dnCount := filt < filt[1] ? nz(dnCount[1]) + 1 : filt > filt[1] ? 0 : nz(dnCount[1])
+
+longCond  = (rfSrc > filt and (rfSrc > rfSrc[1] or rfSrc < rfSrc[1]) and upCount > 0)
+shortCond = (rfSrc < filt and (rfSrc < rfSrc[1] or rfSrc > rfSrc[1]) and dnCount > 0)
+
+var int condIni = 0
+condIni := longCond ? 1 : shortCond ? -1 : condIni[1]
+rfBuy  = longCond  and condIni[1] == -1
+rfSell = shortCond and condIni[1] == 1
+
+// ============================= SIGNAL FILTERS =============================
+rsiVal     = ta.rsi(close, rsiLen)
+rsiOkLong  = not useRsiFilter or rsiVal > 45
+rsiOkShort = not useRsiFilter or rsiVal < 55
+
+[macdLine, macdSignal, macdHist] = ta.macd(close, 12, 26, 9)
+macdOkLong  = not useMacdFilter or macdLine > macdSignal
+macdOkShort = not useMacdFilter or macdLine < macdSignal
+
+volEma = ta.ema(volume, volLen)
+volOk  = not useVolFilter or volume > volEma
+
+bbBasis    = ta.sma(close, 20)
+bbDev      = 2.0 * ta.stdev(close, 20)
+bbWidth    = (bbBasis + bbDev - (bbBasis - bbDev)) / bbBasis
+bbWidthAvg = ta.sma(bbWidth, 100)
+notSqueeze = not useBBFilter or bbWidth > bbWidthAvg * 0.5
+
+htfEma     = request.security(syminfo.tickerid, mtfRes, ta.ema(close, 50), lookahead=barmerge.lookahead_off)
+htfClose   = request.security(syminfo.tickerid, mtfRes, close, lookahead=barmerge.lookahead_off)
+mtfOkLong  = not useMtfFilter or htfClose > htfEma
+mtfOkShort = not useMtfFilter or htfClose < htfEma
+
+// ============================= SIGNAL LOGIC =============================
+// The Range Filter flip is the PRIMARY trigger — fires on the exact flip candle.
+// Trend & filter confluence are OPTIONAL gates (default OFF = reference timing).
+filterScoreLong  = (rsiOkLong ? 1 : 0) + (macdOkLong ? 1 : 0) + (volOk ? 1 : 0) + (notSqueeze ? 1 : 0) + (mtfOkLong ? 1 : 0)
+filterScoreShort = (rsiOkShort ? 1 : 0) + (macdOkShort ? 1 : 0) + (volOk ? 1 : 0) + (notSqueeze ? 1 : 0) + (mtfOkShort ? 1 : 0)
+
+trendOkLong  = not useTrendGate or bullTrend
+trendOkShort = not useTrendGate or bearTrend
+confOkLong   = not useFilterConfluence or filterScoreLong  >= minFilterScore
+confOkShort  = not useFilterConfluence or filterScoreShort >= minFilterScore
+
+rawBuy  = rfBuy  and trendOkLong  and confOkLong
+rawSell = rfSell and trendOkShort and confOkShort
+
+var int posState = 0
+var float entryPrice = na
+var float slPrice = na
+var float t1Price = na
+var float t2Price = na
+var bool  t1Done = false
+var bool pendingReentryLong = false
+var bool pendingReentryShort = false
+
+atrForTarget = ta.atr(atrLen)
+t1Dist    = useAtrTarget ? atrForTarget * t1AtrMult    : target1Pts
+t2Dist    = useAtrTarget ? atrForTarget * t2AtrMult    : target2Pts
+slDist    = useAtrTarget ? atrForTarget * slAtrMult    : slPoints
+trailDist = useAtrTarget ? atrForTarget * trailAtrMult : trailPts
+
+confirmed = barstate.isconfirmed
+
+buySignal  = rawBuy  and confirmed and posState != 1
+sellSignal = rawSell and confirmed and posState != -1
+
+if posState == 1 and confirmed and useTrailSL
+    slPrice := math.max(slPrice, close - trailDist)
+if posState == -1 and confirmed and useTrailSL
+    slPrice := math.min(slPrice, close + trailDist)
+
+t1HitLong  = posState == 1  and confirmed and not t1Done and high >= t1Price
+t2HitLong  = posState == 1  and confirmed and high >= t2Price
+slHitLong  = posState == 1  and confirmed and low  <= slPrice
+t1HitShort = posState == -1 and confirmed and not t1Done and low  <= t1Price
+t2HitShort = posState == -1 and confirmed and low  <= t2Price
+slHitShort = posState == -1 and confirmed and high >= slPrice
+
+if t1HitLong or t1HitShort
+    t1Done := true
+    slPrice := entryPrice
+
+exitLong  = posState == 1  and confirmed and (t2HitLong  or slHitLong  or rawSell)
+exitShort = posState == -1 and confirmed and (t2HitShort or slHitShort or rawBuy)
+
+if exitLong
+    pendingReentryLong := t2HitLong
+    posState := 0
+if exitShort
+    pendingReentryShort := t2HitShort
+    posState := 0
+
+isBuyReentry  = buySignal  and pendingReentryLong
+isSellReentry = sellSignal and pendingReentryShort
+
+if buySignal
+    posState := 1
+    entryPrice := close
+    slPrice := close - slDist
+    t1Price := close + t1Dist
+    t2Price := close + t2Dist
+    t1Done := false
+    pendingReentryLong := false
+    pendingReentryShort := false
+if sellSignal
+    posState := -1
+    entryPrice := close
+    slPrice := close + slDist
+    t1Price := close - t1Dist
+    t2Price := close - t2Dist
+    t1Done := false
+    pendingReentryShort := false
+    pendingReentryLong := false
+
+// ============================= SUPPORT / RESISTANCE — Cloud AI Trader parity =============================
+// Ported 1:1 from backend/app/engines/support_resistance.py (owner, 2026-07-23,
+// item #5) — same swing-fractal detection, same SEQUENTIAL clustering (not a
+// pairwise channel-width grouping), same touch/bounce/break walk over real
+// candle history. The point of "alignment" is that the LEVELS this indicator
+// draws are the same levels the dashboard shows — a different clustering
+// algorithm would draw different prices and defeat that. Declared thresholds,
+// same defaults as the backend; tune from evidence, never silently.
+grpSR = "Support / Resistance (Cloud AI Trader parity)"
+showSR         = input.bool(true, "Show S/R Levels", group=grpSR)
+srSwingWindow  = input.int(3, "Swing Window (bars each side)", minval=1, group=grpSR, tooltip="Backend SWING_WINDOW=3. A bar is a swing high/low only if it is the max/min of the window on BOTH sides (plain fractal).")
+srClusterTolPct = input.float(0.15, "Cluster Tolerance %", minval=0.01, step=0.01, group=grpSR, tooltip="Backend CLUSTER_TOL_PCT=0.15. Swing prices within this %% of each other (sequential merge) become one level.")
+srTouchTolPct  = input.float(0.10, "Touch Tolerance %", minval=0.01, step=0.01, group=grpSR, tooltip="Backend TOUCH_TOL_PCT=0.10. A candle within this %% of a level counts as a touch.")
+srReactBars    = input.int(3, "React Bars (bounce/break window)", minval=1, group=grpSR, tooltip="Backend REACT_BARS=3. Bars examined after a touch to classify bounce vs break.")
+srMinTouches   = input.int(3, "Min Touches for 'Established'", minval=1, group=grpSR, tooltip="Backend MIN_TOUCHES_STRENGTH=3.")
+srMaxBars      = input.int(300, "Max Bars Kept for Touch Stats", minval=50, group=grpSR, tooltip="Rolling history window used for swing/touch computation — bounds Pine's loop cost. The backend runs over the full day's candles server-side; this is the on-chart equivalent.")
+srNumPerSide   = input.int(3, "Levels per side", minval=1, maxval=5, group=grpSR)
+showPivotDots  = input.bool(false, "Show Swing High/Low Points", group=grpSR)
+
+// Rolling confirmed-bar history (push only on confirmed bars — no repaint;
+// this mirrors the backend reading a closed candle list, never an intrabar one)
+var float[] srHigh  = array.new_float()
+var float[] srLow   = array.new_float()
+var float[] srClose = array.new_float()
+
+if confirmed
+    array.push(srHigh, high)
+    array.push(srLow, low)
+    array.push(srClose, close)
+    if array.size(srHigh) > srMaxBars
+        array.shift(srHigh)
+        array.shift(srLow)
+        array.shift(srClose)
+
+// backend _swing_points(): bar i is a swing high/low iff it is the max/min of
+// the closed window [i-window, i+window] on both sides.
+srSwingPoints(float[] hi, float[] lo, int window) =>
+    prices = array.new_float()
+    n = array.size(hi)
+    if n >= 2 * window + 1
+        for i = window to n - window - 1
+            h = array.get(hi, i)
+            l = array.get(lo, i)
+            isHigh = true
+            isLow  = true
+            for k = i - window to i + window
+                if array.get(hi, k) > h
+                    isHigh := false
+                if array.get(lo, k) < l
+                    isLow := false
+            if isHigh
+                array.push(prices, h)
+            if isLow
+                array.push(prices, l)
+    prices
+
+// backend _cluster(): SEQUENTIAL merge on sorted prices — walk in order,
+// extend the current cluster only while the next price is within `tol` of
+// the cluster's LAST added price, else start a new cluster. Mean of each
+// cluster = the level. (Not a pairwise anchor-vs-all grouping.)
+srCluster(float[] prices, float tol) =>
+    levels = array.new_float()
+    n = array.size(prices)
+    if n > 0
+        sorted = array.copy(prices)
+        array.sort(sorted, order.ascending)
+        clusterSum = array.get(sorted, 0)
+        clusterN   = 1
+        lastVal    = array.get(sorted, 0)
+        if n > 1
+            for i = 1 to n - 1
+                p = array.get(sorted, i)
+                if p - lastVal <= tol
+                    clusterSum += p
+                    clusterN += 1
+                else
+                    array.push(levels, clusterSum / clusterN)
+                    clusterSum := p
+                    clusterN := 1
+                lastVal := p
+        array.push(levels, clusterSum / clusterN)
+    levels
+
+// backend _touch_stats(): walk every candle i=1..n-1; "near" if the level sits
+// within [low-tol, high+tol]; approach side read from the PREVIOUS candle's
+// close; outcome read `reactBars` candles later (last candle in that window,
+// clamped to the array's end) — matches candles[i+1:i+1+react_bars][-1].close
+// exactly, including the "still forming" (neither bounce nor break) case.
+srTouchStats(float[] hi, float[] lo, float[] cl, float level, float tol, int reactBars) =>
+    touches = 0
+    bounces = 0
+    breaks  = 0
+    n = array.size(cl)
+    if n > 1
+        for i = 1 to n - 1
+            near = (array.get(lo, i) - tol) <= level and level <= (array.get(hi, i) + tol)
+            if near
+                prevClose = array.get(cl, i - 1)
+                fromBelow = prevClose < level
+                touches += 1
+                endIdx = math.min(i + reactBars, n - 1)
+                if endIdx > i
+                    lastClose = array.get(cl, endIdx)
+                    if fromBelow
+                        if lastClose > level + tol
+                            breaks += 1
+                        else if lastClose < level - tol
+                            bounces += 1
+                    else
+                        if lastClose < level - tol
+                            breaks += 1
+                        else if lastClose > level + tol
+                            bounces += 1
+    [touches, bounces, breaks]
+
+// backend _strength()/_stars(): declared, tunable — touches carry more weight
+// than bounce_pct early on (a level with 1 touch that always bounced is still
+// unproven; consistency needs a sample).
+srStrength(int touches, float bouncePct) =>
+    base = math.min(60.0, touches * 12.0)
+    conviction = bouncePct * 0.4
+    int(math.round(math.min(100.0, base + conviction)))
+
+srStars(int score) =>
+    math.max(1, math.min(5, 1 + score / 22))
+
+srStarText(int stars) =>
+    txt = ""
+    for s = 1 to 5
+        txt := txt + (s <= stars ? "★" : "☆")
+    txt
+
+// top-level function (Pine requires this — cannot be nested in an if/for):
+// draws one level's line + label, pushing the handles into the global arrays
+// below so the next barstate.islast recompute can clean them up.
+var line[]  srLines  = array.new_line()
+var label[] srLabels = array.new_label()
+
+drawSRLevel(int idx, string prefix, color col, float[] lvlArr, int[] touchArr, float[] bouncePctArr, int[] scoreArr, int minTouches) =>
+    lvl = array.get(lvlArr, idx)
+    touches = array.get(touchArr, idx)
+    bp = array.get(bouncePctArr, idx)
+    score = array.get(scoreArr, idx)
+    stars = srStars(score)
+    formingTxt = touches >= minTouches ? "" : " (forming)"
+    bpTxt = na(bp) ? "no resolved touch yet" : str.tostring(bp, "#.#") + "% bounce"
+    txt = prefix + "  " + str.tostring(lvl, format.mintick) + "\n" + str.tostring(touches) + "× touched · " + bpTxt + formingTxt + "\n" + srStarText(stars)
+    ln = line.new(bar_index - 50, lvl, bar_index, lvl, xloc=xloc.bar_index, extend=extend.right, color=col, width=2, style=line.style_dotted)
+    lb = label.new(bar_index, lvl, txt, xloc=xloc.bar_index, style=label.style_label_left, color=color.new(col, 80), textcolor=col, size=size.small)
+    array.push(srLines, ln)
+    array.push(srLabels, lb)
+
+// optional cosmetic swing dots — decoupled from the array-based computation
+// above (which needs the FULL stored history, not just ta.*'s built-in state)
+ph = ta.pivothigh(high, srSwingWindow, srSwingWindow)
+pl = ta.pivotlow(low, srSwingWindow, srSwingWindow)
+
+if showSR and barstate.islast
+    // guard before the loop — Pine's `for i = 0 to size-1` auto-flips to a
+    // DECREMENTING loop when size is 0 (from=0 > to=-1), running the body
+    // anyway with an out-of-bounds index. Same gotcha fixed below at the
+    // resIdx/supIdx draw loops.
+    if array.size(srLines) > 0
+        for i = 0 to array.size(srLines) - 1
+            line.delete(array.get(srLines, i))
+    if array.size(srLabels) > 0
+        for i = 0 to array.size(srLabels) - 1
+            label.delete(array.get(srLabels, i))
+    array.clear(srLines)
+    array.clear(srLabels)
+
+    cmp2 = close
+    tolAbs     = cmp2 * srTouchTolPct / 100
+    clusterTol = cmp2 * srClusterTolPct / 100
+
+    swings = srSwingPoints(srHigh, srLow, srSwingWindow)
+    levels = srCluster(swings, clusterTol)
+    nLv = array.size(levels)
+
+    if nLv > 0
+        lvlArr       = array.new_float()
+        touchArr     = array.new_int()
+        bouncePctArr = array.new_float()
+        scoreArr     = array.new_int()
+        for i = 0 to nLv - 1
+            lvl = array.get(levels, i)
+            [touches, bounces, brks] = srTouchStats(srHigh, srLow, srClose, lvl, tolAbs, srReactBars)
+            resolved = bounces + brks
+            bouncePct = resolved > 0 ? bounces / resolved * 100.0 : na
+            score = srStrength(touches, na(bouncePct) ? 0.0 : bouncePct)
+            array.push(lvlArr, lvl)
+            array.push(touchArr, touches)
+            array.push(bouncePctArr, bouncePct)
+            array.push(scoreArr, score)
+
+        // split resistance (level > cmp) / support (level < cmp), by INDEX
+        resIdx = array.new_int()
+        supIdx = array.new_int()
+        for i = 0 to nLv - 1
+            lvl = array.get(lvlArr, i)
+            if lvl > cmp2
+                array.push(resIdx, i)
+            else if lvl < cmp2
+                array.push(supIdx, i)
+
+        // nearest-first: resistance ascending, support descending (simple
+        // bubble sort — bounded by srMaxBars-derived level counts, always small)
+        riN = array.size(resIdx)
+        if riN > 1
+            for i = 0 to riN - 2
+                for j = 0 to riN - 2 - i
+                    if array.get(lvlArr, array.get(resIdx, j)) > array.get(lvlArr, array.get(resIdx, j + 1))
+                        tmp = array.get(resIdx, j)
+                        array.set(resIdx, j, array.get(resIdx, j + 1))
+                        array.set(resIdx, j + 1, tmp)
+        siN = array.size(supIdx)
+        if siN > 1
+            for i = 0 to siN - 2
+                for j = 0 to siN - 2 - i
+                    if array.get(lvlArr, array.get(supIdx, j)) < array.get(lvlArr, array.get(supIdx, j + 1))
+                        tmp = array.get(supIdx, j)
+                        array.set(supIdx, j, array.get(supIdx, j + 1))
+                        array.set(supIdx, j + 1, tmp)
+
+        if array.size(resIdx) > 0
+            for i = 0 to math.min(srNumPerSide, array.size(resIdx)) - 1
+                drawSRLevel(array.get(resIdx, i), "R" + str.tostring(i + 1), colResistance, lvlArr, touchArr, bouncePctArr, scoreArr, srMinTouches)
+        if array.size(supIdx) > 0
+            for i = 0 to math.min(srNumPerSide, array.size(supIdx)) - 1
+                drawSRLevel(array.get(supIdx, i), "S" + str.tostring(i + 1), colSupport, lvlArr, touchArr, bouncePctArr, scoreArr, srMinTouches)
+
+// ============================= PLOTS =============================
+plot(emaFast, "EMA Fast", color=color.new(color.aqua, 0))
+plot(emaSlow, "EMA Slow", color=color.new(color.orange, 0))
+plot(stLine, "Supertrend", color = trendUp ? color.new(color.green, 0) : color.new(color.red, 0), linewidth=1)
+
+pVwap  = plot(useVwapBands ? vwapBasis : na, "VWAP", color=color.new(color.blue, 0), linewidth=2)
+pUpper = plot(useVwapBands ? vwapUpper : na, "VWAP Upper Band", color=color.new(color.teal, 40))
+pLower = plot(useVwapBands ? vwapLower : na, "VWAP Lower Band", color=color.new(color.teal, 40))
+fill(pUpper, pLower, color=color.new(color.teal, 92))
+
+rfColor = upCount > 0 ? colSupport : dnCount > 0 ? colResistance : color.gray
+plot(filt, "Range Filter", color=rfColor, linewidth=2)
+plot(hband, "RF Upper", color=color.new(color.gray, 70), display=display.none)
+plot(lband, "RF Lower", color=color.new(color.gray, 70), display=display.none)
+
+plotshape(showPivotDots and not na(ph), title="Swing High", style=shape.triangledown, location=location.abovebar, color=colResistance, size=size.tiny, offset=-srSwingWindow)
+plotshape(showPivotDots and not na(pl), title="Swing Low", style=shape.triangleup, location=location.belowbar, color=colSupport, size=size.tiny, offset=-srSwingWindow)
+
+bgcolor(bullTrend ? color.new(color.green, 92) : bearTrend ? color.new(color.red, 92) : na)
+barcolor(posState == 1 ? color.new(color.lime, 0) : posState == -1 ? color.new(color.red, 0) : na)
+
+// ============================= SIGNAL MARKERS (native, glued to their candle) =============================
+// plotshape markers are hard-anchored to their bar — they never float or drift
+// on zoom/scroll, exactly like TradingView's built-in buy/sell markers.
+// (Text is a constant per call, so RE-ENTRY vs BUY use separate calls.)
+plotshape(buySignal and not isBuyReentry,  title="BUY",           text="BUY",      style=shape.labelup,   location=location.belowbar, color=colBuy,  textcolor=color.white, size=size.small)
+plotshape(buySignal and isBuyReentry,      title="RE-ENTRY UP",   text="RE-ENTRY", style=shape.labelup,   location=location.belowbar, color=colBuy,  textcolor=color.white, size=size.small)
+plotshape(sellSignal and not isSellReentry,title="SELL",          text="SELL",     style=shape.labeldown, location=location.abovebar, color=colSell, textcolor=color.white, size=size.small)
+plotshape(sellSignal and isSellReentry,    title="RE-ENTRY DOWN", text="RE-ENTRY", style=shape.labeldown, location=location.abovebar, color=colSell, textcolor=color.white, size=size.small)
+plotshape(exitLong,  title="EXIT LONG",  text="EXIT", style=shape.labeldown, location=location.abovebar, color=colExit, textcolor=color.white, size=size.tiny)
+plotshape(exitShort, title="EXIT SHORT", text="EXIT", style=shape.labelup,   location=location.belowbar, color=colExit, textcolor=color.white, size=size.tiny)
+plotshape(t1HitLong,  title="TARGET 1 (long)",  text="T1", style=shape.labeldown, location=location.abovebar, color=color.new(color.orange, 0), textcolor=color.white, size=size.tiny)
+plotshape(t1HitShort, title="TARGET 1 (short)", text="T1", style=shape.labelup,   location=location.belowbar, color=color.new(color.orange, 0), textcolor=color.white, size=size.tiny)
+
+// ============================= SL / TARGET LEVEL LINES =============================
+plot(showLevels and posState != 0 ? slPrice : na, "Stop Loss", color=color.new(color.red, 0), style=plot.style_linebr, linewidth=1)
+plot(showLevels and posState != 0 and not t1Done ? t1Price : na, "Target 1", color=color.new(color.orange, 0), style=plot.style_linebr, linewidth=1)
+plot(showLevels and posState != 0 ? t2Price : na, "Target 2", color=color.new(color.green, 0), style=plot.style_linebr, linewidth=1)
+plot(showLevels and posState != 0 ? entryPrice : na, "Entry", color=color.new(color.blue, 40), style=plot.style_linebr, linewidth=1)
+
+// ============================= ALERTS =============================
+alertcondition(buySignal, title="BUY / ENTRY UP", message="{{ticker}} BUY on {{interval}} @ {{close}}")
+alertcondition(sellSignal, title="SELL / ENTRY DOWN", message="{{ticker}} SELL on {{interval}} @ {{close}}")
+alertcondition(exitLong, title="EXIT LONG", message="{{ticker}} EXIT LONG on {{interval}} @ {{close}}")
+alertcondition(exitShort, title="EXIT SHORT", message="{{ticker}} EXIT SHORT on {{interval}} @ {{close}}")
+alertcondition(t1HitLong or t1HitShort, title="TARGET 1 hit", message="{{ticker}} Target 1 hit on {{interval}} @ {{close}}")
+alertcondition(slHitLong or slHitShort, title="STOP LOSS hit", message="{{ticker}} Stop Loss hit on {{interval}} @ {{close}}")
