@@ -1286,6 +1286,22 @@ async def run_backtest(body: BacktestBody):
         raise HTTPException(502, str(e))
 
 
+# ---------- V8 (feature-flagged, isolated on v8-dev — never active unless the
+# owner sets CAT_V8_WALK_FORWARD_VALIDATION=1; see backend/app/v8_flags.py) ----------
+@router.get("/v8/walk-forward")
+async def v8_walk_forward(symbol: str = "NIFTY"):
+    from ..v8_flags import v8_flags
+    if not v8_flags.walk_forward_validation:
+        raise HTTPException(404, "V8 walk-forward validation is disabled "
+                                  "(set CAT_V8_WALK_FORWARD_VALIDATION=1 to enable)")
+    _require_connection()
+    from ..services import walk_forward
+    try:
+        return await walk_forward.run(service.client, symbol.upper())
+    except BrokerError as e:
+        raise HTTPException(502, str(e))
+
+
 # ---------- journal ----------
 class JournalBody(BaseModel):
     date: str | None = None
