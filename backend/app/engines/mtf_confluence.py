@@ -17,11 +17,18 @@ position sizing (that would also be a Trading Doctrine change, needing
 the evidence-approval pipeline first).
 
 Rate-limit-safe by design: 1m uses the already-fetched state.candles feed;
-3m/5m/15m/1H are resampled from that SAME feed (zero new broker calls,
-same technique mtf.py already uses); Daily reuses the already-cached daily
-series from period_pivot_cache.py (zero new calls); 4H is the only
-timeframe needing its own fetch, and that fetch is deliberately
-low-frequency (mtf_4h_cache.py, 20 min TTL), not per-cycle.
+3m/5m/15m are resampled from that SAME feed (zero new broker calls, same
+technique mtf.py already uses); Daily reuses the already-cached daily
+series from period_pivot_cache.py (zero new calls); 1H and 4H each have
+their own low-frequency, cache-gated fetch (mtf_1h_cache.py / 10 min TTL,
+mtf_4h_cache.py / 20 min TTL), not per-cycle.
+
+Bug fix (2026-07-27, V7.0 observation phase): 1H was originally resampled
+from state.candles too, but that buffer is hard-capped at 600 one-minute
+bars (market_service.py) — only 10 complete 1H bars can ever exist in that
+window, 3x short of the 30-bar _MIN_BARS floor. 1H was therefore
+structurally unable to ever become "ready", confirmed live. Switched to a
+direct broker fetch (same pattern as 4H) instead of resampling.
 """
 from __future__ import annotations
 
@@ -31,7 +38,7 @@ from . import structure, support_resistance, technicals
 from .mtf import resample
 
 TF_LABELS = ["1m", "3m", "5m", "15m", "1H", "4H", "Daily"]
-_RESAMPLE_MIN = {"1m": 1, "3m": 3, "5m": 5, "15m": 15, "1H": 60}
+_RESAMPLE_MIN = {"1m": 1, "3m": 3, "5m": 5, "15m": 15}
 # Higher timeframes carry more weight — same declared-weighting concept
 # mtf.py's own TF_WEIGHT already uses, extended to the 3 new timeframes.
 TF_WEIGHT = {"1m": 0.6, "3m": 0.7, "5m": 0.8, "15m": 1.0, "1H": 1.2, "4H": 1.4, "Daily": 1.6}
@@ -79,7 +86,7 @@ def _tf_signals(candles: list[dict]) -> dict[str, Any] | None:
     return {"signals": signals, "verdict": verdict, "bull": bull, "bear": bear}
 
 
-def analyze(candles_1m: list[dict], candles_4h: list[dict] | None,
+def analyze(candles_1m: list[dict], candles_1h: list[dict] | None, candles_4h: list[dict] | None,
             candles_daily: list[dict] | None, hero_direction: str | None) -> dict[str, Any]:
     """`hero_direction` is the Hero's OWN already-decided bias (BULL/BEAR/
     None, from confluence.py's signal) — this function only checks
@@ -89,6 +96,8 @@ def analyze(candles_1m: list[dict], candles_4h: list[dict] | None,
     for label in TF_LABELS:
         if label in _RESAMPLE_MIN:
             series = resample(candles_1m, _RESAMPLE_MIN[label]) if candles_1m else []
+        elif label == "1H":
+            series = candles_1h or []
         elif label == "4H":
             series = candles_4h or []
         else:  # Daily

@@ -208,6 +208,15 @@ class MarketService:
                     # that competes with the shared broker rate budget.
                     from . import mtf_4h_cache
                     await mtf_4h_cache.refresh(self.client, inst)
+                    # Bug fix, V7.0 observation phase (2026-07-27) — 1H
+                    # candles, cache-gated 10min (mtf_1h_cache.py). 1H was
+                    # originally resampled from state.candles (capped at 600
+                    # 1-min bars = 10h), which can never produce the 30
+                    # complete 1H bars mtf_confluence.py requires — confirmed
+                    # live, 1H silently never reached "ready". Same
+                    # low-frequency real-fetch pattern as the 4H cache above.
+                    from . import mtf_1h_cache
+                    await mtf_1h_cache.refresh(self.client, inst)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -1046,17 +1055,20 @@ class MarketService:
         # Owner Step 10 (MTF Confluence, 2026-07-27) — real per-timeframe
         # analysis, additive only (see mtf_confluence.py's own docstring for
         # why this never touches the existing mtf.py/calibration gate).
-        # 1m/3m/5m/15m/1H are resampled from the already-fetched state.candles
-        # (zero new broker calls); Daily/4H reuse their own low-frequency
-        # caches (period_pivot_cache.py, mtf_4h_cache.py — also zero new
-        # calls per cycle, refreshed on their own slow schedule above).
+        # 1m/3m/5m/15m are resampled from the already-fetched state.candles
+        # (zero new broker calls); Daily/1H/4H reuse their own low-frequency
+        # caches (period_pivot_cache.py, mtf_1h_cache.py, mtf_4h_cache.py —
+        # also zero new calls per cycle, refreshed on their own slow
+        # schedule above). 1H switched from resample to its own cache
+        # 2026-07-27 (bug fix — see mtf_1h_cache.py's docstring).
         try:
             from ..engines import mtf_confluence
-            from . import period_pivot_cache, mtf_4h_cache
+            from . import period_pivot_cache, mtf_1h_cache, mtf_4h_cache
             _daily = period_pivot_cache.get(state.symbol).get("daily_candles") or []
+            _h1 = mtf_1h_cache.get(state.symbol)
             _h4 = mtf_4h_cache.get(state.symbol)
             decision["mtf_confluence"] = mtf_confluence.analyze(
-                state.candles, _h4, _daily, packet["signal"].get("direction"))
+                state.candles, _h1, _h4, _daily, packet["signal"].get("direction"))
         except Exception:
             log.exception("mtf confluence failed")
 
