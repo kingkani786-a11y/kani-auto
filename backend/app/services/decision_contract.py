@@ -103,6 +103,17 @@ def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, A
     mtf = mtf or {}
     mtf_ready = bool(mtf.get("ready"))
     mtf_conflict = bool(mtf.get("higher_tf_conflict"))
+    # Bug fix, V7.0 observation phase (2026-07-27): mtf_ready alone only means
+    # "enough bars exist per timeframe" — it says nothing about whether the
+    # Hero itself has a resolved BULL/BEAR bias yet. When the Hero has no
+    # bias (confluence.py's own direction is NEUTRAL), mtf_confluence.py's
+    # higher_tf_conflict short-circuits to False (nothing to conflict WITH),
+    # which made this item read `ok=True` ("✓ MTF Alignment") even with zero
+    # actual alignment computed — confirmed live, alignment_pct was None at
+    # the exact moment this showed a checkmark. alignment_pct is only ever
+    # set (non-None) when a real hero_bias existed to compute it against, so
+    # it's the correct signal for "do we actually have something to say".
+    mtf_has_bias = mtf.get("alignment_pct") is not None
 
     why_buy = [
         {"label": "VWAP", "ok": _side_ok(vwap)},
@@ -111,10 +122,10 @@ def _ai_dealer(dec: dict[str, Any], sig: dict[str, Any], raw_layers: dict[str, A
         {"label": "CPR Above" if bullish else "CPR Below", "ok": _side_ok(cpr_pivot)},
         {"label": "Volume Confirmation", "ok": bool(vol_row and vol_row.get("verdict") == "PASS")},
         {"label": "Risk Approved", "ok": bool(risk_ok)},
-        # Owner Step 10 (MTF Confluence, 2026-07-27): ok=None (not shown as a
-        # cross) until the engine has enough bars to actually say something —
-        # same "unmeasured, not failed" convention every other None here uses.
-        {"label": "MTF Alignment", "ok": (not mtf_conflict) if mtf_ready else None},
+        # ok=None (not shown as a cross, not shown as a check) until the Hero
+        # actually has a bias to compare timeframes against — same
+        # "unmeasured, not failed" convention every other None here uses.
+        {"label": "MTF Alignment", "ok": (not mtf_conflict) if mtf_has_bias else None},
     ]
     ks = state.kill_switch or {}
     why_not_buy_all = [
