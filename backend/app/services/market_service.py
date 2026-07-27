@@ -38,7 +38,7 @@ def _friendly_error(e: Exception) -> dict:
         kind, text = "SUBSCRIPTION", "Dhan Data API subscription required"
     elif "token" in msg or "401" in msg or "unauthor" in msg:
         kind, text = "AUTH", "Broker authentication failed — update your token in Settings"
-    elif "rate limit" in msg or "429" in msg:
+    elif "rate limit" in msg or "rate-limit" in msg or "cooldown" in msg or "429" in msg:
         kind, text = "RATE_LIMIT", "Rate limited by broker — pausing briefly, will resume"
     elif "unreachable" in msg or "network" in msg or "timeout" in msg:
         kind, text = "NETWORK", "Network issue — reconnecting…"

@@ -12,7 +12,7 @@ export function friendlyMessage(raw?: string | null): string {
     return "📡 Data Subscription Required — live market feed unavailable";
   if (m.includes("token") || m.includes("401") || m.includes("authentication") || m.includes("unauthor"))
     return "🔑 Authentication Required — update your Dhan Access Token";
-  if (m.includes("rate limit") || m.includes("429"))
+  if (m.includes("rate limit") || m.includes("rate-limit") || m.includes("cooldown") || m.includes("429"))
     return "⏳ Waiting — broker rate limit reached, retrying automatically";
   if (m.includes("unreachable") || m.includes("network") || m.includes("timeout") || m.includes("reconnect"))
     return "🌐 Reconnecting…";
