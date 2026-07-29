@@ -15,6 +15,7 @@ the engine decides, Gemini only phrases; Safety + Cost caps wrap every call.
 """
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -22,8 +23,13 @@ from ...core.state import state
 from . import context_builder
 from .provider import cortex, cortex_status
 
+log = logging.getLogger(__name__)
+
 _cache: dict[str, Any] = {"key": None, "ts": 0.0, "result": None}
 _MIN_INTERVAL = 180.0  # seconds — never re-call Gemini for the same view faster than this
+_EXPECTED_BLOCKS = ("why", "next", "watch", "change")
+_MIN_BLOCK_LEN = 10  # chars — a real sentence is always well over this; a
+                     # truncated fragment (or an empty/placeholder value) is not
 
 
 def _key(snap: dict[str, Any]) -> str:
@@ -66,8 +72,29 @@ def analyze(force: bool = False) -> dict[str, Any]:
     res["decision_key"] = key
     if res.get("ok"):
         res["blocks"] = _parse_blocks(res.get("text", ""))
-        _cache.update(key=key, ts=time.time(), result=res)
+        # Bug fix, V7.0 observation phase (2026-07-29): a rare truncated/
+        # incomplete Gemini reply (e.g. cut off mid-sentence) used to get
+        # cached under this decision `key` same as a good one — since the
+        # cache has no TTL of its own (only re-checked when the decision
+        # state changes, or after _MIN_INTERVAL), one bad generation could
+        # replay for as long as the decision stayed the same — confirmed
+        # live, one such reply was still being served 26+ minutes later.
+        # Only cache a genuinely complete reply; an incomplete one is still
+        # returned once (best available right now) but not persisted, so
+        # the next request gets a fresh retry instead of replaying it.
+        if _is_complete(res["blocks"]):
+            _cache.update(key=key, ts=time.time(), result=res)
+        else:
+            log.warning("cortex explainer reply incomplete, not caching: %r", res["blocks"])
     return res
+
+
+def _is_complete(blocks: dict[str, str]) -> bool:
+    return all(
+        blocks.get(k) and blocks[k].strip() not in ("", "—", "-")
+        and len(blocks[k].strip()) >= _MIN_BLOCK_LEN
+        for k in _EXPECTED_BLOCKS
+    )
 
 
 def _parse_blocks(text: str) -> dict[str, str]:
