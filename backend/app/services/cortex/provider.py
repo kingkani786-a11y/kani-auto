@@ -93,9 +93,9 @@ class Cortex:
         t0 = time.time()
         try:
             if prov == "gemini":
-                text, in_tok, out_tok = _ask_gemini(key, model, system, user, mt)
+                text, in_tok, out_tok, finish_reason = _ask_gemini(key, model, system, user, mt)
             else:
-                text, in_tok, out_tok = _ask_anthropic(key, model, system, user, mt)
+                text, in_tok, out_tok, finish_reason = _ask_anthropic(key, model, system, user, mt)
         except Exception as e:  # never crash a request path
             es = str(e)
             # Transient upstream errors (high demand / rate limit) → soft,
@@ -114,15 +114,28 @@ class Cortex:
             "usage": {"input_tokens": in_tok, "output_tokens": out_tok,
                       "cost_inr": inr},
             "budget": cost.report(),
+            # Bug fix follow-up, 2026-07-29: a caller-authoritative truncation
+            # signal, from the provider's own finish/stop reason — cheaper and
+            # more direct than only inferring truncation from parsed content
+            # (which still stays as defense-in-depth in analysis.py).
+            "finish_reason": finish_reason,
+            "truncated": finish_reason in _BAD_FINISH,
             **safety.guard(text, snapshot),
         }
 
 
 _THINKING_UNSUPPORTED = False   # learned at runtime; see _ask_gemini
 
+# Provider-specific finish/stop reasons that mean "the reply is not safe to
+# trust as complete" — cut off by the token budget, or blocked/filtered.
+# STOP (Gemini) / end_turn, stop_sequence (Anthropic) are normal completion
+# and are deliberately NOT in this set.
+_BAD_FINISH = {"MAX_TOKENS", "SAFETY", "RECITATION", "PROHIBITED_CONTENT",
+               "max_tokens", "refusal"}
+
 
 def _ask_gemini(key: str, model: str, system: str, user: str,
-                max_tokens: int) -> tuple[str, int, int]:
+                max_tokens: int) -> tuple[str, int, int, str | None]:
     # New official SDK (google-genai). The old google-generativeai is EOL.
     from google import genai  # lazy
     from google.genai import types
@@ -174,11 +187,14 @@ def _ask_gemini(key: str, model: str, system: str, user: str,
     um = getattr(resp, "usage_metadata", None)
     in_tok = int(getattr(um, "prompt_token_count", 0) or 0)
     out_tok = int(getattr(um, "candidates_token_count", 0) or 0)
-    return text, in_tok, out_tok
+    candidates = getattr(resp, "candidates", None) or []
+    fr = getattr(candidates[0], "finish_reason", None) if candidates else None
+    finish_reason = getattr(fr, "value", None) or (str(fr) if fr is not None else None)
+    return text, in_tok, out_tok, finish_reason
 
 
 def _ask_anthropic(key: str, model: str, system: str, user: str,
-                   max_tokens: int) -> tuple[str, int, int]:
+                   max_tokens: int) -> tuple[str, int, int, str | None]:
     import anthropic  # lazy
 
     client = anthropic.Anthropic(api_key=key)
@@ -191,7 +207,7 @@ def _ask_anthropic(key: str, model: str, system: str, user: str,
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     in_tok = int(getattr(msg.usage, "input_tokens", 0) or 0)
     out_tok = int(getattr(msg.usage, "output_tokens", 0) or 0)
-    return text, in_tok, out_tok
+    return text, in_tok, out_tok, getattr(msg, "stop_reason", None)
 
 
 cortex = Cortex()

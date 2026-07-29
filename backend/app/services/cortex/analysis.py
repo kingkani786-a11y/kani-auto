@@ -82,7 +82,17 @@ def analyze(force: bool = False) -> dict[str, Any]:
         # Only cache a genuinely complete reply; an incomplete one is still
         # returned once (best available right now) but not persisted, so
         # the next request gets a fresh retry instead of replaying it.
-        if _is_complete(res["blocks"]):
+        # Owner follow-up (2026-07-29): the provider's own finish/stop reason
+        # (STOP vs MAX_TOKENS/SAFETY/etc, see provider.py's `truncated` flag)
+        # is a cheaper, more authoritative truncation signal than only
+        # inferring it from parsed content — checked first, block-completeness
+        # stays as a defense-in-depth fallback for whatever the provider flag
+        # doesn't catch (e.g. a reply that finished "normally" but is still
+        # short/garbled for some other reason).
+        if res.get("truncated"):
+            log.warning("cortex explainer reply truncated (finish_reason=%s), not caching",
+                        res.get("finish_reason"))
+        elif _is_complete(res["blocks"]):
             _cache.update(key=key, ts=time.time(), result=res)
         else:
             log.warning("cortex explainer reply incomplete, not caching: %r", res["blocks"])
