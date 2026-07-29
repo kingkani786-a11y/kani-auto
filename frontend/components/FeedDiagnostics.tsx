@@ -26,13 +26,22 @@ export function FeedDiagnostics() {
 
   if (!d?.checks) return null;
   const entries = Object.entries(d.checks) as [string, any][];
-  // RC1.11 — market-closed consistency fix: MISSING feeds before/after hours
-  // are a PAUSE, not a failure (same doctrine as AI Self-Check's WAIT vs FAIL
-  // and the amber MarketStatusBanner — a closed market must never read as a
-  // red data-quality alarm).
+  // RC1.11 — market-closed consistency fix: MISSING or DELAYED feeds
+  // before/after hours are a PAUSE, not a failure (same doctrine as AI
+  // Self-Check's WAIT vs FAIL and the amber MarketStatusBanner — a closed
+  // market must never read as a red data-quality alarm). DELAYED is just
+  // as expected as MISSING here: a quote/signal that arrived DURING the
+  // last session and simply hasn't updated since the market closed ages
+  // past its own DELAYED threshold exactly like an ordinary paused feed —
+  // it isn't stale in the sense that word implies elsewhere. Previously
+  // only MISSING was exempted, so the same closed-market condition showed
+  // the calm "PAUSED" message right after a restart (state empty ->
+  // MISSING) but flipped to the alarming itemized red view a few minutes
+  // later once those same values aged into DELAYED — an inconsistent
+  // display of one honestly-unchanged situation.
   const marketClosed = (status as any)?.market_open === false;
   const failing = entries.filter(([, c]) => !["OK", "N/A"].includes(c.status)
-    && !(marketClosed && c.status === "MISSING"));
+    && !(marketClosed && (c.status === "MISSING" || c.status === "DELAYED")));
   // RC1.4 — the authoritative pipeline quality (kill-switch source) overrides:
   // never claim "healthy" while the system itself is running on POOR data
   const pipelinePoor = (status as any)?.data_quality === "POOR";
