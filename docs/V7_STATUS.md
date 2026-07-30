@@ -105,6 +105,68 @@ Build Version badge correctly reads ⚠ mismatch. Deployment-only, zero
 trading-logic impact — deliberately deferred to one batched frontend
 rebuild + restart at the end of the observation phase.
 
+### OBS-4 — Live false-signal + performance tracking (owner-added 2026-07-30)
+
+Two tracking asks, no code change:
+- **False signals:** Hero BUY → SL hit · Hero BUY → TP hit · WAIT → large
+  move missed · BUY → no follow-through. Note: with Execution Lock blocking
+  every entry (OBS-2), the only live category currently producing data is
+  "WAIT → move missed" — the other three need the gate to actually open.
+- **Performance:** memory leak, CPU, API latency, WebSocket stability,
+  response time. Partly overlaps the pre-V8 checklist items 4 and 7 above.
+
+### OBS-5 — AI Learning Dataset (owner-added 2026-07-30) — MOSTLY ALREADY BUILT
+
+Owner asked to record every opportunity's full context so V8 can mine
+patterns from 500-1000 samples. **Audited before adding anything: this is
+~80% already built and running.** `opportunity_metrics._black_box()` writes
+one JSON line per opportunity episode to `data/opportunity_log/*.jsonl`,
+with an `engine` snapshot joining live Decision Engine state.
+
+**Verified against real data, 2026-07-30:**
+
+| Owner's field | Status in the black box |
+|---|---|
+| Hero Decision | ✅ `engine.decision`, `engine.grade`, `engine.confidence` |
+| Evidence | ✅ `engine.layers` — all 11 layer scores + `root_cause` verdict |
+| Market Structure | ✅ score via `layers.Structure` (label itself not stored) |
+| MTF | ✅ `layers.MTF` |
+| Greeks | ⚠️ composite `layers.Greeks` score only — no raw δ/γ/θ/vega/IV |
+| Gamma | ⚠️ partial — no gamma-wall level stored |
+| OI | ✅ `layers.OI` + `engine.pcr` |
+| CPR | ❌ hardcoded `None` — IEIE Phase 1, never built |
+| VWAP | ✅ `engine.vwap` (+ `adx`, `atr`, `underlying`) |
+| Entry | ✅ `base`, `alert_prem`, `ideal_prem`, `entry_edge`, `ideal_wait_s` |
+| Exit | ✅ `peak`, `t_exhaust`, `close_reason` |
+| SL / Target | ❌ not joined into the episode record |
+| P&L | ✅ `potential` / `captured` / `lost` (premium points) |
+| Result | ✅ `outcome`, `capture`, `traj`, `reason`, `stability` |
+
+Also captured beyond the ask: `dte`, `expiry_day`, `session_type`
+(NORMAL/EXPIRY/BUDGET), `regime` (TRENDING/VOLATILE), `ignite_path`,
+`delay_s`, `validation_bucket`, and six lifecycle timestamps
+(coil/move_start/ignite/runner/peak/exhaust).
+
+**Volume — the important correction.** 3,829 total records exist, but only
+**1,414 (37%) are usable for pattern-learning.** Everything before
+2026-07-22 has an empty `engine.layers` — the join path was silently broken
+(logged in-code: "0 of 2363 black-box lines carry layer context") until the
+2026-07-21 fix. Only post-fix records carry decision context. At ~170-310
+usable records/session, 500-1000 more samples is roughly **3-6 more
+sessions**, not months.
+
+**Second correction — these are OPPORTUNITIES, not executed trades.** The
+system never places orders, and Execution Lock has blocked every entry, so
+realized-P&L trade count is zero. The dataset measures what the radar saw
+and what the engine decided, including the counterfactuals (blocked moves
+that then ran) — arguably better for pattern-learning than a trade-only
+log, but it should not be described as a trade dataset.
+
+**Genuine gaps to close in V8** (all new code ⇒ deferred, V7 is frozen):
+CPR / RSI / EFI (the deferred IEIE Phase 1 fields, currently hardcoded
+`None`), raw Greeks values, gamma-wall level, and joining planned SL/Target
+into the episode record.
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
