@@ -275,7 +275,7 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["coil_ts"] = now
     if ep["move_start_ts"] is None and rise >= STIR_PCT:
         ep["move_start_ts"], ep["move_start_prem"] = now, premium
-        ep["snap_start"] = _engine_snapshot()   # what did the engine see at birth?
+        ep["snap_start"] = _engine_snapshot(ep["strike"], ep["type"])   # what did the engine see at birth?
     if ep["alert_ts"] is None and coil_state == "IGNITING":
         ep["alert_ts"], ep["alert_prem"], ep["alert_rise"] = now, premium, rise
         ep["ignite_path"] = ignite_path      # 1 = velocity spike · 2 = C6 coil breakout
@@ -290,7 +290,7 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["_low_since_alert"], ep["_low_ts"] = premium, now
     if ep["runner_ts"] is None and rise >= RUNNER_PCT and (premium - ep["base"]) >= MIN_RUNNER_PTS:
         ep["runner_ts"], ep["runner_prem"] = now, premium
-        ep["snap_run"] = _engine_snapshot()     # what did the engine see when it ran?
+        ep["snap_run"] = _engine_snapshot(ep["strike"], ep["type"])     # what did the engine see when it ran?
     if ep["exhaust_ts"] is None and premium <= ep["peak"] * EXHAUST_OFF_PEAK \
             and ep["peak"] > ep["base"] * (1 + STIR_PCT / 100):
         ep["exhaust_ts"] = now
@@ -396,13 +396,30 @@ def _validation_bucket(session_type: str | None, root_cause: str | None) -> str:
     return "EXCLUDED"
 
 
-def _engine_snapshot() -> dict[str, Any]:
+def _engine_snapshot(ep_strike: int | None = None, ep_type: str | None = None) -> dict[str, Any]:
     """Read-only snapshot of the live Decision Engine + indicators at this instant.
 
     This is the JOIN that lets the black box say *why* a runner was not taken —
     "kill switch active", "OI layer 39 < 55", "institutional against". Purely
-    reads the shared state singleton; never mutates it, never decides. Anything
-    it can't see (RSI/EFI/CPR — IEIE Phase 1 not built yet) stays null.
+    reads the shared state singleton; never mutates it, never decides.
+
+    V8 Phase 1 (Dataset Completeness, v8-dev, 2026-07-30): cpr/gamma_wall added
+    below — pure joins of numbers the engine already computes every cycle for
+    the dashboard (support_resistance.daily_cpr(), layers["expiry"]["gamma_wall"],
+    same sources decision_contract.py reads). Both are symbol-level, so they
+    apply to every episode regardless of strike.
+
+    greeks/planned_sl/planned_target come from state.intelligence["strike"],
+    which is the ONE currently strike-engine-selected strike, not per-episode.
+    Attaching it unconditionally would silently mislabel every episode that
+    ISN'T that selected strike with someone else's Greeks/SL/Target — the same
+    class of join bug already found twice in this file (bug #8, #11). So
+    ep_strike/ep_type are passed in and these three fields are only filled when
+    they match state's selected strike; otherwise left null, honestly.
+
+    RSI/EFI stay null — unlike the rest, nothing in the codebase computes them
+    yet (grepped, confirmed); that's new indicator work, not a join, and is
+    deliberately NOT done here pending a separate go-ahead.
     """
     try:
         from ..core.state import state
@@ -420,10 +437,35 @@ def _engine_snapshot() -> dict[str, Any]:
         # I fixed the identical path in decision_contract._layers() this
         # morning and did NOT grep for the pattern, which is the exact
         # standing lesson recorded hours earlier. Same defect, two files.
-        rows = (((state.intelligence or {}).get("layers") or {})
-                .get("intelligence", {}).get("decision_matrix", {})
+        raw_layers = (state.intelligence or {}).get("layers") or {}
+        rows = (raw_layers.get("intelligence", {}).get("decision_matrix", {})
                 .get("rows", []))
         layers = {r.get("layer"): r.get("score") for r in rows if r.get("layer")}
+
+        cpr_pivot = None
+        try:
+            from ..engines import support_resistance as _sr
+            prev = raw_layers.get("institutional_levels") or {}
+            daily_cpr = _sr.daily_cpr(prev.get("prev_day_high"), prev.get("prev_day_low"),
+                                       prev.get("prev_day_close"))
+            cpr_pivot = daily_cpr.get("pivot") if daily_cpr else None
+        except Exception:
+            pass
+
+        gamma_wall = (raw_layers.get("expiry") or {}).get("gamma_wall")
+
+        st = (state.intelligence or {}).get("strike")
+        st = st if isinstance(st, dict) else {}
+        greeks: dict[str, Any] | None = None
+        planned_sl = None
+        planned_target: dict[str, Any] | None = None
+        if (ep_strike is not None and ep_type is not None
+                and st.get("strike") == ep_strike and st.get("type") == ep_type):
+            greeks = {"delta": st.get("delta"), "gamma": st.get("gamma"), "iv": st.get("iv")}
+            planned_sl = st.get("premium_stop_loss")
+            planned_target = {"t1": st.get("premium_target1"), "t2": st.get("premium_target2"),
+                               "t3": st.get("premium_target3")}
+
         return {
             "decision": dec.get("primary_action"),
             "grade": dec.get("grade"),
@@ -436,7 +478,12 @@ def _engine_snapshot() -> dict[str, Any]:
             "atr": tech.get("atr"),
             "underlying": (state.spot or {}).get("ltp"),
             "layers": layers,          # {"Trend":70,"OI":39,"Institutional":30,…}
-            "rsi": None, "efi": None, "cpr": None,   # IEIE Phase 1 — filled later
+            "cpr": cpr_pivot,
+            "gamma_wall": gamma_wall,
+            "greeks": greeks,
+            "planned_sl": planned_sl,
+            "planned_target": planned_target,
+            "rsi": None, "efi": None,   # IEIE Phase 1 — genuinely not built anywhere yet
         }
     except Exception:
         return {}
