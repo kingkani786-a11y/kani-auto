@@ -109,3 +109,23 @@ guesses (see each module's own `THRESHOLD_REGISTRY`/comments). The 2-4
 week data-collection window is also the first real opportunity to check
 whether any of them need adjusting — that should happen with evidence
 before Monte Carlo, not be assumed correct indefinitely.
+
+## Deferred: Research Dashboard v2 (owner, 2026-07-30 — build AFTER the
+## freeze ends, not now; recorded here so it isn't lost over 2-4 weeks)
+
+Three additions to `research_dashboard.py`, explicitly NOT to be built
+during the current freeze:
+
+- **Dataset Health**: new records today, total episodes, Alerted/Missed/
+  False/Runner %, average MFE, average MAE.
+- **Pattern Growth**: day-over-day delta in total pattern count (e.g.
+  "Yesterday 46 → Today 53, +7").
+- **Validation Funnel**: a single funnel view — Raw Patterns → Core
+  Patterns → Validated → PQI > 80 → Walk-Forward PASS → Promotion Ready —
+  showing the drop-off count at each stage.
+
+All three are still pure aggregation over already-computed pipeline
+outputs (no new evidence math), same spirit as the dashboard already
+shipped — just not built yet because the freeze's point is to stop adding
+code, even freeze-compatible code, and instead watch these numbers move
+with real data first.
