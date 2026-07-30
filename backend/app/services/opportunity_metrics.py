@@ -202,6 +202,22 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
             # evidence that decides the Best Entry Engine proposal #019).
             "ideal_prem": None, "ideal_ts": None,
             "_low_since_alert": None, "_low_ts": None,
+            # V8 Phase 2 (Outcome Join, v8-dev, 2026-07-30): MFE = best premium
+            # reached AFTER entry (alert_ts). Deliberately separate from the
+            # existing `peak`/`peak_ts` — those track the running max from
+            # `base` onward, which starts BEFORE alert (during the pre-ignite
+            # stir phase), so `peak` can already equal a pre-entry high a real
+            # buyer never got. mfe_prem only starts moving once alert_ts is
+            # set, so it is the actual best-case outcome for someone who
+            # entered at alert_prem — that distinction is the whole point of
+            # an outcome-join dataset. MAE needs no new field: `_low_since_alert`
+            # above already tracks the running low since entry (it seeds at
+            # alert_prem the instant alert fires, then only ever decreases) —
+            # that's already true MAE, just previously used only internally
+            # for the ideal-entry KPI. `last_prem` is the most recent tick's
+            # premium regardless of alert state, kept so premium_decay (peak
+            # → close) can be computed even for episodes that never alerted.
+            "mfe_prem": None, "mfe_ts": None, "last_prem": premium,
             "reason": None, "traj": [], "last_traj_ts": 0.0, "started": now,
             # last_seen = the last tick for this key. When a strike leaves the ATM
             # window the radar stops feeding it (premium_radar.py:313), last_seen
@@ -246,6 +262,7 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
     if symbol:
         ep["symbol"] = symbol
     ep["last_seen"] = now        # freezes the moment the strike leaves ATM → stale sweep
+    ep["last_prem"] = premium    # most recent tick, for premium_decay at close (peak → close)
 
     if ep["move_start_ts"] is None and premium < ep["base"]:
         ep["base"], ep["base_ts"] = premium, now  # track the true pre-move low
@@ -267,10 +284,15 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         # a new peak: the post-alert low that PRECEDED it is the ideal entry
         if ep["alert_ts"] is not None and ep["_low_since_alert"] is not None:
             ep["ideal_prem"], ep["ideal_ts"] = ep["_low_since_alert"], ep["_low_ts"]
-    # running post-alert low (candidate ideal entry for the NEXT peak)
+    # running post-alert low (candidate ideal entry for the NEXT peak; this is
+    # also literally MAE — the worst premium since entry, surfaced in _black_box)
     if ep["alert_ts"] is not None and (
             ep["_low_since_alert"] is None or premium < ep["_low_since_alert"]):
         ep["_low_since_alert"], ep["_low_ts"] = premium, now
+    # running post-alert high = MFE (best premium since entry)
+    if ep["alert_ts"] is not None and (
+            ep["mfe_prem"] is None or premium > ep["mfe_prem"]):
+        ep["mfe_prem"], ep["mfe_ts"] = premium, now
     if ep["coil_ts"] is None and coil_state == "COILED":
         ep["coil_ts"] = now
     if ep["move_start_ts"] is None and rise >= STIR_PCT:
@@ -572,6 +594,61 @@ def _classify(ep: dict[str, Any]) -> dict[str, Any]:
             "alert_prem": round(ep["alert_prem"], 2) if alerted else None}
 
 
+def _outcome_join(ep: dict[str, Any], c: dict[str, Any]) -> dict[str, Any]:
+    """V8 Phase 2 (Outcome Join, v8-dev, 2026-07-30) — what happened AFTER entry,
+    from the real buyer's own alert_prem, not from `base` (the pre-move low).
+    Only meaningful for alerted episodes; unalerted (MISSED) episodes have no
+    entry point, so every field here is honestly None for them — never
+    fabricated off `base` instead. Pattern-mining fuel for Phase 3, nothing here
+    feeds a decision or gate.
+
+    MFE/MAE reuse mfe_prem/mfe_ts (new, tracked in record()) and
+    _low_since_alert/_low_ts (pre-existing, was already true MAE internally —
+    just not previously surfaced) rather than adding a second tracker for the
+    same concept.
+    """
+    peak, last_prem = ep.get("peak"), ep.get("last_prem")
+    # peak→close giveback needs no entry point — computed for every episode,
+    # alerted or not (a MISSED runner still decays after its peak).
+    decay = (round((peak - last_prem) / peak * 100, 1)
+             if peak and last_prem is not None else None)
+
+    alerted = c["alerted"]
+    alert_prem = ep.get("alert_prem")
+    alert_ts = ep.get("alert_ts")
+    if not alerted or not alert_prem or not alert_ts:
+        return {"mfe_pts": None, "mfe_pct": None, "t_mfe": None, "time_to_mfe_s": None,
+                "mae_pts": None, "mae_pct": None, "t_mae": None, "time_to_mae_s": None,
+                "time_to_target_s": None, "time_to_failure_s": None,
+                "premium_decay_pct": decay}
+
+    mfe_prem, mfe_ts = ep.get("mfe_prem"), ep.get("mfe_ts")
+    mae_prem, mae_ts = ep.get("_low_since_alert"), ep.get("_low_ts")
+
+    return {
+        "mfe_pts": round(mfe_prem - alert_prem, 2) if mfe_prem is not None else None,
+        "mfe_pct": round((mfe_prem - alert_prem) / alert_prem * 100, 1) if mfe_prem is not None else None,
+        "t_mfe": _hhmmss(mfe_ts), "time_to_mfe_s": round(mfe_ts - alert_ts, 1) if mfe_ts else None,
+        "mae_pts": round(alert_prem - mae_prem, 2) if mae_prem is not None else None,
+        "mae_pct": round((alert_prem - mae_prem) / alert_prem * 100, 1) if mae_prem is not None else None,
+        "t_mae": _hhmmss(mae_ts), "time_to_mae_s": round(mae_ts - alert_ts, 1) if mae_ts else None,
+        # "target" = the same objective +30% runner bar used everywhere else in
+        # this file (RUNNER_PCT) — not the strike-engine's premium_plan target,
+        # which is one strike's live plan, not this episode's own threshold.
+        "time_to_target_s": (round(ep["runner_ts"] - alert_ts, 1)
+                              if ep.get("runner_ts") else None),
+        # "failure" only means something for an alerted episode that did NOT
+        # become a runner (a FALSE alert or a FADE) — exhaustion of a genuine
+        # runner is a target reached, not a failure.
+        "time_to_failure_s": (round(ep["exhaust_ts"] - alert_ts, 1)
+                               if (not c["is_runner"] and ep.get("exhaust_ts")) else None),
+        # give-back from the all-time peak to the moment the episode closed —
+        # theta/reversal decay, independent of whether it was ever alerted.
+        "premium_decay_pct": (round((peak - last_prem) / peak * 100, 1)
+                               if peak and last_prem is not None else None),
+    }
+
+
 def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
     """The full per-opportunity record — the learning data, one JSON line."""
     global _seq
@@ -618,6 +695,7 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         # exhaust unobserved), EOD (still open at day roll). None = legacy line.
         "close_reason": ep.get("close_reason"),
         "engine": ep.get("snap_run") or ep.get("snap_start"),  # decision context join
+        "outcome_join": _outcome_join(ep, c),   # V8 Phase 2 — MFE/MAE/timing/decay
     }
 
 
