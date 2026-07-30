@@ -442,6 +442,11 @@ def _engine_snapshot(ep_strike: int | None = None, ep_type: str | None = None) -
     RSI/EFI stay null — unlike the rest, nothing in the codebase computes them
     yet (grepped, confirmed); that's new indicator work, not a join, and is
     deliberately NOT done here pending a separate go-ahead.
+
+    bos_choch/vix/cpr_tc/cpr_bc added for Phase 3A (Pattern Extractor,
+    v8-dev, 2026-07-30) — same treatment: pure reads of state.intelligence
+    ["layers"]["structure"/"vix_correlation"] and daily_cpr()'s own tc/bc
+    keys, no new computation.
     """
     try:
         from ..core.state import state
@@ -464,17 +469,28 @@ def _engine_snapshot(ep_strike: int | None = None, ep_type: str | None = None) -
                 .get("rows", []))
         layers = {r.get("layer"): r.get("score") for r in rows if r.get("layer")}
 
-        cpr_pivot = None
+        cpr_pivot = cpr_tc = cpr_bc = None
         try:
             from ..engines import support_resistance as _sr
             prev = raw_layers.get("institutional_levels") or {}
             daily_cpr = _sr.daily_cpr(prev.get("prev_day_high"), prev.get("prev_day_low"),
                                        prev.get("prev_day_close"))
-            cpr_pivot = daily_cpr.get("pivot") if daily_cpr else None
+            if daily_cpr:
+                cpr_pivot = daily_cpr.get("pivot")
+                # tc/bc added alongside pivot (v8-dev, Phase 3A prereq) — same
+                # daily_cpr() call already made, just reading 2 more of its
+                # existing keys. tc-bc = CPR width, needed for a NARROW/WIDE tag.
+                cpr_tc, cpr_bc = daily_cpr.get("tc"), daily_cpr.get("bc")
         except Exception:
             pass
 
         gamma_wall = (raw_layers.get("expiry") or {}).get("gamma_wall")
+        # V8 Phase 3A prereq (v8-dev, 2026-07-30): two more pure reads, needed
+        # because the pattern examples requested (BOS, Low VIX) can't be
+        # tagged without them. Same sources decision_contract.py/risk_approval.py
+        # already read — no new computation.
+        bos_choch = (raw_layers.get("structure") or {}).get("bos_choch")
+        vix = (raw_layers.get("vix_correlation") or {}).get("vix")
 
         st = (state.intelligence or {}).get("strike")
         st = st if isinstance(st, dict) else {}
@@ -500,8 +516,10 @@ def _engine_snapshot(ep_strike: int | None = None, ep_type: str | None = None) -
             "atr": tech.get("atr"),
             "underlying": (state.spot or {}).get("ltp"),
             "layers": layers,          # {"Trend":70,"OI":39,"Institutional":30,…}
-            "cpr": cpr_pivot,
+            "cpr": cpr_pivot, "cpr_tc": cpr_tc, "cpr_bc": cpr_bc,
             "gamma_wall": gamma_wall,
+            "bos_choch": bos_choch,
+            "vix": vix,
             "greeks": greeks,
             "planned_sl": planned_sl,
             "planned_target": planned_target,
