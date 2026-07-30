@@ -241,3 +241,45 @@ def group_records(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any
     for r in records:
         groups.setdefault(pattern_id(r), []).append(r)
     return groups
+
+
+# ── Core signature (owner, 2026-07-30) ──────────────────────────────────────
+# pattern_id/pattern_signature bake REGIME_*/SESSION_* into a pattern's own
+# identity — a real, useful design for "how does this exact condition set
+# perform in EXPIRY sessions specifically", but it means a fixed pattern_id
+# can NEVER mix regimes/sessions, so "does this pattern generalize across
+# Bull/Bear/Sideways" is unanswerable at that level BY CONSTRUCTION, not
+# because the evidence happens to be concentrated (flagged in
+# evidence_validator.py when this was first noticed).
+#
+# core_signature/core_pattern_id below are the SAME tags with REGIME_*/
+# SESSION_* excluded — a second, complementary grouping. A "core pattern"
+# (e.g. CPR_NARROW|OI_BUILD|TREND_STRONG|VWAP_ABOVE) can appear under
+# multiple regimes/sessions, which is exactly what lets the Evidence
+# Validator check whether it holds up across them. This does not replace
+# pattern_id/pattern_signature — both groupings are kept, for different
+# questions.
+_CORE_EXCLUDED_PREFIXES = ("REGIME_", "SESSION_")
+
+
+def core_tags(bb: dict[str, Any]) -> list[str]:
+    return [t for t in extract_tags(bb) if not t.startswith(_CORE_EXCLUDED_PREFIXES)]
+
+
+def core_signature(bb: dict[str, Any]) -> str:
+    return "|".join(core_tags(bb))
+
+
+def core_pattern_id(bb: dict[str, Any]) -> str:
+    """Same content-hash approach as pattern_id(), prefixed CORE_ so the two
+    id spaces are never visually confused with each other."""
+    sig = core_signature(bb)
+    digest = hashlib.sha256(sig.encode()).hexdigest()[:8]
+    return f"CORE_{digest.upper()}"
+
+
+def group_by_core(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for r in records:
+        groups.setdefault(core_pattern_id(r), []).append(r)
+    return groups

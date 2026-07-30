@@ -27,11 +27,22 @@ Checks, each independently boolean:
                                  (the exact OBS-6 finding, checked per pattern
                                  instead of only at the dashboard-panel level)
 
-`walk_forward_eligible` is the AND of all five. `regime_composition` /
-`session_composition` / `time_of_day_composition` are reported as FACTS, not
-pass/fail checks — see the important caveat in `validate_pattern()`'s
-docstring about why regime/session diversity cannot be tested at the
-per-pattern-id level under the current Phase 3A tag design.
+`walk_forward_eligible` is the AND of all six. `regime_composition` /
+`session_composition` are reported as FACTS, not pass/fail checks — see the
+caveat in `validate_pattern()`'s docstring about why regime/session
+diversity cannot be tested at the per-pattern-id level (regime/session are
+baked into that identity). `time_of_day_composition` IS a genuine check
+(time-of-day is not baked into pattern identity) and does gate eligibility.
+
+Owner follow-up (2026-07-30, same day): approved adding a SECOND grouping —
+pattern_extractor.core_pattern_id() (same tags, REGIME_*/SESSION_* excluded)
+— specifically so regime/session generalization CAN be tested, just not at
+the pattern_id level. `validate_core_pattern()`/`validate_core_patterns()`
+below answer that question: does the same underlying condition set (e.g.
+CPR_NARROW|OI_BUILD|TREND_STRONG|VWAP_ABOVE) hold up across the different
+regimes/sessions it actually appeared under? Still facts only — reports
+regime_diversity_sufficient/regime_consistent (and the session equivalents),
+never a verdict on whether the pattern is good.
 """
 from __future__ import annotations
 
@@ -49,6 +60,14 @@ MAX_SINGLE_DAY_SHARE_PCT = 50.0  # one day supplying more than this % = "lucky d
 MAX_WIN_RATE_SPREAD_PCT = 40.0   # max-min of win_rate_by_day above this = unstable
 MIN_TICK_BASE = 0.10             # base premium at/below this = a min-tick episode (OBS-6)
 MAX_MIN_TICK_SHARE_PCT = 20.0    # more than this % min-tick episodes = polluted evidence
+
+# ── core-pattern (regime/session diversity) thresholds ──────────────────────
+MIN_BUCKET_SAMPLE = 10           # a regime/session bucket needs at least this
+                                  # many occurrences to count as real evidence,
+                                  # not just 1-2 flukes
+MIN_BUCKETS_FOR_DIVERSITY = 2    # need at least this many sufficiently-sampled
+                                  # regimes (or sessions) to call it "diverse"
+MAX_BUCKET_WIN_RATE_SPREAD_PCT = 40.0  # same tolerance as the day-spread check
 
 # NSE session time bands (IST), for the "Morning only?" check — there is no
 # existing tag for time-of-day anywhere in the codebase, so this reads the
@@ -183,3 +202,69 @@ def validate_patterns(records: list[dict[str, Any]] | None = None) -> dict[str, 
     all_stats = pstats.compute_pattern_stats(recs)
     return {pid: validate_pattern(pid, g, stats=all_stats.get(pid))
             for pid, g in groups.items()}
+
+
+def _bucket_win_rates(recs: list[dict[str, Any]], key: str) -> dict[str, dict[str, Any]]:
+    """{bucket_value: {n, win_pct}} for every distinct value of `key`
+    (e.g. 'regime' or 'session_type') seen in `recs`, regardless of sample
+    size — callers filter by MIN_BUCKET_SAMPLE themselves."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for r in recs:
+        v = r.get(key)
+        if v:
+            buckets.setdefault(v, []).append(r)
+    out: dict[str, dict[str, Any]] = {}
+    for v, bucket_recs in buckets.items():
+        n = len(bucket_recs)
+        wins = sum(1 for r in bucket_recs if r.get("outcome") == "SUCCESS")
+        out[v] = {"n": n, "win_pct": round(wins / n * 100, 1) if n else None}
+    return out
+
+
+def _diversity_verdict(buckets: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    sufficient = {v: b for v, b in buckets.items() if b["n"] >= MIN_BUCKET_SAMPLE}
+    diverse = len(sufficient) >= MIN_BUCKETS_FOR_DIVERSITY
+    win_rates = [b["win_pct"] for b in sufficient.values()]
+    spread = round(max(win_rates) - min(win_rates), 1) if len(win_rates) >= 2 else None
+    # can't judge consistency from <2 sufficiently-sampled buckets — stays
+    # None (not decidable yet), never fabricated as True or False
+    consistent = (spread <= MAX_BUCKET_WIN_RATE_SPREAD_PCT) if spread is not None else None
+    return {
+        "buckets": buckets,                       # every value seen, any sample size
+        "sufficient_buckets": sorted(sufficient),  # only the ones that clear MIN_BUCKET_SAMPLE
+        "diversity_sufficient": diverse,
+        "win_rate_spread_pct": spread,
+        "consistent": consistent,
+    }
+
+
+def validate_core_pattern(core_pid: str, recs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Does this CORE condition set (regime/session excluded from its
+    identity) hold up across the different regimes/sessions it actually
+    appeared under? Complements validate_pattern() — does not replace it.
+    Facts only: if there aren't yet ≥2 regimes (or sessions) with ≥
+    MIN_BUCKET_SAMPLE occurrences each, `consistent` stays None (not yet
+    decidable) rather than being guessed at."""
+    regime = _diversity_verdict(_bucket_win_rates(recs, "regime"))
+    session = _diversity_verdict(_bucket_win_rates(recs, "session_type"))
+    return {
+        "core_pattern_id": core_pid,
+        "occurrences": len(recs),
+        "core_signature": pext.core_signature(recs[0]) if recs else "",
+        "regime_diversity_sufficient": regime["diversity_sufficient"],
+        "regime_win_rate_spread_pct": regime["win_rate_spread_pct"],
+        "regime_consistent": regime["consistent"],
+        "regime_buckets": regime["buckets"],
+        "session_diversity_sufficient": session["diversity_sufficient"],
+        "session_win_rate_spread_pct": session["win_rate_spread_pct"],
+        "session_consistent": session["consistent"],
+        "session_buckets": session["buckets"],
+    }
+
+
+def validate_core_patterns(records: list[dict[str, Any]] | None = None) -> dict[str, dict[str, Any]]:
+    """Run the regime/session diversity check over every CORE pattern found
+    in `records`. Plain dict keyed by core_pattern_id — no ranking."""
+    recs = records if records is not None else pstats.load_records()
+    groups = pext.group_by_core(recs)
+    return {cpid: validate_core_pattern(cpid, g) for cpid, g in groups.items()}
