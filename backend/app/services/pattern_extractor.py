@@ -230,3 +230,14 @@ def pattern_id(bb: dict[str, Any]) -> str:
     sig = pattern_signature(bb)
     digest = hashlib.sha256(sig.encode()).hexdigest()[:8]
     return f"PATTERN_{digest.upper()}"
+
+
+def group_records(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Group already-closed black-box records by pattern_id. Shared by Phase
+    3B (pattern_stats.py) and the Evidence Validator — pattern identity is
+    this module's concern, not something each downstream consumer should
+    re-derive its own copy of."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for r in records:
+        groups.setdefault(pattern_id(r), []).append(r)
+    return groups

@@ -68,14 +68,6 @@ def _avg(values: list[float]) -> float | None:
     return round(statistics.fmean(values), 2) if values else None
 
 
-def _group_by_pattern(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    groups: dict[str, list[dict[str, Any]]] = {}
-    for r in records:
-        pid = pext.pattern_id(r)
-        groups.setdefault(pid, []).append(r)
-    return groups
-
-
 def _pattern_stats_one(pid: str, recs: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(recs)
     days = {r.get("day") for r in recs if r.get("day")}
@@ -132,5 +124,5 @@ def compute_pattern_stats(records: list[dict[str, Any]] | None = None) -> dict[s
     key order is NOT a ranking; callers must not treat it as one (that's
     Phase 3C's job, not built here)."""
     recs = records if records is not None else load_records()
-    groups = _group_by_pattern(recs)
+    groups = pext.group_records(recs)
     return {pid: _pattern_stats_one(pid, g) for pid, g in groups.items()}
