@@ -1302,6 +1302,20 @@ async def v8_walk_forward(symbol: str = "NIFTY"):
         raise HTTPException(502, str(e))
 
 
+@router.get("/v8/research-dashboard")
+async def v8_research_dashboard():
+    """Read-only research-progress snapshot (docs/V8_STATUS.md) — the one
+    exception to the 2026-07-30 v8-dev code freeze. Pure aggregation of
+    already-computed pipeline outputs from data/opportunity_log; no broker
+    connection needed, no gate, no new evidence math."""
+    from ..v8_flags import v8_flags
+    if not v8_flags.research_dashboard:
+        raise HTTPException(404, "V8 research dashboard is disabled "
+                                  "(set CAT_V8_RESEARCH_DASHBOARD=1 to enable)")
+    from ..services import research_dashboard
+    return research_dashboard.build_report()
+
+
 # ---------- journal ----------
 class JournalBody(BaseModel):
     date: str | None = None

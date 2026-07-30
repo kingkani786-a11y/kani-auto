@@ -91,7 +91,7 @@ def _time_band(hhmmss: str | None) -> str | None:
     return None
 
 
-def _composition(values: list[str]) -> dict[str, float]:
+def composition(values: list[str]) -> dict[str, float]:
     """{value: % share}, ignoring Nones."""
     vals = [v for v in values if v]
     if not vals:
@@ -149,10 +149,10 @@ def validate_pattern(pid: str, recs: list[dict[str, Any]],
     min_tick_share = round(min_tick_n / len(bases) * 100, 1) if bases else 0.0
     min_tick_polluted = min_tick_share > MAX_MIN_TICK_SHARE_PCT
 
-    regime_composition = _composition([r.get("regime") for r in recs])
-    session_composition = _composition([r.get("session_type") for r in recs])
+    regime_composition = composition([r.get("regime") for r in recs])
+    session_composition = composition([r.get("session_type") for r in recs])
     time_bands = [_time_band(r.get("t_ignite") or r.get("t_base")) for r in recs]
-    time_of_day_composition = _composition(time_bands)
+    time_of_day_composition = composition(time_bands)
     single_time_band_share = max(time_of_day_composition.values()) if time_of_day_composition else None
     single_time_band_concentrated = (single_time_band_share is not None
                                       and single_time_band_share > MAX_SINGLE_TIME_BAND_SHARE_PCT)

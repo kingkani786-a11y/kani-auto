@@ -31,5 +31,11 @@ class V8Flags:
     # Item 3 — GEX (dealer gamma exposure) approximation (not started)
     gex_approximation: bool = _flag("GEX_APPROXIMATION")
 
+    # Research Dashboard — the one exception to the 2026-07-30 v8-dev code
+    # freeze (docs/V8_STATUS.md): read-only aggregation of already-built
+    # Phase 1-3C/Evidence/Walk-Forward/Promotion-Gate outputs. No new
+    # evidence math, no gate, no broker connection needed.
+    research_dashboard: bool = _flag("RESEARCH_DASHBOARD")
+
 
 v8_flags = V8Flags()
