@@ -1,4 +1,4 @@
-"""V8 Phase 3A — Pattern Extractor (v8-dev, 2026-07-30).
+"""V8 Phase 3A — Pattern Extractor (v8-dev, 2026-07-30; refined 2026-07-30).
 
 Owner's own sub-phase split for V8 Phase 3 (Pattern Mining):
     3A Pattern Extractor  — tag each episode with the conditions present.
@@ -15,29 +15,116 @@ good; it doesn't say anything about a pattern's outcome at all, only what was
 present. Purely read-only over historical logs; never touches live state,
 never mutates anything, never runs during market hours as part of any gate.
 
-Every tag below reuses a threshold or classification the codebase ALREADY
-has, where one exists (VIX_LOW/VIX_HIGH from risk_approval.py; BOS/CHOCH
-straight from structure.py's own labeling). Where no existing cutoff exists
-(CPR width, OI/Trend score bands), a NEW threshold is declared below —
-explicitly marked as unvalidated. Same declared-not-fitted convention as
-opportunity_metrics.py's own STIR_PCT/RUNNER_PCT. Phase 3B's occurrence/
-win-rate stats are what will tell us whether these cutoffs actually separate
-outcomes; until then they are working guesses, not evidence.
+Owner refinement (2026-07-30) added three things on top of the original tag
+extraction:
+  - pattern_id()/pattern_signature() — a stable identity for a tag
+    combination, so Phase 3B can GROUP BY it and Phase 4 can reference it.
+  - tag_source()/describe_tags() — which engine/module each tag's underlying
+    value actually came from, for debugging.
+  - THRESHOLD_REGISTRY — every declared cutoff in one place, with its
+    validation status, instead of scattered module constants. Phase 4's
+    proposal engine will eventually read/write against this same registry
+    ("current vs observed-best vs proposed"); for now it's read-only.
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from .risk_approval import VIX_LOW, VIX_HIGH  # reused, not redeclared
 
-# ── declared thresholds (NEW, unvalidated — Phase 3B checks these) ─────────
-CPR_NARROW_PCT = 0.15      # tc-bc as % of pivot; below this = "narrow" CPR
-GAMMA_WALL_NEAR_PCT = 0.15  # mirrors gamma_shield.py's own inline 0.15% (0.0015)
-                            # formula — that file has no named constant to
-                            # import, so this must be kept in sync by hand if
-                            # gamma_shield.py's threshold ever changes.
-OI_BUILD_MIN = 60          # layers["OI"] score ≥ this = "OI Build"
-TREND_STRONG_MIN = 60      # layers["Trend"] score ≥ this = "Trend Strong"
+# ── Threshold Registry — single source of truth for every declared cutoff
+# used below. "status" tells you whether a number is borrowed from code that
+# already exists elsewhere (reused — trustworthy) or invented here for lack
+# of any existing definition (unvalidated — a working guess, not evidence).
+# Phase 3B's occurrence/win-rate stats are what will actually test the
+# unvalidated ones; nothing here claims otherwise. Same declared-not-fitted
+# convention as opportunity_metrics.py's own STIR_PCT/RUNNER_PCT.
+THRESHOLD_REGISTRY: dict[str, dict[str, Any]] = {
+    "cpr_narrow_pct": {
+        "value": 0.15, "unit": "% of pivot (tc-bc width)",
+        "status": "unvalidated", "reused_from": None,
+        "note": "below this = CPR_NARROW, else CPR_WIDE",
+    },
+    "gamma_wall_near_pct": {
+        "value": 0.15, "unit": "% distance from underlying spot",
+        "status": "mirrors an existing formula, not independently chosen",
+        "reused_from": "engines/gamma_shield.py (inline 0.0015 fraction — "
+                        "that file exports no named constant, so this value "
+                        "must be kept in sync by hand if it ever changes there)",
+        "note": "below this = GAMMA_WALL_NEAR, else GAMMA_WALL_FAR",
+    },
+    "oi_build_min": {
+        "value": 60, "unit": "OI layer score (0-100)",
+        "status": "unvalidated", "reused_from": None,
+        "note": "at/above this = OI_BUILD, else OI_WEAK",
+    },
+    "trend_strong_min": {
+        "value": 60, "unit": "Trend layer score (0-100)",
+        "status": "unvalidated", "reused_from": None,
+        "note": "at/above this = TREND_STRONG, else TREND_WEAK",
+    },
+    "vix_low": {
+        "value": VIX_LOW, "unit": "India VIX points",
+        "status": "reused", "reused_from": "services/risk_approval.py (VIX_LOW)",
+        "note": "below this = VIX_LOW tag",
+    },
+    "vix_high": {
+        "value": VIX_HIGH, "unit": "India VIX points",
+        "status": "reused", "reused_from": "services/risk_approval.py (VIX_HIGH)",
+        "note": "above this = VIX_HIGH tag; between vix_low and vix_high = VIX_NORMAL",
+    },
+}
+
+
+def _t(name: str) -> Any:
+    return THRESHOLD_REGISTRY[name]["value"]
+
+
+# ── Tag source metadata — which engine/module a tag FAMILY's underlying
+# value actually comes from, for debugging ("why does this episode carry
+# VWAP_ABOVE?" → look here, then at that file).
+TAG_SOURCES: dict[str, str] = {
+    "CPR": "engines/support_resistance.py daily_cpr() — pivot/tc/bc",
+    "GAMMA_WALL": "state.intelligence.layers.expiry.gamma_wall "
+                  "(engines/expiry.py, read the way engines/gamma_shield.py does)",
+    "VWAP": "state.signal.tech.vwap (technical indicators, market_service.py)",
+    "BOS_CHOCH": "engines/structure.py analyze() — bos_choch",
+    "OI": "state.intelligence layers.intelligence.decision_matrix 'OI' row",
+    "DELTA": "state.intelligence.strike (engines/strike_selector.py + "
+             "engines/greeks.py) — only present when the episode's own "
+             "strike matches the currently strike-engine-selected one",
+    "VIX": "state.intelligence.layers.vix_correlation (engines/global_context.py)",
+    "TREND": "state.intelligence layers.intelligence.decision_matrix 'Trend' row",
+    "REGIME": "opportunity_metrics._behavioural_regime() — tape axis",
+    "SESSION": "opportunity_metrics._session_type() — calendar axis",
+}
+
+_TAG_FAMILY_FIXED = {"BOS": "BOS_CHOCH", "CHOCH": "BOS_CHOCH"}
+_TAG_FAMILY_PREFIXES = [
+    ("CPR_", "CPR"), ("GAMMA_WALL_", "GAMMA_WALL"), ("VWAP_", "VWAP"),
+    ("OI_", "OI"), ("DELTA_", "DELTA"), ("VIX_", "VIX"), ("TREND_", "TREND"),
+    ("REGIME_", "REGIME"), ("SESSION_", "SESSION"),
+]
+
+
+def tag_family(tag: str) -> str | None:
+    if tag in _TAG_FAMILY_FIXED:
+        return _TAG_FAMILY_FIXED[tag]
+    for prefix, fam in _TAG_FAMILY_PREFIXES:
+        if tag.startswith(prefix):
+            return fam
+    return None
+
+
+def tag_source(tag: str) -> str | None:
+    fam = tag_family(tag)
+    return TAG_SOURCES.get(fam) if fam else None
+
+
+def describe_tags(tags: list[str]) -> list[dict[str, str | None]]:
+    """Annotate a tag list with each tag's source module, for debugging."""
+    return [{"tag": t, "source": tag_source(t)} for t in tags]
 
 
 def _cpr_tag(cpr: float | None, tc: float | None, bc: float | None) -> str | None:
@@ -46,14 +133,14 @@ def _cpr_tag(cpr: float | None, tc: float | None, bc: float | None) -> str | Non
     width_pct = abs(tc - bc) / cpr * 100 if cpr else None
     if width_pct is None:
         return None
-    return "CPR_NARROW" if width_pct < CPR_NARROW_PCT else "CPR_WIDE"
+    return "CPR_NARROW" if width_pct < _t("cpr_narrow_pct") else "CPR_WIDE"
 
 
 def _gamma_wall_tag(wall: float | None, underlying: float | None) -> str | None:
     if not (wall and underlying):
         return None
     distance_pct = abs(underlying - wall) / underlying * 100
-    return "GAMMA_WALL_NEAR" if distance_pct < GAMMA_WALL_NEAR_PCT else "GAMMA_WALL_FAR"
+    return "GAMMA_WALL_NEAR" if distance_pct < _t("gamma_wall_near_pct") else "GAMMA_WALL_FAR"
 
 
 def _vwap_tag(vwap: float | None, underlying: float | None) -> str | None:
@@ -65,7 +152,7 @@ def _vwap_tag(vwap: float | None, underlying: float | None) -> str | None:
 def _oi_tag(oi_score: float | None) -> str | None:
     if oi_score is None:
         return None
-    return "OI_BUILD" if oi_score >= OI_BUILD_MIN else "OI_WEAK"
+    return "OI_BUILD" if oi_score >= _t("oi_build_min") else "OI_WEAK"
 
 
 def _delta_tag(delta: float | None) -> str | None:
@@ -77,9 +164,9 @@ def _delta_tag(delta: float | None) -> str | None:
 def _vix_tag(vix: float | None) -> str | None:
     if vix is None:
         return None
-    if vix < VIX_LOW:
+    if vix < _t("vix_low"):
         return "VIX_LOW"
-    if vix > VIX_HIGH:
+    if vix > _t("vix_high"):
         return "VIX_HIGH"
     return "VIX_NORMAL"
 
@@ -87,7 +174,7 @@ def _vix_tag(vix: float | None) -> str | None:
 def _trend_tag(trend_score: float | None) -> str | None:
     if trend_score is None:
         return None
-    return "TREND_STRONG" if trend_score >= TREND_STRONG_MIN else "TREND_WEAK"
+    return "TREND_STRONG" if trend_score >= _t("trend_strong_min") else "TREND_WEAK"
 
 
 def extract_tags(bb: dict[str, Any]) -> list[str]:
@@ -125,3 +212,21 @@ def pattern_signature(bb: dict[str, Any]) -> str:
     for Phase 3B to group by; computing a signature is not the same as
     computing that signature's statistics, which stays out of this file."""
     return "|".join(extract_tags(bb))
+
+
+def pattern_id(bb: dict[str, Any]) -> str:
+    """A short, stable, content-derived ID for a tag combination — e.g.
+    'PATTERN_A3F9C21B'. Deterministic: the SAME tag combination always
+    produces the SAME id, with no persistent counter/registry file needed
+    (unlike a sequential 'PATTERN_000431' style ID, which would require
+    assigning and storing IDs somewhere as new combinations are first seen).
+
+    This is a content hash (8 hex chars ≈ 4.3 billion buckets), not a
+    sequence number — collision is practically impossible at any pattern
+    count this project will ever reach, but it is not mathematically zero.
+    `pattern_signature()` remains the true, exact identity; if two IDs were
+    ever suspected to collide, compare signatures directly rather than IDs.
+    """
+    sig = pattern_signature(bb)
+    digest = hashlib.sha256(sig.encode()).hexdigest()[:8]
+    return f"PATTERN_{digest.upper()}"
