@@ -80,6 +80,10 @@ now would be treating a hypothesis as a diagnosis.
 **Impact if it recurs:** measurement/display only. It does not touch any
 gate, decision, or sizing — Measurement Health is an observability card.
 
+**Session log:** 2026-07-30 (expiry) — **did NOT recur.** Measurement
+Health stayed HEALTHY all session (22 open / 0 stale at 15:27 IST). One
+clean session against it; still need more before concluding either way.
+
 ### OBS-2 — Execution Lock / Calibration gate is near coin-flip (HIGH priority)
 
 **Measured, from the gate's own tracker (2026-07-30):** `1106 blocks ·
@@ -96,6 +100,20 @@ require the full Observation→Evidence→Proposal→Approval pipeline. Owner
 decision: collect 2-3 more trading sessions, then compare Win Rate, Profit
 Factor, Drawdown, False Entry rate and Missed Winner rate before any
 proposal is even drafted. No auto-tuning, ever.
+
+**Session log — the numbers are volatile intraday, which itself argues for
+patience:**
+
+| When | Blocks | Saved | Missed | Solo-missed | Day tally |
+|---|---|---|---|---|---|
+| 2026-07-30 ~11:12 | 1106 | 58% | 42% | 51% | 6 missed, +160 pts |
+| 2026-07-30 ~15:27 | 1581 | **67%** | **33%** | 51% | 13 missed, +340 pts |
+
+Within a single session the saved/missed split moved from 58/42 to 67/33
+(+475 blocks). Reading a verdict off any single snapshot would have been
+wrong in both directions — exactly why the 2-3 session rule is right.
+A second, separate gate is also now accumulating data worth watching:
+`Premium: AVOID — saved 76% / missed 24% · 598 blocks`.
 
 ### OBS-3 — Frontend/backend version gap (LOW priority, intentional)
 
@@ -166,6 +184,40 @@ log, but it should not be described as a trade dataset.
 CPR / RSI / EFI (the deferred IEIE Phase 1 fields, currently hardcoded
 `None`), raw Greeks values, gamma-wall level, and joining planned SL/Target
 into the episode record.
+
+### OBS-6 — Minimum-tick (₹0.05) options distort percentage statistics (MEDIUM)
+
+**Found 2026-07-30 (SENSEX expiry day, "Expiry Power Hour").** Percentage
+moves are computed off whatever the episode's base premium was, with no
+minimum-premium floor — `record()` only rejects `premium <= 0`. On an
+option sitting at the ₹0.05 minimum tick, this produces figures that are
+arithmetically correct but practically meaningless.
+
+**Verified live:**
+- Radar API: `77900 PE — from_low: 0.05, rise_pct: 100.0`. A **five-paise**
+  move (₹0.05 → ₹0.10) was classified `🔴 EXPLODING`, scored `Runner 55`,
+  and promoted into the PREPARE ZONE, drawing ~7% of AI Attention.
+- "BIG MOVERS TODAY" rendered `77900 PE ₹0.05 → ₹397.15 (+7943.0×)` and
+  five more in the 1441×-6209× range, all tagged "✗ missed" — headline
+  "missed opportunities" that were never realistically capturable at a
+  minimum-tick entry.
+
+**Scope is smaller than the display suggests.** In the closed-episode log
+only 4 of 484 records today have a base ≤ ₹0.10 (2% of the 162 classed as
+runners), and all 4 resolved `outcome: FADE`. So the OBS-5 learning dataset
+is only lightly polluted — but the live panels (Big Movers, Premium Radar
+zones, AI Attention, runner count) are visibly distorted, worst on expiry
+day when many strikes park at the minimum tick.
+
+**No trading impact:** these are radar observations, not gates. Execution
+Lock blocked every entry regardless (OBS-2), and nothing here feeds a
+decision, threshold, or position size.
+
+**Candidate V8 fix (new code ⇒ deferred under the freeze):** a
+minimum-premium floor for percentage classification — e.g. exclude bases
+below ~₹1.00 from runner/EXPLODING scoring and from the Big Movers list,
+or switch those to absolute-points framing. Needs a declared threshold, so
+it belongs in the evidence pipeline, not a quick patch.
 
 ## Rule for this phase
 
