@@ -136,8 +136,19 @@ def _decision_matrix(layers: dict[str, Any], signal: dict[str, Any]) -> dict[str
     add("Volume Profile", float(layers.get("volume_profile", {}).get(key, 50)),
         layers.get("volume_profile", {}).get("state", "—") or "—")
     fut = layers.get("futures", {})
-    fut_score = 70 if fut.get("relation") == "CONFIRMS" else 30 if fut.get("relation") == "CONTRADICTS" else 50
-    add("Futures", fut_score, fut.get("relation", "—").title() if fut.get("relation") else "—")
+    _fut_rel = fut.get("relation")
+    fut_score = 70 if _fut_rel == "CONFIRMS" else 30 if _fut_rel == "CONTRADICTS" else 50
+    # Bug fix (2026-07-31): "NEUTRAL ON" is futures.py's own relation value,
+    # but it was only ever designed as a mid-sentence fragment there
+    # (f"Futures {relation.lower()} the bullish signal" -> "Futures neutral
+    # on the bullish signal", a complete sentence). Reusing it standalone
+    # here (.title()'d alone) produced "Neutral On" - confirmed live on the
+    # AI Decision Matrix panel. CONFIRMS/CONTRADICTS happen to also read
+    # fine as standalone words, which is what masked this until the NEUTRAL
+    # case specifically was hit.
+    _fut_reason = ("Neutral" if _fut_rel == "NEUTRAL ON"
+                   else _fut_rel.title() if _fut_rel else "—")
+    add("Futures", fut_score, _fut_reason)
     inst = layers.get("institutional_activity", {})
     inst_score = 70 if inst.get("bias") == ("BULLISH" if dom == "BULL" else "BEARISH") else 30 if inst.get("bias") not in ("NEUTRAL", None) else 50
     add("Institutional", inst_score, inst.get("bias", "—"), na=no_chain)
