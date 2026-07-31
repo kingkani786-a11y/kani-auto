@@ -25,7 +25,16 @@ _TF = {
 
 
 def _stage(m: float) -> str:
-    return ("Ready" if m >= 81 else "Armed" if m >= 61 else "Preparing" if m >= 41
+    # Bug fix (2026-07-31): these band words used to be Preparing/Armed/Ready —
+    # the SAME words the entry_trigger `status` state machine uses below
+    # (PREPARING/ARMED/READY/NOT READY), but computed from maturity ALONE with
+    # no awareness of whether a directional signal even exists. Confirmed
+    # live: maturity=82 (>=81) rendered "Ready" on the very next line under a
+    # big "NOT READY" badge — same word, opposite verdict, purely because a
+    # pure maturity-score band and the actionable gate status share a name.
+    # Renamed to a vocabulary that cannot collide with `status`'s words, so
+    # this line can never again visually contradict the real verdict above it.
+    return ("Peak" if m >= 81 else "Strong" if m >= 61 else "Building" if m >= 41
             else "Developing" if m >= 21 else "Immature")
 
 
