@@ -113,8 +113,17 @@ def verify() -> dict[str, Any]:
     add("Voice / Radio", "client", "verified in the browser (SpeechSynthesis)")
 
     # Health score — fraction of CORE subsystems that are ok, as a %.
+    # "paused" counts as passing here too — this module's own stated design
+    # is that paused/off on a closed market is EXPECTED, not a fault (see the
+    # note below), but a bare `status == "ok"` check ignored that for scoring:
+    # Decision Engine goes "paused" (not "ok") every single pre-market
+    # morning, so the score read 75%/"Degraded" purely because the market
+    # hadn't opened yet — contradicting the disclaimer shown right under it.
+    # "building" (still warming up while the market IS open) is deliberately
+    # NOT included here — that's a real transient state worth reflecting in
+    # the score, unlike an intentional closed-market pause.
     core_subs = [s for s in subs if s["core"]]
-    ok_core = sum(1 for s in core_subs if s["status"] == "ok")
+    ok_core = sum(1 for s in core_subs if s["status"] in ("ok", "paused"))
     score = round(100 * ok_core / max(1, len(core_subs)))
     label = ("Stable" if score >= 90 else "Degraded" if score >= 60 else "Attention")
 
