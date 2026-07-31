@@ -220,6 +220,36 @@ below ~₹1.00 from runner/EXPLODING scoring and from the Big Movers list,
 or switch those to absolute-points framing. Needs a declared threshold, so
 it belongs in the evidence pipeline, not a quick patch.
 
+## Deferred enhancement — split System Verify into 3 (later 4) indices
+
+Owner proposal, 2026-07-31, explicitly logged rather than built now (new
+feature, not a bug fix — held per the rule below). One score currently
+conflates two different questions: "is the software healthy" and "can a
+trade actually happen right now." Proposed split:
+
+```
+System Health      — Backend/Memory/AI Cortex up (the 75%-bug fix's fix)
+Trading Readiness  — READY / CLOSED / BLOCKED (market+broker+risk gates)
+Research Health    — Weekend AI / black-box logging / calibration state
+```
+
+Worked examples from the owner: market closed → System 100%, Trading
+CLOSED, Research 100%. Market open, everything fine → System 100%,
+Trading READY, Research 100%. Broker disconnected → System 82%, Trading
+BLOCKED, Research 94% — i.e. "system is healthy, only trading can't
+proceed" becomes visible at a glance instead of one blended number hiding
+which part is actually the problem.
+
+Owner also separately noted a 4th index — **AI Readiness** — as a V9-only
+extension of this same idea (see `cat-v9-recommendation-ai-vision.md`
+memory), not part of this 3-way split.
+
+**Status: logged, not built.** This is new UI/data-shape work, not a fix
+to existing logic — out of scope for the current bug-fixes-only
+observation phase. Build after the 7-item checklist below is complete (or
+if the owner explicitly authorizes it as a scoped exception, the same way
+the V8 Research Dashboard was authorized as one during the v8-dev freeze).
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
