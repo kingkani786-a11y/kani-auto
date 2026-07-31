@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useMarket } from "@/lib/store";
 
 const ICON: Record<string, string> = {
   session: "🎙", trend: "📈", structure: "🏗", liquidity: "💧",
@@ -13,6 +14,14 @@ const ICON: Record<string, string> = {
 
 export function AITimelineCard() {
   const [t, setT] = useState<any>(null);
+  const { status } = useMarket();
+  // Bug fix (2026-07-31): this empty-state message used to unconditionally
+  // say "Quiet on a closed market" — confirmed live showing that exact text
+  // while the market badge read "MARKET OPEN · ACTIVE MARKET" and NIFTY was
+  // visibly ticking. The static copy asserted a closed market regardless of
+  // whether it actually was one. Same `status.market_open` flag
+  // FeedDiagnostics.tsx already uses for the same kind of check.
+  const marketClosed = (status as any)?.market_open === false;
 
   useEffect(() => {
     const load = () => api.aiTimeline(40).then(setT).catch(() => {});
@@ -29,7 +38,8 @@ export function AITimelineCard() {
       {events.length === 0 ? (
         <div className="text-xs text-terminal-muted">
           No events yet. The timeline fills as the market moves — trend flips,
-          liquidity shifts, entry-ready, targets, exit. Quiet on a closed market.
+          liquidity shifts, entry-ready, targets, exit.
+          {marketClosed ? " Quiet on a closed market." : " Quiet so far today."}
         </div>
       ) : (
         <ol className="space-y-1 max-h-72 overflow-auto">
