@@ -72,6 +72,67 @@ trader. Worth considering as a small hardening pass sometime after the
 pre-V8 checklist, not urgent enough to justify new code during the
 bug-fixes-only phase now.
 
+### New process rule — Fresh Session Verification (owner, 2026-07-31)
+
+Before any suspected display bug is declared "confirmed" and fixed, verify
+in a genuinely fresh session first — same tab + hard refresh isn't always
+enough to bust a Service-Worker-controlled cache (this app registers one,
+`cat-shell-*`, for PWA/offline support). Escalate in this order until the
+behavior either reproduces or clears:
+
+1. Same tab, hard refresh (Cmd/Ctrl+Shift+R).
+2. Brand new tab.
+3. Incognito/private window (guarantees no inherited SW/cache state).
+4. Only then — code inspection.
+
+**Why this matters, in the owner's own framing:** a suspicious behavior
+can come from two completely different places that must be diagnosed
+separately —
+```
+Application  → Correct
+Verification → Incomplete
+```
+vs.
+```
+Application  → Incorrect
+Verification → Correct
+```
+Both look identical from the outside ("the bug is still there"), but only
+one of them is fixed by changing code. Confusing the two costs a wasted
+fix or an unfixed real bug — telling them apart *before* touching code is
+what non-fabricated debugging discipline (Evidence → Reproduce → Verify →
+Root Cause → Fix) is actually for.
+
+**Observation Log entry format for a closed-no-fix case** (owner's own
+template — use this whenever a suspected bug turns out to be verification-
+side, so a later audit can tell "fixed" apart from "false alarm" at a
+glance):
+```
+Observation #X
+Suspected: <what looked wrong>
+Evidence: <what confirmed vs contradicted it>
+Root Cause: <application bug | stale client state | other>
+Fix: <what changed, or None>
+Status: Closed - No Code Change   (or: Fixed, Verified)
+```
+
+**Case closed under this rule, 2026-07-31 — AI Timeline "closed market" report:**
+```
+Observation: AI Timeline showed "Quiet on a closed market" during live
+             market-open hours (MCX:GOLD, 21:09 IST)
+Evidence:    ✓ /api/status returned market_open: true (confirmed via curl
+               and via a live fetch() from inside a fresh browser session)
+             ✓ A brand-new, never-before-loaded browser tab against the
+               same running frontend showed "Quiet so far today" — the
+               CORRECT post-fix text — on the very same build (7ae15ab)
+Root Cause:  Stale client session in the tab being screenshotted from —
+             likely pre-dating the backend/frontend restart, with a
+             Service-Worker-controlled cache outliving an ordinary hard
+             refresh. NOT an application defect.
+Fix:         None
+Status:      Closed — Verified, No Code Change Required
+```
+
 ## Open observations — evidence collecting, deliberately NOT fixed yet
 
 Owner decision 2026-07-30: these are real, code-confirmed findings, but the
