@@ -31,14 +31,31 @@ def _layers() -> dict[str, Any]:
     return (state.intelligence or {}).get("layers") or {}
 
 
+def _dm_rows() -> list[dict[str, Any]]:
+    """The AI Decision Matrix's own per-layer rows (already computed once per
+    cycle by engines/intelligence.py._decision_matrix) — the SAME structure
+    opportunity_metrics.py/decision_contract.py/risk_approval.py already walk
+    for this exact reason: 'Trend'/'Structure'/'Liquidity' only exist as
+    `layer` entries here, never as top-level keys of _layers()."""
+    return ((_layers().get("intelligence") or {})
+            .get("decision_matrix") or {}).get("rows") or []
+
+
 def _layer_score(*names: str) -> float | None:
-    layers = _layers()
+    # Bug fix (2026-07-31): this used to look for row["score"/"value"/"pct"/
+    # "strength"] on layers.get("Trend")/layers.get("Liquidity")/etc directly
+    # — but no key named "Trend"/"Liquidity"/"Structure" has ever existed at
+    # that level (the raw per-engine dicts are keyed lowercase — "trend",
+    # "structure", "order_flow" — with entirely different field names). So
+    # market.trendScore/liquidityScore were null in every Gemini call ever
+    # made, confirmed live: Gemini correctly reported "trend data null" from
+    # this same broken input while the dashboard's own AI Decision Matrix
+    # showed real Trend/Structure/Liquidity values via decision_matrix.rows.
+    rows = _dm_rows()
     for n in names:
-        row = layers.get(n)
-        if isinstance(row, dict):
-            for k in ("score", "value", "pct", "strength"):
-                if k in row:
-                    return _f(row[k])
+        for r in rows:
+            if r.get("layer") == n and r.get("score") is not None:
+                return _f(r["score"])
     return None
 
 
@@ -70,11 +87,11 @@ def build_snapshot() -> dict[str, Any]:
         "market": {
             "symbol": state.symbol,
             "spot": _f((state.spot or {}).get("ltp")),
-            "trend": _layer_tag("trend"),
-            "trendScore": _layer_score("Trend", "MTF Trend", "trend"),
-            "liquidity": _layer_tag("liquidity"),
-            "liquidityScore": _layer_score("Liquidity", "Order Flow", "liquidity"),
-            "structure": _layer_tag("structure"),
+            "trend": _layer_tag("Trend"),
+            "trendScore": _layer_score("Trend"),
+            "liquidity": _layer_tag("Liquidity"),
+            "liquidityScore": _layer_score("Liquidity"),
+            "structure": _layer_tag("Structure"),
             "decision": decision,
         },
         "blockers": list(blockers)[:8],
@@ -92,20 +109,19 @@ def build_snapshot() -> dict[str, Any]:
     return snap
 
 
-def _layer_tag(kind: str) -> str | None:
-    """A short human tag for a layer if the engine published one."""
-    layers = _layers()
-    keymap = {
-        "trend": ("Trend", "MTF Trend"),
-        "liquidity": ("Liquidity", "Order Flow"),
-        "structure": ("Structure", "Market Structure"),
-    }
-    for n in keymap.get(kind, ()):
-        row = layers.get(n)
-        if isinstance(row, dict):
-            for k in ("label", "state", "status", "verdict"):
-                if row.get(k):
-                    return str(row[k])
+def _layer_tag(*names: str) -> str | None:
+    """A short human tag for a decision-matrix row, if one was published —
+    the SAME `reason` text already shown on the AI Decision Matrix panel
+    for this exact row (e.g. Trend's reason is its BULLISH/BEARISH/NEUTRAL
+    read). See _dm_rows()'s docstring for why this reads decision_matrix.rows
+    rather than a top-level _layers() key."""
+    rows = _dm_rows()
+    for n in names:
+        for r in rows:
+            if r.get("layer") == n:
+                reason = r.get("reason")
+                if reason and str(reason) not in ("—", "-"):
+                    return str(reason)
     return None
 
 
