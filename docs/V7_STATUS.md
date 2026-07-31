@@ -49,6 +49,29 @@ output, neither of which existed in this session's off-hours verification.
 | 2026-07-31 | AI Analysis (Gemini) said "trend data null" and "key levels null" in its WHY/WATCH text at 12:35 IST, while the same dashboard showed live Trend ✓ BULLISH (83), Structure ✓ BREAKOUT, and full CPR/VWAP levels via the AI Decision Matrix — confirmed the Gemini output was being honest about broken input, not hallucinating | `context_builder.py`'s `_layer_tag()`/`_layer_score()` (the ONLY bridge from the engine to the LLM, per the file's own Rule 10 docstring) looked up top-level keys `"Trend"`/`"MTF Trend"`/`"Liquidity"`/`"Order Flow"`/`"Structure"`/`"Market Structure"` directly under `state.intelligence.layers`, and inside them, fields named `label`/`state`/`status`/`verdict`/`score`/`value`/`pct`/`strength`. NONE of these key names or field names have ever existed there — the raw per-engine dicts are keyed lowercase (`trend`, `structure`, `order_flow`) with entirely different fields (`score_bull`/`score_bear`, `direction`, `score`). The names `"Trend"`/`"Structure"`/`"Liquidity"` only exist as `layer` entries inside `layers.intelligence.decision_matrix.rows` — the same nested path `opportunity_metrics.py`, `decision_contract.py`, and `risk_approval.py` already correctly walk elsewhere in this codebase. Net effect: `market.trend`/`trendScore`/`liquidity`/`liquidityScore`/`structure` have been `null` in every single Gemini call this feature has ever made, since the file was written — `decision`/`blockers`/`confidence`/`reason` were unaffected (they read from different, correctly-wired state paths). | Rewrote `_layer_tag()`/`_layer_score()` to read from `layers.intelligence.decision_matrix.rows` by `layer` name (matching the same rows structure already correct elsewhere), pulling each row's own `reason` text (tag) and `score` (numeric) — the exact same values already shown on the AI Decision Matrix panel, not a new derivation. Verified against a mocked state mirroring the live screenshot exactly (Trend/83/BULLISH, Structure/79/BREAKOUT, Liquidity/60/buy-side) — all 5 fields now populate correctly with the dashboard's own numbers; also verified a fully-empty state still gracefully returns `null` for all 5 (never fabricates) rather than crashing. No trading impact and no doctrine change — Gemini still only explains an already-published decision, per Rule 10; this only fixes what real data it gets to explain with. **Code fixed and verified; not yet deployed (awaiting the next restart).** |
 | 2026-07-31 | AI Decision Matrix showed "Futures – Neutral On" as a standalone row label, confirmed live at 15:14 IST — reads like a truncated sentence fragment | `futures.py:74` sets `relation = "NEUTRAL ON"` by design, but ONLY as a mid-sentence fragment for its own `notes.append(f"Futures {relation.lower()} the bullish signal")` construction — "Futures neutral on the bullish signal" is a complete, grammatical sentence there. `intelligence.py`'s `_decision_matrix()` separately reuses the same raw `relation` string standalone (`.title()`'d alone) for the Futures row's reason text. `CONFIRMS`/`CONTRADICTS` happen to also read fine as standalone single words, which is exactly what masked this until the `NEUTRAL ON` case was hit — it has no missing preposition problem in the sentence context, but reads as an incomplete fragment on its own. | Special-cased `NEUTRAL ON` → `"Neutral"` at the one place it's used standalone (`_decision_matrix()`'s Futures row); `futures.py`'s own relation value and sentence-building are completely untouched, so the "Futures neutral on the bullish/bearish signal" note text is unaffected. Verified all 5 possible relation values (`CONFIRMS`/`CONTRADICTS`/`NEUTRAL ON`/`NO ACTIVE SIGNAL`/`None`) render correctly through `_decision_matrix()` directly — only the one broken case changed, the other four are byte-identical to before. No trading impact — the Futures row's numeric `score` (which does feed the gate) is completely unchanged; only the reason text shown to a human changed. **Code fixed and verified; not yet deployed (awaiting the next restart).** |
 
+### Today's bug family (owner's own classification, 2026-07-31)
+
+Of the 5 bugs above, 4 are the same species: **correct logic → wrong
+presentation** ("Display Honesty" / "Display Semantics" — System Verify,
+Signal Maturity, AI Timeline, Futures label). Only one (AI Analysis
+Context) is a genuine data-plumbing bug. **No bug was found in the core
+trading engine, risk gate, or Hero decision today** — everything found
+sharpens how a correct decision is *explained*, not the decision itself.
+That lines up exactly with the observation phase's own purpose.
+
+**Deferred design candidate — a presentation-mapping layer** (owner's
+suggestion; NOT built now, this is new architecture, not a bug fix): the
+Futures label bug happened because one internal enum value (`"NEUTRAL
+ON"`, `futures.py`) was reused directly as a UI label in a different file,
+after being designed only for one specific sentence template. A small
+internal→display mapping layer (e.g. `CONFIRMS→"Confirms"`,
+`CONTRADICTS→"Contradicts"`, `NEUTRAL_ON→"Neutral"`) at each such boundary
+would make this whole bug *class* structurally harder to reintroduce —
+internal values could then evolve independently of what's shown to a
+trader. Worth considering as a small hardening pass sometime after the
+pre-V8 checklist, not urgent enough to justify new code during the
+bug-fixes-only phase now.
+
 ## Open observations — evidence collecting, deliberately NOT fixed yet
 
 Owner decision 2026-07-30: these are real, code-confirmed findings, but the
