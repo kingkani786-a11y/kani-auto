@@ -1,8 +1,57 @@
 # RVE-001 — Conditional Outcome Validation Experiment
 
 **Date:** 2026-08-02 · **Branch:** `v8-dev` · **Status:** Research Finding —
-NOT a rule, NOT production, NOT merged
+**PARTIALLY SUPERSEDED (V2, same day)** — NOT a rule, NOT production
 **Reproduce:** `python3 research/RVE_001_analysis.py --csv`
+
+---
+
+> ## ⚠️ V2 REVISION NOTE — Superseded after Symbol Audit (2026-08-02)
+>
+> **Nothing below is deleted.** The original analysis, numbers and reasoning
+> are preserved exactly as first committed, because the *sequence* of
+> confounds is itself the finding. But two of them were discovered only
+> afterwards, and they materially weaken this document's headline conclusion.
+>
+> **What still stands:**
+> - T1 → T2 → T3: the naive 48.9pp "pattern separation" is real as a
+>   measurement, and it *is* confounded by day-concentration (70%+ single-day).
+> - T3's within-day collapse to 15.2pp with coin-flip direction (2-3).
+> - T4: the 5-label regime taxonomy does **not** capture day state
+>   (52–66pp within-regime vs 25pp between).
+>
+> **What is now known to be WRONG or incomplete:**
+>
+> 1. **"The day dominates" is only about half true.** A symbol audit
+>    (below) showed a large part of the day-swing was a **symbol** effect.
+>    NIFTY days clustered low (8.2–14.7%), SENSEX days clustered high
+>    (34.9–60.3%) — and the days differed mainly in *which symbol was being
+>    traded*, not in market character.
+>
+> 2. **The metric itself was not comparable across symbols.** This document
+>    measures `potential >= N` — *absolute* premium points. 20 points is a
+>    **4.5%** move on a ₹441 GOLD premium and a **34%** move on a ₹59 NIFTY
+>    premium. Reach-rate ordered almost perfectly by premium size
+>    (NIFTY ₹59 → 13.9%; SENSEX ₹106 → 43.1%; GOLD ₹441 → 67.3%;
+>    CRUDEOIL ₹505 → 60.0%). Much of what looked like market behaviour was
+>    premium scale.
+>
+> **Corrected picture after controlling for symbol and normalising the
+> metric to `peak_rise` (%):** day-to-day spread falls from a naive **49pp**
+> to **NIFTY 20.7pp / SENSEX 24.3pp**.
+>
+> **Where the question went next:** RVE-002 re-ran it with the fixed metric
+> plus symbol and days-to-expiry controls. It found the residual variation
+> is largely **DTE**, and that every other continuous feature tested
+> (ADX, Trend, MTF, Liquidity) was spurious once DTE was held fixed.
+> See `RVE_002_day_state_descriptor.md`.
+>
+> **Lesson recorded:** three separate confound layers had to be stripped
+> before the data said anything trustworthy — day-concentration, then
+> symbol, then the unit of measurement itself. Each looked like signal until
+> it was controlled.
+
+---
 
 > **This is a research artifact, deliberately preserved including its negative
 > result.** It records something that looked true, then turned out not to be —
