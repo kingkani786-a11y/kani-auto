@@ -338,6 +338,50 @@ observation phase. Build after the 7-item checklist below is complete (or
 if the owner explicitly authorizes it as a scoped exception, the same way
 the V8 Research Dashboard was authorized as one during the v8-dev freeze).
 
+### OBS-7 — Opportunity Ladder blends all symbols into one base rate (MEDIUM)
+
+**Found 2026-08-02** during research experiment RVE-001/002 (`v8-dev`,
+`research/`). Not a trading-logic bug and not a rendering bug — an
+**evidence-integrity** issue, the same family as the AI Timeline / System
+Verify / Feed Diagnostics fixes already made this phase.
+
+`opportunity_metrics.outcome_stats()` globs **every** `*.jsonl` in the black
+box and pools them into one global reach-rate. `observed_reach_pct()` serves
+that to `execution_card._opportunity_ladder()`. There is no symbol filter.
+So the ladder shows the *same* percentages regardless of which symbol the
+dashboard is currently displaying — confirmed live: every dashboard dump
+across a full session read `72/53/29/12/5`, unchanged across NIFTY, SENSEX
+and GOLD.
+
+**Why that misleads:** `potential` is measured in *absolute premium points*,
+and premium scale differs enormously by symbol. 20 points is a **4.5%** move
+on a ₹441 GOLD premium but a **34%** move on a ₹59 NIFTY premium. Measured
+reach-rate ordered almost exactly by premium size:
+
+| symbol | median premium | 20pt reach | 50pt reach |
+|---|---|---|---|
+| NIFTY | ₹59.40 | **13.9%** | 2.1% |
+| SENSEX | ₹106.03 | 43.1% | 16.5% |
+| GOLD | ₹441.00 | 67.3% | 41.8% |
+| CRUDEOIL | ₹505.20 | 60.0% | 26.7% |
+| *blended (what the ladder shows)* | — | *27.4%* | *8.7%* |
+
+A trader watching **NIFTY** sees `20pt ≈ 27.4%` when NIFTY's own measured
+rate is **13.9%** — roughly double, inflated by SENSEX/GOLD/CRUDEOIL data
+mixed in. The 50pt row is worse: 8.7% shown vs 2.1% actual for NIFTY.
+
+**No trading impact:** the ladder is display-only. It feeds no gate, no
+decision, no sizing — `_opportunity_ladder()` output is presentational, and
+the Execution Lock / Kill Switch / Risk Approval paths never read it.
+
+**Deliberately NOT fixed** (owner decision, 2026-08-02) — log only, same
+discipline as OBS-1/2/6. A fix has real design choices that shouldn't be
+rushed: filter by current symbol (loses sample size — NIFTY alone has 1,413
+alerted vs 3,619 pooled), switch the ladder to percentage-move bands instead
+of absolute points (changes what the panel *means*), or show per-symbol and
+blended side by side. That's a Trading-Doctrine-adjacent display decision,
+not a one-line correction.
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
