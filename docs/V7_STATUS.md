@@ -678,6 +678,52 @@ deadlock is an implementation problem. If it recovers on some days, the
 threshold is doing its job and OBS-10 is a display/explainability issue
 instead. **Neither conclusion is available yet — this needs multiple days.**
 
+### OBS-11 — Order Flow's "insufficient data" default is indistinguishable from a genuine neutral score (MEDIUM)
+
+**Found 2026-08-03, auditing MCX:GOLD's dashboard dump** where the Signal
+Gate showed `institutional 50✕(60)`. On any chain-less instrument (no
+options — MCX commodities, futures-only symbols), the Signal Gate's
+"institutional" check does **not** default to a fixed number — it reads a
+real proxy engine:
+
+```
+confluence.py:296-297
+    inst_conf = oi[score_key] if has_chain else order_flow["score"]
+```
+
+`orderflow.py`'s `analyze()` derives a genuine score from candle anatomy
+(bar-close location, signed volume delta, aggressive buy/sell bar counts,
+liquidity vacuum, hidden accumulation) — confirmed live the same day:
+`score=44.4, delta_imbalance=-0.188`, a real computed value, not a stale
+default. **This is not a fallback-masquerading-as-a-proxy; it is a genuine
+proxy.**
+
+**The actual gap:** `orderflow.py:15-16` has its own internal low-data
+guard, sharing the exact same number as the real computation's baseline:
+
+```python
+if len(candles) < 30:
+    return {"score": 50, "events": [], "notes": [], "delta_imbalance": 0}
+...
+score = 50.0   # the SAME starting point once real computation runs
+```
+
+A displayed `50` can mean either "under 30 candles, genuinely unknown" or
+"real computation, buy/sell pressure happened to net near zero" — and
+`events: []`/`notes: []` do not disambiguate, since a quiet real market
+also produces empty events. No field anywhere signals which case occurred.
+
+**Deliberately NOT fixed.** Small edge case (only matters when the score
+lands near 50), and the file (`orderflow.py`) is engine logic, not a display
+file — a change there needs the same scoped authorization display-only
+panels don't require. If revisited: add a `low_data: bool` (or `n_candles`)
+to `orderflow.analyze()`'s return and thread it through
+`confluence.py`/whatever panel eventually surfaces Order Flow directly, so
+"institutional 50 (insufficient data)" and "institutional 50 (computed,
+neutral)" render differently. Same family as OBS-6 (min-tick distorting
+percentages) and OBS-7 (pooled base rates) — a number that is technically
+correct but can be misread without knowing its provenance.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
