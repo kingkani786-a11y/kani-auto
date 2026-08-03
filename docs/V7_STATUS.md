@@ -643,6 +643,46 @@ Decision Sequence (no new data) → Market Phase surface (engine exists) →
 Distance-from-Expected-Move progress bar (unblocked) → *[OBS-7 fix]* → #3
 Premium Remaining Potential → Leading/Confirming/Supporting timeframes.
 
+### Final structure — owner's 3-layer reading model + Phase A/B/C split
+
+Owner's framing, 2026-08-03. The organising principle is **time-to-decide**,
+not feature count:
+
+| Layer | Budget | Shows |
+|---|---|---|
+| **1** | **3 sec** | ENTER / WAIT / EXIT + one line of context (`TRENDING · Fresh Entry · 5 TF Aligned`) |
+| **2** | **10 sec** | Market Phase · Alignment · Expected Move · Risk · Checklist |
+| **3** | **30 sec** | WHY CONFIDENCE · AI Matrix · Institutional · OI · Greeks · Volume |
+
+Today everything competes at one level, which is why a decision takes
+40-60s. The layers reorganise *existing* panels; nothing is deleted.
+
+**Phase A — layout only. Zero new engine, zero new mathematics, zero new
+market logic.**
+
+| Item | Status |
+|---|---|
+| Decision Sequence (Market → Trend → Entry → Risk → Action) | new (re-ordering) |
+| Density reduction (the 6×/6×/4× duplication above) | new (layout) |
+| Market Phase surface | display-only; `regime.py:59 phases()` already computes it |
+| **Why No Trade — single panel** | ✅ **ALREADY EXISTS** — `EntryChecklist.tsx:44`, and it already renders exactly the requested reason-list format (`Kill switch: Calibration 54 (<55)` · `Greeks not confirmed (needs +9)` · …). 1 of 5 Phase-A items needs no work. |
+| Distance from Expected Move (progress bar) | new but small; **not** OBS-7-blocked (ATR-derived, see above) |
+
+**Phase B — blocked on OBS-7** (needs a trustworthy historical mean):
+Premium Remaining · Historical Edge Remaining · Outcome-based Expansion.
+
+**Phase C — needs new recording:** Leading / Confirming / Supporting
+timeframes, MTF signal chronology (per-TF flip timestamps).
+
+**The explicit trade this makes:** decision *quality* is unchanged —
+Phase A adds no new evidence and changes no gate. Only decision *speed*
+improves. That is the honest framing, and it is also why Phase A is
+low-risk: nothing it touches can alter what the engine decides.
+
+**Still not built.** Phase A is layout work but remains new-feature work
+under the bug-fixes-only rule, and needs an explicit scoped authorisation
+the same way the V8 Research Dashboard did.
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
