@@ -121,15 +121,29 @@ def _calibration(buckets: dict[str, Any], outcomes: list[dict] | None = None) ->
     Calibration error = mean |bucket midpoint − win rate|; score = 100 − error.
     Phase 16 adds the Brier forecast-quality score over the raw outcomes."""
     mids = {"60-70": 65, "70-80": 75, "80-90": 85, "90-100": 95}
-    errs = [abs(mids[k] - v["win_rate"]) for k, v in buckets.items()
-            if k in mids and v.get("n", 0) >= 3 and v.get("win_rate") is not None]
+    qualifying = {k: v for k, v in buckets.items()
+                  if k in mids and v.get("n", 0) >= 3 and v.get("win_rate") is not None}
+    errs = [abs(mids[k] - v["win_rate"]) for k, v in qualifying.items()]
     brier = _brier(outcomes or [])
+    # P2 (2026-08-03, "Calibration explanation, not a countdown") — root-cause
+    # breakdown per bucket, largest error first: which confidence range is
+    # dragging the score down, and by how much. Deliberately NOT a countdown
+    # to the 55 threshold — that number doesn't exist (the NEXT settled
+    # outcome can move the score either direction depending on its bucket and
+    # win/loss, see kill_switch.py/analytics.py's own math) and showing one
+    # would be a fabricated prediction, which this system never does.
+    contributors = sorted(
+        ({"bucket": k, "midpoint": mids[k], "win_rate": v["win_rate"], "n": v["n"],
+          "abs_error": round(abs(mids[k] - v["win_rate"]), 1)}
+         for k, v in qualifying.items()),
+        key=lambda c: c["abs_error"], reverse=True)
     if not errs:
         return {"calibration_score": None, "error": None,
-                "note": "Building — need ≥3 per bucket", "brier": brier}
+                "note": "Building — need ≥3 per bucket", "brier": brier,
+                "contributors": []}
     err = sum(errs) / len(errs)
     return {"calibration_score": round(max(0, 100 - err), 0), "error": round(err, 1),
-            "buckets_measured": len(errs), "brier": brier}
+            "buckets_measured": len(errs), "brier": brier, "contributors": contributors}
 
 
 def _execution_quality(outcomes: list[dict]) -> dict[str, Any]:
