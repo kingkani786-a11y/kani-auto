@@ -679,9 +679,57 @@ Phase A adds no new evidence and changes no gate. Only decision *speed*
 improves. That is the honest framing, and it is also why Phase A is
 low-risk: nothing it touches can alter what the engine decides.
 
-**Still not built.** Phase A is layout work but remains new-feature work
-under the bug-fixes-only rule, and needs an explicit scoped authorisation
-the same way the V8 Research Dashboard did.
+**Phase A is layout work but remains new-feature work under the
+bug-fixes-only rule, and needs an explicit scoped authorisation the same
+way the V8 Research Dashboard did.**
+
+### A1a — BUILT 2026-08-03 (commit `0643939`)
+
+The owner split Phase A by risk before authorising any of it:
+
+| | scope | risk | status |
+|---|---|---|---|
+| **A1a** | reorder/group existing panels | one-revert reversible, nothing disappears | ✅ **built** |
+| **A1b** | density reduction (hide/collapse) | information disappears, and *"தேவைப்படும் வரை அது தெரியாது"* | deferred |
+| **A2** | new decision widgets | new numbers → needs evidence | deferred |
+
+Authorised as **"A1a only — layer, remove nothing."**
+
+**The defect it fixed:** the six panels that answer *"can I trade right
+now?"* sat at positions 2, 7, 8, 9 and 10, separated by S/R Hero, the top
+bar, Market Status and Premium S/R. Reading the verdict meant scrolling
+past confirmation-tier panels.
+
+**Layer 1 (decide in 3s) is now one contiguous block:**
+
+```
+Top Bar -> Market Status -> Safe Mode -> Execution Lock ->
+Smart Alerts -> TradeNowCard -> Execution Status -> Block Reason
+```
+
+Layer 2 (confirm in 10s) begins at S/R Hero -> Premium S/R -> Evidence ->
+Trade Risk -> …, otherwise untouched. Layer 3 unchanged.
+
+**One deviation from the mapping as originally confirmed**, owner-approved
+the same day: `SafeModeBanner` and `KillSwitchBanner` were moved *above*
+the Hero rather than below it. They are vetoes — if execution is locked
+the verdict beneath is moot — and all three top banners (`SafeModeBanner`,
+`KillSwitchBanner`, `MarketStatusBanner`) `return null` when inactive, so
+they cost **zero vertical space** on a normal day and correctly preempt
+the verdict on an abnormal one. This also matches the components' own
+pre-existing comments ("highest-priority banner", "above the action").
+
+**Verification that it is genuinely order-only:** 62 `SafeBoundary`
+panels before → 62 after, diffed as an identical *set*; every capitalised
+component usage count identical before/after; `tsc --noEmit` clean.
+Rule 11 unchanged — `TradeNowCard` remains the only decision surface. No
+component, prop, engine, score, threshold or gate added, removed or
+altered.
+
+**Not deployed.** The frontend was deliberately not rebuilt or restarted —
+`npm run build` would overwrite the live process's `.next`, which is a
+production change. Owner holds it for the next restart window, so `main`
+now carries A1a while the running frontend does not yet.
 
 ## Rule for this phase
 
