@@ -464,25 +464,50 @@ rate-limited 44 times. Nor is it a burst: in the 10s before a 429 there were
 a median of 8 calls against a steady-state expectation of ~6.7 — mildly
 elevated, not a spike.
 
-**Where the 429s actually come from (call logged immediately before each):**
+**Where the 429s come from — corrected 2026-08-03.** An earlier pass used
+"the call logged immediately before each 429" and reported quote at 57% /
+~10× over-represented. **That heuristic was imprecise.** httpx logs the
+status on the request line itself, which is authoritative:
 
-| endpoint | 429s | share of all calls |
-|---|---|---|
-| `marketfeed/quote` | **25** | 11% |
-| `marketfeed/ltp` | 19 | 58% |
-| `optionchain` | 0 | 21% |
-| `charts/intraday` | 0 | 9% |
+| endpoint | actual 429s | share of 429s | share of traffic | over-rep |
+|---|---|---|---|---|
+| `marketfeed/ltp` | 34 | 50% | 58% | 0.86× |
+| `marketfeed/quote` | 27 | 40% | 11% | **3.6×** |
+| `optionchain` | 5 | 7% | 21% | 0.35× |
+| `charts/intraday` | 2 | 3% | 9% | 0.34× |
 
-`quote` produces **57% of the 429s from 11% of the traffic** — roughly a
-**10× over-representation** — while `optionchain` (21% of traffic) produced
-none. That is not the signature of an aggregate-budget problem.
+By **family**, per-call 429 rate: `marketfeed` **0.45%** vs `optionchain`
+0.12% and `charts` 0.12% — marketfeed is ~3.75× more likely to be refused
+per call. It is 69% of traffic but **90% of the 429s**.
 
-**Leading hypothesis (NOT yet confirmed):** the broker enforces limits
-**per endpoint**, while `dhan.py`'s gate is explicitly global — the code
-comment says "space out **ALL** broker calls", and `_gap` / `BUDGET_PER_MIN`
-are single shared class attributes with no per-path accounting. A global
-slowdown would then throttle the 89% of traffic that is *not* causing 429s,
-while still allowing `quote` to breach its own narrower limit.
+**Possibility B (bursting) — REJECTED by measurement.** Per-endpoint
+inter-arrival spacing shows no clustering anywhere: `<0.5s` gaps are **0.0%
+on every endpoint**, `<1.0s` ≤0.5%, and every endpoint's 1st-percentile gap
+is ≥1.07s. The global 1.1s gate is holding (all-call p50 = 1.13s).
+Quote traffic in the 60s before a 429 is *median 3/min against a 4.4/min
+steady state* — **lower** than normal, not a burst.
+
+**Possibility A (endpoint/family quota) — plausible but NOT confirmed, and
+the obvious test is confounded.** Minutes containing a 429 show a *median
+of 18* marketfeed calls vs *29* in clean minutes — i.e. 429s occur when the
+rate is **lower**. That looks like it refutes a quota theory, but it does
+not: a 429 triggers a cooldown that suppresses the rest of that same minute,
+so the low count is partly *caused by* the 429. Reverse causation. This
+measurement cannot settle the question either way.
+
+**What the logs can no longer tell us.** Aggregate saturation and bursting
+are both cleanly rejected. Remaining candidates — a Dhan per-endpoint or
+per-family quota, an account/plan-level limit, or server-side variability —
+are indistinguishable from our own logs. **Broker documentation is now the
+only way forward**, which is why that is the agreed next step rather than a
+code change.
+
+**What does NOT change regardless:** `dhan.py`'s gate is explicitly global
+(its own comment: "space out **ALL** broker calls"; `_gap` and
+`BUDGET_PER_MIN` are single shared class attributes with no per-path
+accounting). Since neither aggregate rate nor bursting is implicated,
+widening global intervals would slow the 90%+ of traffic that is not being
+refused without addressing whatever is.
 
 **Not verified, and needed before any fix:** Dhan's actual documented
 per-endpoint limits. That must be read from their API documentation, not
