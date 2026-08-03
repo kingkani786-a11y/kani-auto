@@ -556,7 +556,7 @@ that timeline exists** — the direction of the error is currently safe (the
 panel leads, the gate lags, so the UI can warn early but never falsely
 reassure).
 
-### OBS-10 — Calibration veto is a self-sealing deadlock (HIGH priority)
+### OBS-10 — Calibration veto: self-sustaining starvation SUSPECTED (HIGH priority)
 
 **Found 2026-08-03 while investigating the data-quality contradiction; this
 is the mechanism behind [OBS-2](#obs-2), which had recorded the symptom.**
@@ -578,17 +578,26 @@ The loop, traced through code (not inferred):
 | → `_calibration()` recomputes the same score | `analytics.py:119-131` |
 | → still 54 → veto holds ↺ | |
 
-**The recovery the UI promises is reachable only through the one path the
-veto closes.** Calibration is `100 − mean|bucket_midpoint − win_rate|` over
-buckets needing ≥3 realised outcomes, and realised outcomes only exist for
-signals that were allowed to be signalled.
+**The mechanism is real: this code path is closed while the veto is active.**
+Calibration is `100 − mean|bucket_midpoint − win_rate|` over buckets needing
+≥3 realised outcomes, and *this* signal path's outcomes cannot reach those
+buckets while `"NO TRADE"` short-circuits `track_signal()`. What is **not**
+yet established is whether this is the *only* path in — see "honest limits"
+below, specifically whether already-open tracked positions from before the
+veto tripped can still settle and move the score. Until that is checked,
+call this **starvation suspected, not deadlock confirmed**: the code proves a
+closed door exists, not that every door is closed.
 
-**This exact deadlock class was already found and fixed once in this same
-file** — for the consecutive-losses trigger, whose comment (`kill_switch.py:52`)
-reads: *"the veto blocks new signals → no new outcomes → the stale 3-loss
-tail NEVER clears (it stayed tripped across 3 calendar days)."* That trigger
-was given a session-scoping escape hatch. **The calibration trigger has the
-identical shape and never received one.**
+**A structurally identical pattern was already found and fixed once in this
+same file** — for the consecutive-losses trigger, whose comment
+(`kill_switch.py:52`) reads: *"the veto blocks new signals → no new outcomes
+→ the stale 3-loss tail NEVER clears (it stayed tripped across 3 calendar
+days)."* That trigger was given a session-scoping escape hatch and was
+confirmed stuck for 3 calendar days before it was fixed — i.e. it had
+observational confirmation, not just a code-reading argument. **The
+calibration trigger has the same code shape and never received a hatch, but
+does not yet have that same multi-day confirmation** — which is exactly what
+P3's persistence is now collecting.
 
 **Correction (2026-08-03, same day):** this table first cited
 `market_service.py:685` (Safe Mode's decision downgrade) as the step that
@@ -610,10 +619,16 @@ reached **78** (≥70), which rules out the range-bound explanation for at least
 one moment of that day.
 
 **Honest limits — what is NOT established:**
-- Already-open tracked positions can still settle and move calibration, so
-  the loop is **starved, not provably sealed**, until the open set drains.
-  The open-position count could not be measured (`/api/analytics` 404s), so
-  how close it is to fully sealed is unknown.
+- **The load-bearing open question:** are there zero settled outcomes moving
+  calibration right now, or are there some — just not enough, or not the
+  right kind, to clear 55? These are different findings. Zero settled
+  outcomes since the veto tripped would point at the code path above as the
+  actual cause. Some outcomes settling without recovery would point elsewhere
+  (the threshold, the bucket math, or the mix of what's settling) and the
+  code path above would be a red herring. **This has not been checked** —
+  the open-position/settlement count could not be measured
+  (`/api/analytics` 404s) — so today's finding is "a closed door exists in
+  the code", not "this door is why nothing moves."
 - It is **not** established that the veto has been continuously active. The
   block counter read 1037 on 2026-08-03 vs 1106 on 2026-07-30 — *lower*,
   which suggests a rolling window or a reset, not a monotonic count.
