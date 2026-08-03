@@ -570,7 +570,8 @@ The loop, traced through code (not inferred):
 | step | where |
 |---|---|
 | Calibration 54 < `MIN_CALIBRATION = 55` → veto | `kill_switch.py:22,48` |
-| → decision forced to `FORCE WAIT` / `WAIT` | `market_service.py:685` |
+| → `ks` is passed *into* confluence | `market_service.py:546` |
+| → confluence vetoes, so `signal` becomes `"NO TRADE"` | `confluence.py:316-318` |
 | → `track_signal()` early-returns on `"NO TRADE"` | `memory.py:87` |
 | → no tracked signal, so `_settle()` never fires | `memory.py:123` |
 | → `_outcomes` gains nothing, confidence buckets frozen | `memory.py:129` |
@@ -589,6 +590,25 @@ tail NEVER clears (it stayed tripped across 3 calendar days)."* That trigger
 was given a session-scoping escape hatch. **The calibration trigger has the
 identical shape and never received one.**
 
+**Correction (2026-08-03, same day):** this table first cited
+`market_service.py:685` (Safe Mode's decision downgrade) as the step that
+closes the loop. That was wrong. The kill switch is handed to `confluence.run()`
+at `market_service.py:546` and vetoes there, one step *earlier*, so the signal
+is already `"NO TRADE"` by the time `track_signal()` runs at line 580. The
+conclusion is unchanged but **the file a fix would touch is different**, which
+is why the correction matters.
+
+**Prior art — this is largely a re-derivation.** `calibration_watch.py`'s own
+module docstring records the same trace from **2026-07-22**, including the
+`track_signal` early-return. Its conclusion then was the important one and
+still stands: *"a flat 54 all day is INDISTINGUISHABLE from 'correctly
+conservative' using one day's data alone"* — because confluence also emits
+`NO TRADE` whenever signal confidence is under 70, entirely independently of
+the kill switch. So a flat day proves nothing on its own. What 2026-08-03 adds
+is only that the pre-registered WATCH trigger **fired**: peak confidence
+reached **78** (≥70), which rules out the range-bound explanation for at least
+one moment of that day.
+
 **Honest limits — what is NOT established:**
 - Already-open tracked positions can still settle and move calibration, so
   the loop is **starved, not provably sealed**, until the open set drains.
@@ -606,6 +626,42 @@ was not touched, and calibration must never be auto-tuned. When a proposal is
 drafted, the consecutive-losses escape hatch is the precedent to study — the
 question is what the *equivalent* legitimate escape is here, since
 session-scoping alone would not help a metric computed over a long ring.
+
+**Evidence collection is now running (P3, built 2026-08-03).** Calibration
+Watch used to keep `_first_cal` / `_last_cal` / `_peak_confidence` in module
+globals only, so the day's answer was lost at midnight — and, worse, **reset
+on every process restart**. Since the backend self-restarts ~1-3×/day, `flat`
+was really measuring *"flat since the last restart"* while being reported as
+*"flat all day"*, silently understating its own window. Daily observations now
+persist to `data/calibration_watch/{day}.json` and rehydrate on restart, so
+the claim finally matches the measurement.
+
+Each row now also carries `samples` (how many times the score was observed)
+and `restarts` (how many process restarts that day's record survived), because
+a `flat` verdict is only meaningful against how much of the day was actually
+watched. Read via `GET /api/calibration-watch/history?days=N`.
+
+**2026-08-03's row is SEEDED, not observed — do not count it as day 1.** The
+persistence was written while the pre-P3 build was still running and holding
+that day's only copy of `peak_confidence = 78` in memory, where a deploy
+restart would have destroyed it. The row was therefore hand-written from a
+live `GET /api/calibration-watch` reading before restarting. In it,
+`last_cal`, `peak_confidence` and `status` are **measured**; `first_cal` is
+**inferred** (the pre-P3 build never exposed it — `status: WATCH` implies
+`flat`, which pins `first_cal` to within ±1.0 of `last_cal`); `peak_ts` is
+unknown and there are no intraday samples. The row carries
+`reconstructed: true` plus a `reconstructed_note`, and that flag is
+deliberately re-written on every subsequent persist — if it were dropped at
+the first write the row would quietly start looking like a clean measurement.
+**The first genuinely observed day is the first full session after the deploy
+restart.**
+
+**The question this is collecting against:** does calibration ever recover on
+its own once open tracked positions settle? If it never does across multiple
+days *while WATCH keeps firing* (peak confidence ≥70 with a flat score), the
+deadlock is an implementation problem. If it recovers on some days, the
+threshold is doing its job and OBS-10 is a display/explainability issue
+instead. **Neither conclusion is available yet — this needs multiple days.**
 
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 

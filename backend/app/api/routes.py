@@ -422,6 +422,18 @@ async def calibration_watch_ep():
     return calibration_watch.report()
 
 
+@router.get("/calibration-watch/history")
+async def calibration_watch_history_ep(days: int = 30):
+    """Persisted daily Calibration Watch observations, oldest→newest (P3,
+    2026-08-03). Read-only evidence for OBS-10 — "does calibration ever
+    recover?" — and the data behind the calibration timeline. Each row carries
+    `samples` and `restarts` so a `flat` day can be judged against how much of
+    it was actually observed."""
+    from ..services import calibration_watch
+    rows = calibration_watch.history(max(1, min(days, 365)))
+    return {"days": len(rows), "rows": rows}
+
+
 @router.get("/support-resistance")
 async def support_resistance_ep():
     """Dynamic Support/Resistance — Phase 2 (item #5, 2026-07-23). Spot levels
