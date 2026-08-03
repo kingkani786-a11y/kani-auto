@@ -724,6 +724,29 @@ neutral)" render differently. Same family as OBS-6 (min-tick distorting
 percentages) and OBS-7 (pooled base rates) — a number that is technically
 correct but can be misread without knowing its provenance.
 
+### OBS-12 — Three more panels read data-quality source A only, same shape P0 fixed (MEDIUM)
+
+**Found 2026-08-03 while scoping P5A's registry** (auditing every frontend
+read of "data quality" to confirm state_consistency.py's coverage). P0
+fixed `FeedDiagnostics.tsx` to check both A (`state.data_quality`) and B
+(`data_quality.report().overall`). Three more places were never touched and
+still read A only — each one *could* show "fine" while B (what Kill
+Switch/Safe Mode/the gate actually run on) says POOR, reproducing
+2026-08-03 morning's exact contradiction in a different panel:
+
+| File | Reads | Traced to |
+|---|---|---|
+| `AIHealthStrip.tsx:43` | `comps.data_quality?.detail` | `health_center.py:29` — `dq = state.data_quality` (A) |
+| `OverviewPanels.tsx:55` | `risk?.data_quality ?? status?.data_quality` | `risk_approval.py:36` — `dq = state.data_quality` (A); the `??` fallback is also A — **neither side of this line ever reads B** |
+| `SmartAlertBar.tsx:32` | `status?.data_quality === "GOOD"` (to suppress a feed-quality alert) | direct read of A |
+
+**Deliberately NOT fixed.** P5A's `state_consistency.py` is built to
+generalize this finding at runtime rather than chase each site by hand —
+owner's call: let the detector prove the pattern rather than patch three
+more spots individually right now. If `StateConsistencyBanner` starts
+firing, these three are the first places to check for a stale "all fine"
+read.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
