@@ -437,6 +437,68 @@ gate or decision).
 screenshot → backend log at that exact timestamp → browser Network tab
 (status + response body) → console. Only then reproduce and fix.
 
+### Item 7 (rate budget) — measured 2026-08-03: the assumed cause is WRONG
+
+Owner escalated the rate-limit/Safe-Mode problem out of "cosmetic" and into
+an operational blocker, on the grounds that it degrades PQI, walk-forward
+data quality, live evidence accumulation, and biases missed-opportunity
+statistics — i.e. it degrades the Research Brain itself. That framing is
+supported: 2026-08-03 showed Safe Mode active, `quotes: DELAYED`, data
+quality POOR, and **4 missed opportunities / +120 pts** attributed to it.
+
+**The standing hypothesis was "steady-state load sits right at the ceiling —
+widen `config.py`'s intervals." Measurement does not support that.**
+
+Measured on 2026-07-30 (a full trading day with 44 × 429):
+
+| | |
+|---|---|
+| mean | **39.8 req/min** |
+| peak | **45 req/min** |
+| p50 / p90 / p99 | 42 / 44 / 45 |
+| self-imposed ceiling | 54 req/min (from the 1.1s global gate) |
+| **minutes that breached the ceiling** | **0 of 485** |
+
+The aggregate rate never came close to the ceiling on the very day it was
+rate-limited 44 times. Nor is it a burst: in the 10s before a 429 there were
+a median of 8 calls against a steady-state expectation of ~6.7 — mildly
+elevated, not a spike.
+
+**Where the 429s actually come from (call logged immediately before each):**
+
+| endpoint | 429s | share of all calls |
+|---|---|---|
+| `marketfeed/quote` | **25** | 11% |
+| `marketfeed/ltp` | 19 | 58% |
+| `optionchain` | 0 | 21% |
+| `charts/intraday` | 0 | 9% |
+
+`quote` produces **57% of the 429s from 11% of the traffic** — roughly a
+**10× over-representation** — while `optionchain` (21% of traffic) produced
+none. That is not the signature of an aggregate-budget problem.
+
+**Leading hypothesis (NOT yet confirmed):** the broker enforces limits
+**per endpoint**, while `dhan.py`'s gate is explicitly global — the code
+comment says "space out **ALL** broker calls", and `_gap` / `BUDGET_PER_MIN`
+are single shared class attributes with no per-path accounting. A global
+slowdown would then throttle the 89% of traffic that is *not* causing 429s,
+while still allowing `quote` to breach its own narrower limit.
+
+**Not verified, and needed before any fix:** Dhan's actual documented
+per-endpoint limits. That must be read from their API documentation, not
+assumed — including from this file. Everything above is measured from our own
+logs; the per-endpoint-limit explanation is inference, not evidence.
+
+**Why this matters even though nothing is being changed yet:** it is the same
+trap as the VPS question — widening intervals (or migrating hosts) treats a
+layer the evidence does not implicate, costing effort and possibly making
+data *staler* without reducing 429s. Escalating cooldowns (30s doubling to a
+300s cap) mean each 429 is expensive, so aiming the fix correctly matters
+more than aiming it quickly.
+
+**Status:** measured, root cause narrowed, **no code changed**. Next step is
+documentation lookup (per-endpoint limits), not a code edit.
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
