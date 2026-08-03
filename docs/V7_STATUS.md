@@ -524,6 +524,80 @@ more than aiming it quickly.
 **Status:** measured, root cause narrowed, **no code changed**. Next step is
 documentation lookup (per-endpoint limits), not a code edit.
 
+## Deferred spec — owner's 7 "decision clarity" dashboard improvements
+
+Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
+more decision clarity"*. **Audited before any build** (the standing norm that
+found OBS-5 was ~80% already built). Result: **5 of 7 already exist and were
+visible in the same dashboard dump that accompanied the request.**
+
+### Already built — verified live
+
+| # | Requested | Where it already is |
+|---|---|---|
+| 1 | MTF Alignment ⭐⭐⭐⭐⭐ | `MULTI-TIMEFRAME 5m/15m/1H/4H/Daily` + `MTF Alignment 61.0` + `HIGHER TIMEFRAME CONFLICT` (built in Step 10) |
+| 4 | Range Detection ⭐⭐⭐⭐ | `REGIME RANGE BOUND` + `BULL/BEAR/RANGE 61/25/14` + `Breakout 63% / Reversal 24%` + `REGIME PLAY: AVOID breakout chasing` |
+| 5 | Entry Window ⭐⭐⭐⭐ | `ENTRY WINDOW` · `WINDOW LEFT` · `entry_trigger.status` incl. an `ENTRY CLOSED` state |
+| 6 | Reward Meter ⭐⭐⭐ | `R:R 1:3` + RISK pre-entry panel + `Reward:Risk ≥ 1:2` in Risk Approval |
+| 7 | Trade Readiness ⭐⭐⭐ | `LIVE ENTRY CHECKLIST — 6/11 CONFIRMED`, per-layer score + PASS/WAITING, `READINESS 71%` |
+
+Also already present: the owner's "AI Decision box with reasons" exists as the
+`WHY CONFIDENCE 64%` attribution breakdown (Structure +11.8, Trend +11.2,
+MTF +9.8, Volume +4.3, OI +3.5, Greeks −1).
+
+And the owner's explicit instruction — *never show "Guaranteed 20 pts", show
+historical evidence instead* — **is already how it works**: `OBSERVED
+OUTCOMES` reports `5pt 72% (n=2605) · 20pt 27.4% (n=993) · 50pt 8.7% (n=315)`
+with the disclaimer "historical frequency, NOT a prediction".
+
+**#2 Entry Freshness ⭐⭐⭐⭐ — mostly exists**: `Setup updated 7m ago · AGING`,
+`AGE 7m 57s`, `DECAY Stable`, `Late-entry risk Low`, plus the whole SIGNAL
+MATURITY panel. Only the *"N candles ago"* framing is absent (currently
+minutes).
+
+### Genuinely new — 2 items
+
+- **#3 Premium Remaining Potential ⭐⭐⭐⭐⭐** (owner's top priority, correctly
+  identified as the most valuable gap). Exists: `PREMIUM ROADMAP` forward
+  decay, `Exp +35.2% vs decay −36.2%`, and missed-money `pot/got/lost`.
+  Missing: *"already moved 12pt · historical average 28pt · ~16pt remaining"*.
+- **#2 Market Phase ⭐⭐⭐⭐⭐** (Impulse / Pullback / Accumulation /
+  Distribution / Range / Breakout). **The engine already computes this** —
+  `regime.py:59 phases()` emits ACCUMULATION / DISTRIBUTION / MARKUP /
+  MARKDOWN — it is simply **not surfaced on the dashboard**. Display work,
+  not engine work.
+
+### Blocking dependency — must be resolved first
+
+**#3 depends on exactly the metric OBS-7 flags as broken.** "How much edge
+remains" needs a trustworthy historical average, and the only one available
+is the cross-symbol blended `OBSERVED OUTCOMES` base rate:
+
+| | ladder shows (blended) | NIFTY's own |
+|---|---|---|
+| 20pt | 27.4% | **13.9%** |
+| 50pt | 8.7% | **2.1%** |
+
+Building "remaining potential" on a 2× inflated average produces a
+confident-looking number that is wrong for the symbol on screen. **OBS-7
+should be resolved before #3 is built**, not after.
+
+### Deeper caution, recorded deliberately
+
+RVE-001/002 (`v8-dev`, `research/`) established that the conditions currently
+recorded do **not** reliably separate outcomes once day and symbol are
+controlled (within-day spread 15.2pp, direction coin-flip 2-3). Seven
+additional decision-support surfaces rendered on top of non-separating
+evidence increase **decision confidence** without increasing **decision
+accuracy** — the precise failure mode this project's doctrine exists to
+prevent. Worth re-reading alongside this spec whenever it is picked up.
+
+**Status:** logged as a spec, **nothing built**. New-feature work, out of
+scope for the bug-fixes-only observation phase. Build order when unblocked:
+resolve OBS-7 → #3 Premium Remaining Potential → #2 Market Phase surface →
+the smaller polish items (candle-count freshness, MTF alignment count badge,
+3m/30m timeframes).
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
