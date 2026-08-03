@@ -787,6 +787,41 @@ evidence-corruption risk. Does not block V7 freeze.
 undercounting is ever observed to matter (e.g. `restarts` reads
 suspiciously low against known operational restart frequency).
 
+### OBS-14 — Cross-day `restarts` metadata carry-over (LOW, diagnostic-only, OBS-13 family)
+
+**Found 2026-08-04 ~00:01 IST, during the Observation Window** — the first
+time P3's persistence crossed a calendar-day boundary. Observed on a single
+uninterrupted process (no restart occurred), read-only:
+
+```
+2026-08-03 (yesterday, persisted file) : peak 78.0, restarts 2, samples 3
+2026-08-04 (today, live report)        : peak None, status OK, restarts 2  <-- leaked
+```
+
+**Trace** (`calibration_watch.py`): `_roll_day()` resets `_peak_confidence`,
+`_peak_ts`, `_first_cal`, `_last_cal`, `_samples` and `_reconstructed` on a
+new day — but **not `_restarts`**. It then calls `_rehydrate(d)`, which would
+normally set `_restarts` from the new day's file — except that function
+early-returns on `if not p.exists()`, and a brand-new day has no file yet.
+So yesterday's restart count survives into today untouched.
+
+Distinct trigger from OBS-13 (which is about back-to-back restarts with no
+engine cycle between them), but the same field and the same accounting
+family: `restarts` metadata drifting from the truth without any effect on
+the evidence itself.
+
+**What is NOT affected — verified in the same read:** the day-rollover
+handled every *primary* invariant correctly. `peak_confidence` reset to
+None, `status` reset WATCH → OK, and the previous day's `2026-08-03.json`
+was preserved intact as its own history row. **Daily evidence separation
+and preservation — P3's actual purpose — worked.**
+
+**Severity: LOW.** No trading-decision impact, no calibration-score impact,
+no Kill Switch impact, no persistence corruption. Diagnostic metadata only.
+**Does not block V7 freeze**; V7.1 backlog candidate alongside OBS-13, and
+a single fix (`_restarts = 0` in `_roll_day()` before the rehydrate attempt,
+plus OBS-13's persist-on-rehydrate) would likely close both.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
