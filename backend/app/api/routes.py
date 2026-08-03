@@ -413,6 +413,18 @@ async def decision_contract_ep():
     return decision_contract.contract()
 
 
+@router.get("/state-consistency")
+async def state_consistency_ep():
+    """State Consistency Detector (P5A, 2026-08-03) — read-only cross-check
+    between duplicated facts that should agree but don't always (v1: does
+    state.data_quality agree with data_quality.report().overall — the exact
+    divergence that caused FeedDiagnostics to claim "all feeds healthy" while
+    Kill Switch/Safe Mode vetoed on data quality). Touches no gate or engine
+    logic; purely observational."""
+    from ..services import state_consistency
+    return state_consistency.report()
+
+
 @router.get("/calibration-watch")
 async def calibration_watch_ep():
     """Calibration Watch (item #4, 2026-07-23) — observational only: today's

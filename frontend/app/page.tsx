@@ -13,6 +13,7 @@ import { DecisionMatrix } from "@/components/DecisionMatrix";
 import { KillSwitchBanner } from "@/components/KillSwitchBanner";
 import { SafeModeBanner } from "@/components/SafeModeBanner";
 import { DecisionChain } from "@/components/DecisionChain";
+import { StateConsistencyBanner } from "@/components/StateConsistencyBanner";
 import { MarketStatusBanner } from "@/components/MarketStatusBanner";
 import { friendlyMessage } from "@/lib/status";
 import { ProbabilityLadder } from "@/components/ProbabilityLadder";
@@ -257,6 +258,15 @@ export default function Dashboard() {
       {/* V3.0 — Smart Alert Bar (sticky, single latest critical alert) */}
       <SafeBoundary name="Smart Alerts">
         <SmartAlertBar />
+      </SafeBoundary>
+
+      {/* STATE CONSISTENCY BANNER — P5A (owner, 2026-08-03). Sits above
+          Decision Chain on purpose: if the diagnostic layer itself disagrees
+          with itself, that undermines trust in everything read below it,
+          including Decision Chain's own inputs. Quiet almost always — see
+          component header for the full rationale. */}
+      <SafeBoundary name="State Consistency">
+        <StateConsistencyBanner />
       </SafeBoundary>
 
       {/* DECISION CHAIN — P1 "Cause -> Consequence collapse" (owner,
