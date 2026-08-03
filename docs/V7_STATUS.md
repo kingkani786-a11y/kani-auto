@@ -678,6 +678,23 @@ deadlock is an implementation problem. If it recovers on some days, the
 threshold is doing its job and OBS-10 is a display/explainability issue
 instead. **Neither conclusion is available yet — this needs multiple days.**
 
+**First real evidence, from the restart-verification run itself (2026-08-03,
+same day).** `GET /api/analytics/performance`'s new `contributors` field
+(P2) returned, live:
+
+```
+60-70 bucket: expected 65, actual  0.0%, n=11, abs_error 65.0
+70-80 bucket: expected 75, actual 47.8%, n=23, abs_error 27.2
+mean(65.0, 27.2) = 46.1  ->  100 - 46.1 = 53.9 ~= 54   (matches the dashboard's Calibration 54)
+```
+
+The 60-70 confidence band has gone 0-for-11. **This says the band is
+currently badly mis-calibrated with a real (if modest) sample — it does
+NOT say the band will always be wrong.** n=11 is evidence toward OBS-10's
+question, not doctrine: it explains *why* 54 is 54 today, and it is exactly
+the kind of measurement OBS-10 needs more days of before concluding
+anything about recovery.
+
 ### OBS-11 — Order Flow's "insufficient data" default is indistinguishable from a genuine neutral score (MEDIUM)
 
 **Found 2026-08-03, auditing MCX:GOLD's dashboard dump** where the Signal
@@ -746,6 +763,29 @@ owner's call: let the detector prove the pattern rather than patch three
 more spots individually right now. If `StateConsistencyBanner` starts
 firing, these three are the first places to check for a stale "all fine"
 read.
+
+### OBS-13 — `restarts` counter can undercount consecutive restarts (LOW, diagnostic-only)
+
+**Found 2026-08-03 during the first real restart-verification of P3.**
+`calibration_watch.py`'s `restarts` field only increments inside `record()`,
+which needs a live engine cycle (broker connected) to run. If two restarts
+happen back-to-back with no engine cycle in between (e.g. broker never
+reconnects between them), the second restart's `_rehydrate()` still reads
+the file from before the first restart's `record()` call — so the counter
+can undercount how many restarts a day's record has actually survived.
+
+**Category: diagnostic accounting limitation, not a data-integrity bug.**
+Calibration persistence itself is intact — `peak_confidence`, `first_cal`,
+`samples` all survive correctly regardless (verified live: `restarts` went
+1→2 correctly across this session's actual restart, with `peak_confidence`
+preserved at 78.0). Only the *restart count metadata* can read
+conservative (lower than the true number) in the specific back-to-back-
+with-no-engine-cycle case. **Severity: LOW.** No trading-logic impact, no
+evidence-corruption risk. Does not block V7 freeze.
+
+**Deliberately NOT fixed** — logged for awareness only; revisit if the
+undercounting is ever observed to matter (e.g. `restarts` reads
+suspiciously low against known operational restart frequency).
 
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
