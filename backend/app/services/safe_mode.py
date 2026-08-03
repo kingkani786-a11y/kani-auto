@@ -23,18 +23,28 @@ def evaluate(connected: bool, data_quality: str, broker_stats: dict,
              ws_clients: int, signal_age_sec: float | None) -> dict[str, Any]:
     global _active_since
     triggers: list[str] = []
+    # P1 (2026-08-03) — stable machine tag per trigger, same index as
+    # `triggers`. Purely additive, see the matching comment in kill_switch.py
+    # — this is the OTHER half of the same fan-out: BROKER_COOLDOWN and
+    # DATA_QUALITY are tagged identically to their Kill Switch counterparts
+    # on purpose, because they ARE the same underlying fact reported twice.
+    trigger_tags: list[str] = []
 
     # broker / API failure
     if broker_stats.get("cooldown_active"):
         triggers.append("BROKER: rate-limit cooldown active")
+        trigger_tags.append("BROKER_COOLDOWN")
     if (broker_stats.get("health_score") or 100) < 40:
         triggers.append("API: broker health critical")
+        trigger_tags.append("BROKER_HEALTH")
     # data quality collapse
     if data_quality == "POOR":
         triggers.append("DATA: quality collapsed (POOR)")
+        trigger_tags.append("DATA_QUALITY")
     # feed freeze — signal engine hasn't run well past its cycle while connected
     if connected and signal_age_sec is not None and signal_age_sec > 900:
         triggers.append("FEED: signal engine stalled (>15m)")
+        trigger_tags.append("SIGNAL_STALL")
     # NOTE: websocket count is informational (0 clients just means no UI open),
     # so it is not a trigger on its own.
 
@@ -52,6 +62,7 @@ def evaluate(connected: bool, data_quality: str, broker_stats: dict,
     return {
         "active": active,
         "triggers": triggers,
+        "trigger_tags": trigger_tags,
         "since": _active_since,
         "actions": (["Freeze new signals", "Force WAIT mode", "Alert user",
                      "Log incident", "Preserve learning/memory/logs"] if active else []),

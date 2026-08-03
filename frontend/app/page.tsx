@@ -12,6 +12,7 @@ import { ExitIntelligencePanel } from "@/components/ExitIntelligencePanel";
 import { DecisionMatrix } from "@/components/DecisionMatrix";
 import { KillSwitchBanner } from "@/components/KillSwitchBanner";
 import { SafeModeBanner } from "@/components/SafeModeBanner";
+import { DecisionChain } from "@/components/DecisionChain";
 import { MarketStatusBanner } from "@/components/MarketStatusBanner";
 import { friendlyMessage } from "@/lib/status";
 import { ProbabilityLadder } from "@/components/ProbabilityLadder";
@@ -256,6 +257,16 @@ export default function Dashboard() {
       {/* V3.0 — Smart Alert Bar (sticky, single latest critical alert) */}
       <SafeBoundary name="Smart Alerts">
         <SmartAlertBar />
+      </SafeBoundary>
+
+      {/* DECISION CHAIN — P1 "Cause -> Consequence collapse" (owner,
+          2026-08-03). Quiet unless a SYSTEM-level veto (Kill Switch or Safe
+          Mode) is active; groups the shared root cause behind them instead
+          of letting one fact echo as 3 differently-worded panels. Sits
+          directly above the Hero on purpose — see component header for the
+          full rationale and its explicit non-overlap with Block Reason Hero. */}
+      <SafeBoundary name="Decision Chain">
+        <DecisionChain />
       </SafeBoundary>
 
       {/* 🟢 TRADE NOW — the ONE box (owner UX review 2026-07-21): BUY/WAIT/EXIT,

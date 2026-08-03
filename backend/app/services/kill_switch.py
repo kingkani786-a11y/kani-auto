@@ -29,24 +29,38 @@ def evaluate(data_quality: str, atr_pct: float, regime_score: float,
              data_completeness: float | None = None,
              market_closed: bool = False) -> dict[str, Any]:
     reasons: list[str] = []
+    # P1 (2026-08-03, "Cause -> Consequence collapse") — a stable machine tag
+    # per reason, SAME INDEX as `reasons`. Purely additive: every existing
+    # consumer reads `reasons` (a list[str]) and is untouched. This exists so
+    # a dashboard aggregator can recognise "the Kill Switch's DATA_QUALITY
+    # reason and Safe Mode's DATA_QUALITY trigger are the same underlying
+    # fact" without fragile string-matching across two independently-worded
+    # message sets. Tag values are a closed, deliberately small set — do not
+    # invent new tags without also teaching the frontend aggregator about
+    # them, or a real cause will silently render as "uncategorised".
+    reason_tags: list[str] = []
     caution: list[str] = []
     recovery: list[str] = []
 
     # reliability collapse / broker failure
     if broker_cooldown:
         reasons.append("Broker in rate-limit cooldown — data unreliable")
+        reason_tags.append("BROKER_COOLDOWN")
         recovery.append("Broker cooldown clears")
     # feed inconsistency
     if data_quality == "POOR":
         reasons.append("Data quality POOR — feed inconsistent")
+        reason_tags.append("DATA_QUALITY")
         recovery.append("Data quality returns to GOOD/FAIR")
     # sparse feed
     if data_completeness is not None and data_completeness < MIN_DATA_COMPLETENESS:
         reasons.append(f"Data completeness {data_completeness:.0f}% (< {MIN_DATA_COMPLETENESS}%)")
+        reason_tags.append("DATA_COMPLETENESS")
         recovery.append(f"Data completeness ≥ {MIN_DATA_COMPLETENESS}%")
     # forecast mis-calibration
     if calibration_score is not None and calibration_score < MIN_CALIBRATION:
         reasons.append(f"Calibration {calibration_score:.0f} (< {MIN_CALIBRATION}) — forecasts mis-tuned")
+        reason_tags.append("CALIBRATION")
         recovery.append(f"Calibration recovers to ≥ {MIN_CALIBRATION}")
     # consecutive losses — SESSION-SCOPED. The documented recovery is "next
     # win, or new session", but the old check read the raw tail of a deque
@@ -64,6 +78,7 @@ def evaluate(data_quality: str, atr_pct: float, regime_score: float,
                   if (o.get("closed") or 0) >= _day0][-MAX_CONSECUTIVE_LOSSES:]
     if len(today_tail) >= MAX_CONSECUTIVE_LOSSES and all(o.get("win") == 0 for o in today_tail):
         reasons.append(f"{MAX_CONSECUTIVE_LOSSES} consecutive losses — step back")
+        reason_tags.append("CONSECUTIVE_LOSSES")
         recovery.append("Next signal is a win, or new session")
 
     # soft cautions (never force wait on their own)
@@ -96,6 +111,7 @@ def evaluate(data_quality: str, atr_pct: float, regime_score: float,
         "active": active,
         "level": level,
         "reasons": reasons,
+        "reason_tags": reason_tags,
         "caution": caution,
         "recovery": recovery,
         "recovery_condition": "; ".join(recovery) if recovery else "—",
