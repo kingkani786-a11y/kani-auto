@@ -598,6 +598,51 @@ resolve OBS-7 → #3 Premium Remaining Potential → #2 Market Phase surface →
 the smaller polish items (candle-count freshness, MTF alignment count badge,
 3m/30m timeframes).
 
+### Reframed by the owner, same day — the real problem is decision LATENCY
+
+Owner's own correction after seeing the audit: *"Dashboard-ல் தகவல் குறைவாக
+இல்லை. தகவல் அதிகமாக இருக்கிறது"* — information isn't scarce, it's
+excessive. The gap is not accuracy, it is **the ~40-60s of scanning needed
+to reach a decision that should take 10-15s**. Explicitly **not** more
+indicators, more AI, or more scores — instead: one ordered decision flow.
+
+**Duplication is measurable.** In a single live dump, the same conclusion
+appears repeatedly:
+
+| Message | Distinct panels showing it |
+|---|---|
+| `NO TRADE` / `WAIT` | **6** — Hero · Execution Status · AI Dealer · Execution Control Center · Decision Intelligence · DECISION header |
+| Kill-switch reason (`Calibration 54 (<55)`) | **6** — Execution Status · Risk Approval · WHY NO TRADE (×2) · Execution Control Center · DECISION header |
+| Layer scores (Trend/Structure/MTF/…) | **4** — LIVE ENTRY CHECKLIST · AI DECISION MATRIX · WHY CONFIDENCE · Decision Intelligence |
+
+That redundancy is the direct cause of the scan time. Reducing it is a
+**layout/flow change, not new engines** — every number already exists.
+
+**Additional items from the reframe (also logged, not built):**
+
+- **Decision Sequence** — render the existing signals in the order a trader
+  actually reasons: ① Market State → ② Higher-TF alignment → ③ Entry
+  freshness → ④ Liquidity → ⑤ Risk → verdict. Pure re-ordering of data
+  already published.
+- **Leading / Confirming / Supporting timeframes** — *genuinely new, small*.
+  `mtf_confluence` publishes each timeframe's signal but does **not** track
+  *which timeframe flipped first*. Needs a per-TF flip timestamp; everything
+  else is already there.
+- **Distance from Expected Move (progress bar)** — **NOT blocked by OBS-7**,
+  correcting the owner's assumption on this one item. `intelligence.py:41
+  _expansion()` computes `em = expected_move or atr * 2` — i.e. from **this
+  symbol's own ATR**, not the cross-symbol `OBSERVED OUTCOMES` average. Both
+  inputs are already on the dashboard (`Expected Move 135.87 pts` and the
+  live move), so `current / expected` is computable today. As the owner
+  themselves framed it: a progress visualisation, not an average and not a
+  prediction — which is exactly why it escapes the OBS-7 dependency that
+  genuinely does block #3.
+
+**Revised build order when unblocked:** information-density reduction +
+Decision Sequence (no new data) → Market Phase surface (engine exists) →
+Distance-from-Expected-Move progress bar (unblocked) → *[OBS-7 fix]* → #3
+Premium Remaining Potential → Leading/Confirming/Supporting timeframes.
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
