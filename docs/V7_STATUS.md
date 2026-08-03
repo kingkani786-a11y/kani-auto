@@ -197,6 +197,15 @@ patience:**
 |---|---|---|---|---|---|
 | 2026-07-30 ~11:12 | 1106 | 58% | 42% | 51% | 6 missed, +160 pts |
 | 2026-07-30 ~15:27 | 1581 | **67%** | **33%** | 51% | 13 missed, +340 pts |
+| 2026-08-03 ~11:10 | 1037 | **76%** | **24%** | **3%** | 6 missed, +160 pts |
+
+The 2026-08-03 row is *lower* than 2026-07-30's 1581 and 1106, so the block
+counter is a rolling window or was reset — it is not a lifetime total, and
+must not be read as one. Solo-missed also collapsed from 51% to 3%, meaning
+almost every miss that session was blocked by another gate as well, not by
+this one alone. **See [OBS-10](#obs-10) for the mechanism** — on that day the
+only surviving veto reason was calibration, and its recovery path is closed
+by the veto itself.
 
 Within a single session the saved/missed split moved from 58/42 to 67/33
 (+475 blocks). Reading a verdict off any single snapshot would have been
@@ -523,6 +532,80 @@ more than aiming it quickly.
 
 **Status:** measured, root cause narrowed, **no code changed**. Next step is
 documentation lookup (per-endpoint limits), not a code edit.
+
+### OBS-9 — Kill Switch samples data quality 18× slower than the panel (PARKED)
+
+`data_quality.report()` is called by the engine inside `_ai_cycle()`, which
+runs every **180s**, while `FeedDiagnostics` polls the same `report()` via
+`/api/health/data` every **10s**. So a data-quality veto can persist for up
+to ~3 minutes after the feed has actually recovered.
+
+**Parked 2026-08-03, cause moved.** The hypothesis was that this staleness
+explained the day's missed trades. It does not: by 11:2x the data-quality
+trigger had cleared entirely on its own (verified live — `report().overall`
+GOOD, 8/8 checks OK, completeness 100%), while Execution Lock stayed active
+for a completely different reason (OBS-10). Nothing was measured that ties
+this gap to a missed trade.
+
+**Re-open only if** a POOR data-quality trigger is observed persisting after
+the feed has demonstrably recovered. The proof required is a real timeline
+(owner's own spec): paired `/api/health/data` and `/api/status` samples
+showing `report().overall` GOOD while `kill_switch.reasons` still carries
+the data-quality entry, with timestamps. **Do not change the interval before
+that timeline exists** — the direction of the error is currently safe (the
+panel leads, the gate lags, so the UI can warn early but never falsely
+reassure).
+
+### OBS-10 — Calibration veto is a self-sealing deadlock (HIGH priority)
+
+**Found 2026-08-03 while investigating the data-quality contradiction; this
+is the mechanism behind [OBS-2](#obs-2), which had recorded the symptom.**
+
+Live state at the time: Execution Lock active, `level: DANGER`, with exactly
+one reason left — `Calibration 54 (< 55) — forecasts mis-tuned` — and
+recovery text `Calibration recovers to ≥ 55`. Data quality was GOOD by then.
+
+The loop, traced through code (not inferred):
+
+| step | where |
+|---|---|
+| Calibration 54 < `MIN_CALIBRATION = 55` → veto | `kill_switch.py:22,48` |
+| → decision forced to `FORCE WAIT` / `WAIT` | `market_service.py:685` |
+| → `track_signal()` early-returns on `"NO TRADE"` | `memory.py:87` |
+| → no tracked signal, so `_settle()` never fires | `memory.py:123` |
+| → `_outcomes` gains nothing, confidence buckets frozen | `memory.py:129` |
+| → `_calibration()` recomputes the same score | `analytics.py:119-131` |
+| → still 54 → veto holds ↺ | |
+
+**The recovery the UI promises is reachable only through the one path the
+veto closes.** Calibration is `100 − mean|bucket_midpoint − win_rate|` over
+buckets needing ≥3 realised outcomes, and realised outcomes only exist for
+signals that were allowed to be signalled.
+
+**This exact deadlock class was already found and fixed once in this same
+file** — for the consecutive-losses trigger, whose comment (`kill_switch.py:52`)
+reads: *"the veto blocks new signals → no new outcomes → the stale 3-loss
+tail NEVER clears (it stayed tripped across 3 calendar days)."* That trigger
+was given a session-scoping escape hatch. **The calibration trigger has the
+identical shape and never received one.**
+
+**Honest limits — what is NOT established:**
+- Already-open tracked positions can still settle and move calibration, so
+  the loop is **starved, not provably sealed**, until the open set drains.
+  The open-position count could not be measured (`/api/analytics` 404s), so
+  how close it is to fully sealed is unknown.
+- It is **not** established that the veto has been continuously active. The
+  block counter read 1037 on 2026-08-03 vs 1106 on 2026-07-30 — *lower*,
+  which suggests a rolling window or a reset, not a monotonic count.
+- Whether calibration 54 is itself *correct* is untouched here. The finding
+  is about reachability of recovery, not about the threshold's rightness.
+
+**Deliberately NOT fixed.** Changing when the gate releases is Trading
+Doctrine and requires Observation→Evidence→Proposal→Approval. `MIN_CALIBRATION`
+was not touched, and calibration must never be auto-tuned. When a proposal is
+drafted, the consecutive-losses escape hatch is the precedent to study — the
+question is what the *equivalent* legitimate escape is here, since
+session-scoping alone would not help a metric computed over a long ring.
 
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 

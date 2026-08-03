@@ -43,8 +43,39 @@ export function FeedDiagnostics() {
   const failing = entries.filter(([, c]) => !["OK", "N/A"].includes(c.status)
     && !(marketClosed && (c.status === "MISSING" || c.status === "DELAYED")));
   // RC1.4 — the authoritative pipeline quality (kill-switch source) overrides:
-  // never claim "healthy" while the system itself is running on POOR data
-  const pipelinePoor = (status as any)?.data_quality === "POOR";
+  // never claim "healthy" while the system itself is running on POOR data.
+  //
+  // 2026-08-03 fix: this read `status.data_quality`, which is NOT the
+  // kill-switch source despite the comment above. There are two unrelated
+  // "data quality" values in this system:
+  //   A) state.data_quality  — set by market_service._safe()'s try/except,
+  //      i.e. "did the last tick raise a BrokerError?". This is what
+  //      `status.data_quality` carries.
+  //   B) data_quality.report().overall — the 8 per-stream freshness checks.
+  //      THIS is what kill_switch.evaluate() and safe_mode.evaluate() are
+  //      actually handed (market_service.py `dq = report()["overall"]`).
+  // A can be GOOD while B is POOR, and on 2026-08-03 it was: the dashboard
+  // showed "All feeds healthy — any WAIT is market-driven, not data" while
+  // Execution Lock was blocking every trade *because of* data quality. On a
+  // trading surface a contradiction like that is worse than a wrong number —
+  // it makes the engine look broken when the engine is behaving correctly.
+  //
+  // `d` is /api/health/data, which returns report() verbatim, so B was
+  // already fetched here and simply never read. Both are ORed: this guard's
+  // only job is to never *falsely* claim healthy, so either source saying
+  // POOR must suppress the healthy message. It can be conservative; it must
+  // not be optimistic.
+  //
+  // Residual, deliberately not addressed here: B is sampled by the engine
+  // every 180s (_ai_cycle) but polled here every 10s, so this panel can turn
+  // red up to ~3min before the Kill Switch acts on the same value. That gap
+  // is a separate open question (OBS-9, parked — see docs/V7_STATUS.md) and
+  // must be proven with a real timeline before any interval is changed.
+  // Note the direction of the residual: this panel leads, the gate lags, so
+  // the panel can warn early but never falsely reassure — which is the side
+  // to err on.
+  const pipelinePoor = d.overall === "POOR"
+    || (status as any)?.data_quality === "POOR";
   const healthy = failing.length === 0 && !pipelinePoor;
   const comp = d.completeness ?? 0;
   // no option chain for this instrument ⇒ OI/Greeks/Institutional stay neutral
