@@ -172,14 +172,29 @@ export default function Dashboard() {
           Everything needed to answer "can I trade, right now?" without
           scrolling: which market -> is it open -> is execution vetoed ->
           the ONE verdict -> gate status -> why blocked.
-          Vetoes sit ABOVE the Hero deliberately: SafeModeBanner,
-          KillSwitchBanner, MarketStatusBanner and BlockReasonHero all
-          return null when inactive, so they cost zero space on a normal
-          day and correctly preempt the verdict on an abnormal one.
-          Rule 11 unchanged: TradeNowCard is still the ONLY decision
-          surface — nothing here is a second verdict.
+
+          WHY THIS ORDER? (deliberate — do not "tidy" it back)
+          1. Context before verdict — you cannot read a BUY without first
+             knowing WHICH symbol and whether the market is even open.
+          2. Veto before decision — if execution is locked, the verdict
+             below it is moot. Aviation cockpit principle: a caution
+             annunciator is never placed under the instrument it voids.
+          3. The three veto banners cost nothing when nothing is wrong —
+             SafeModeBanner/KillSwitchBanner/MarketStatusBanner each
+             return null when inactive, so a normal day renders zero
+             extra pixels; only an abnormal day pushes the Hero down.
+          4. Verdict, then reason — a trader reads "WAIT" and only then
+             asks "why", so BlockReasonHero sits BELOW the Hero, never
+             above it. Reversing this makes the page argue before it
+             answers.
+          5. Rule 11 unchanged: TradeNowCard is still the ONLY decision
+             surface — nothing in this layer is a second verdict.
+
           A1a moved panels only. No component, prop, engine, score or
           gate was added, removed or altered.
+          Panel order is currently expressed inline here. If a third
+          reordering phase (A1b/A2) lands, extract it to a declarative
+          DashboardLayout.ts first — see docs/V7_STATUS.md.
          ══════════════════════════════════════════════════════════════ */}
 
       {/* TOP BAR — Active Market (symbol/timeframe) + Spot Price */}

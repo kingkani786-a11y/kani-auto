@@ -731,6 +731,54 @@ altered.
 production change. Owner holds it for the next restart window, so `main`
 now carries A1a while the running frontend does not yet.
 
+#### Deferred: extract panel order to `DashboardLayout.ts` (owner, 2026-08-03)
+
+**Explicitly NOT now — recorded so it isn't lost.** A1a changed panel
+order by editing `page.tsx` inline. That is fine once. It does not scale:
+`page.tsx` is ~580 lines with 62 panels, and A1b, A2, Phase B and Phase C
+are all *also* ordering/visibility changes. Four more manual reorders of
+the same file is the maintenance risk.
+
+The owner's proposed shape — declarative order, `page.tsx` renders only:
+
+```ts
+const LAYER1 = ["TopBar", "MarketStatus", "SafeMode", "ExecutionLock",
+                "SmartAlerts", "TradeNow", "ExecutionStatus", "BlockReason"];
+const LAYER2 = [ ... ];
+```
+
+**Trigger:** do this *before* the next reordering phase lands, not as its
+own project. Doing it first turns A1b/A2/B/C from "edit a 580-line JSX
+file" into "edit one array". Doing it after means paying the manual
+reorder cost again anyway.
+
+**Caveat if it is built:** the panels are not uniform — several take no
+props but some sit inside `showAdvanced`/`showMiddle` conditionals, and
+`TopBar` is inline JSX rather than a component. A registry has to carry
+visibility (`mode`) alongside order, or it will silently flatten the
+Simple/Advanced distinction. That is the actual design work, not the
+array itself.
+
+#### Known incompleteness in A1a (found 2026-08-03, NOT fixed)
+
+A1a reordered panels but did not touch mode gating, because the scope was
+"remove nothing". Auditing the result against the confirmed Layer 2
+mapping shows **4 of its 6 panels are invisible in Simple mode**:
+
+| Confirmed Layer 2 panel | Simple mode | where |
+|---|---|---|
+| `SRHeroCard` | ✅ visible | Layer 2 |
+| `TradeRiskPanel` | ✅ visible | Layer 2 |
+| `EntryChecklist` | ❌ Advanced only | `page.tsx` `showMiddle` block |
+| `SignalMaturity` | ❌ Advanced only | `page.tsx` `showMiddle` block |
+| `MarketPathPanel` | ❌ Advanced only | `page.tsx` `showMiddle` block |
+| `ProChart` (Live Chart) | ❌ Advanced only | `page.tsx` `showMiddle` block |
+
+So the "confirm in 10 seconds" tier only half exists for a Simple-mode
+user. Fixing it is **not** a reorder — it makes information *appear* in
+Simple mode, which is a visibility change and needs its own decision.
+Left open deliberately rather than folded into A1a.
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
