@@ -382,6 +382,61 @@ of absolute points (changes what the panel *means*), or show per-symbol and
 blended side by side. That's a Trading-Doctrine-adjacent display decision,
 not a one-line correction.
 
+### OBS-8 — AI Analysis transient-classification gap (NOT REPRODUCED) (LOW)
+
+**Observed 2026-08-03** on a live dashboard (MCX:CRUDEOIL, Safe Mode active,
+broker in rate-limit cooldown). The AI Analysis card read
+`AI unavailable — HTTP 500`.
+
+**Confirmed by evidence:**
+- Backend returned **no HTTP 500 today**, on any endpoint. Every
+  `/api/cortex/analyze` call in the log is `200 OK`, and a live check during
+  the investigation also returned 200.
+- Gemini itself returned 3 × `400 Bad Request` today — but those are caught
+  in `provider.py` and returned to the client as **200 with `ok:false`**,
+  never as a 500.
+- Also confirmed *working* on the same screenshot: the AI Timeline fix
+  (reads "Quiet so far today") and the truncated-reply cache fix (log shows
+  `cortex explainer reply truncated (finish_reason=MAX_TOKENS), not caching`).
+- `MAX_TOKENS` truncation is **not** a regression from the 2026-07-31
+  context_builder fix — it first appears 2026-07-30, before that fix was
+  deployed, when the context fields were still all null.
+
+**Real gap found in code (verified, but NOT proven to be the cause):**
+`provider.py:103` classifies transient upstream failures
+(`503`/`UNAVAILABLE`/`429`/`overloaded`/`high demand`/`RESOURCE_EXHAUSTED`)
+and returns `transient: true`, so the card shows a calm
+"⏳ AI temporarily busy — retrying automatically". That only applies when the
+HTTP call *succeeds*. When the fetch itself fails:
+
+```
+api.ts:30            msg = `HTTP ${r.status}`          -> "HTTP 500"
+AIAnalysisCard:25    catch -> {ok:false, error:msg}    -> no `transient` flag
+render (:47)         transient ? "⏳ " : "AI unavailable — "
+```
+
+…the backend's transient classification is bypassed entirely, so even a
+genuinely temporary 503 would render as the alarming "AI unavailable —"
+rather than "retrying". Same family as the rate-limit hyphen classifier bug
+fixed earlier this phase.
+
+**Why this is NOT being fixed yet:** the gap is real in code, but it has not
+been shown to be what produced this screenshot. The card polls every 60s
+(`AIAnalysisCard.tsx:26`), so a single transient failure would clear on the
+next poll — the screenshot may simply have caught that window. Root cause is
+unconfirmed between: a real backend 500 that went unlogged, a browser-side
+fetch failure, a proxy, or stale render state. **One screenshot is not enough
+evidence to change a classifier** — the same discipline that correctly closed
+the AI Timeline case as "Verified, No Code Change Required".
+
+**Status:** Observation · Priority Low · Reproduced: **No** · Production
+impact: unknown · Trading impact: none (display only; AI Analysis feeds no
+gate or decision).
+
+**Trigger for action — on a second occurrence, capture in this order:**
+screenshot → backend log at that exact timestamp → browser Network tab
+(status + response body) → console. Only then reproduce and fix.
+
 ## Rule for this phase
 
 No new features, no new engines, no new panels — bug fixes and the checks
