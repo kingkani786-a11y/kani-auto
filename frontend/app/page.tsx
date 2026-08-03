@@ -167,33 +167,20 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
-      {/* V3.0 — Smart Alert Bar (sticky, single latest critical alert) */}
-      <SafeBoundary name="Smart Alerts">
-        <SmartAlertBar />
-      </SafeBoundary>
-
-      {/* 🟢 TRADE NOW — the ONE box (owner UX review 2026-07-21): BUY/WAIT/EXIT,
-          confidence, grade, entry/SL/targets, reason — decide in 2-3 seconds.
-          Always visible, both modes — this IS the "Simple Mode" hero. */}
-      <SafeBoundary name="Trade Now">
-        <TradeNowCard />
-      </SafeBoundary>
-
-      {/* S/R HERO CARD (owner, 2026-07-23, item #5 Phase 2, Priority 11) —
-          nearest actionable support/resistance + readiness stage. NOT a
-          second Trade Light: proximity to structure, not the trade verdict
-          (that stays TradeNowCard's alone). */}
-      <SafeBoundary name="S/R Hero">
-        <SRHeroCard />
-      </SafeBoundary>
-
-      {/* ═══ Step 2 — Hero Dashboard Finalization (2026-07-26) ═══
-          Rule 11 "One Hero → One Decision": everything below is Active
-          Market / Spot Price / Premium S/R / Execution Status / WHY HERE —
-          context and evidence around the Hero above, never a second verdict.
-          Moved up from ~30 panels down (was buried below the V20 action
-          stack) so the full top-of-page set the roadmap specifies is
-          actually together at the top, not scattered. */}
+      {/* ══════════════════════════════════════════════════════════════
+          LAYER 1 — DECIDE (3 seconds).  A1a reorder, owner 2026-08-03.
+          Everything needed to answer "can I trade, right now?" without
+          scrolling: which market -> is it open -> is execution vetoed ->
+          the ONE verdict -> gate status -> why blocked.
+          Vetoes sit ABOVE the Hero deliberately: SafeModeBanner,
+          KillSwitchBanner, MarketStatusBanner and BlockReasonHero all
+          return null when inactive, so they cost zero space on a normal
+          day and correctly preempt the verdict on an abnormal one.
+          Rule 11 unchanged: TradeNowCard is still the ONLY decision
+          surface — nothing here is a second verdict.
+          A1a moved panels only. No component, prop, engine, score or
+          gate was added, removed or altered.
+         ══════════════════════════════════════════════════════════════ */}
 
       {/* TOP BAR — Active Market (symbol/timeframe) + Spot Price */}
       <div className="panel py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -239,19 +226,6 @@ export default function Dashboard() {
         <MarketStatusBanner />
       </SafeBoundary>
 
-      {/* Premium S/R — nearest ATM CE/PE level only; full breakdown stays in
-          Advanced SupportResistancePanel. Spot vs Premium never mixed. */}
-      <SafeBoundary name="Premium S/R">
-        <PremiumSRStrip />
-      </SafeBoundary>
-
-      {/* Execution Status — Final Decision + Gate PASS/BLOCKED only, sourced
-          from the same execution_gate the Hero's own contract reads. Full
-          conditions grid stays in Advanced ExecutionControlCenter. */}
-      <SafeBoundary name="Execution Status">
-        <ExecutionStatusStrip />
-      </SafeBoundary>
-
       {/* PHASE D — Safe Mode (disaster recovery) — highest-priority banner */}
       <SafeBoundary name="Safe Mode">
         <SafeModeBanner />
@@ -264,12 +238,59 @@ export default function Dashboard() {
         <KillSwitchBanner />
       </SafeBoundary>
 
+      {/* V3.0 — Smart Alert Bar (sticky, single latest critical alert) */}
+      <SafeBoundary name="Smart Alerts">
+        <SmartAlertBar />
+      </SafeBoundary>
+
+      {/* 🟢 TRADE NOW — the ONE box (owner UX review 2026-07-21): BUY/WAIT/EXIT,
+          confidence, grade, entry/SL/targets, reason — decide in 2-3 seconds.
+          Always visible, both modes — this IS the "Simple Mode" hero. */}
+      <SafeBoundary name="Trade Now">
+        <TradeNowCard />
+      </SafeBoundary>
+
+      {/* Execution Status — Final Decision + Gate PASS/BLOCKED only, sourced
+          from the same execution_gate the Hero's own contract reads. Full
+          conditions grid stays in Advanced ExecutionControlCenter. */}
+      <SafeBoundary name="Execution Status">
+        <ExecutionStatusStrip />
+      </SafeBoundary>
+
       {/* BLOCK REASON HERO (owner, 2026-07-23, item #2 — most-requested):
           "top of dashboard, highest visual priority" — WHY HERE. Renders
           nothing when there's no candidate move being blocked (quiet
           market = quiet UI). */}
       <SafeBoundary name="Block Reason">
         <BlockReasonHero />
+      </SafeBoundary>
+
+      {/* ══════════════════════════════════════════════════════════════
+          LAYER 2 — CONFIRM (10 seconds).  Where price is against
+          structure, what the entry needs, what it risks. Context and
+          evidence around the Hero above, never a second verdict.
+         ══════════════════════════════════════════════════════════════ */}
+
+      {/* ═══ Step 2 — Hero Dashboard Finalization (2026-07-26) ═══
+          Rule 11 "One Hero → One Decision": everything below is Active
+          Market / Spot Price / Premium S/R / Execution Status / WHY HERE —
+          context and evidence around the Hero above, never a second verdict.
+          Moved up from ~30 panels down (was buried below the V20 action
+          stack) so the full top-of-page set the roadmap specifies is
+          actually together at the top, not scattered. */}
+
+      {/* S/R HERO CARD (owner, 2026-07-23, item #5 Phase 2, Priority 11) —
+          nearest actionable support/resistance + readiness stage. NOT a
+          second Trade Light: proximity to structure, not the trade verdict
+          (that stays TradeNowCard's alone). */}
+      <SafeBoundary name="S/R Hero">
+        <SRHeroCard />
+      </SafeBoundary>
+
+      {/* Premium S/R — nearest ATM CE/PE level only; full breakdown stays in
+          Advanced SupportResistancePanel. Spot vs Premium never mixed. */}
+      <SafeBoundary name="Premium S/R">
+        <PremiumSRStrip />
       </SafeBoundary>
 
       {/* EVIDENCE PANEL (owner Step 6, 2026-07-26) — the one place evidence
