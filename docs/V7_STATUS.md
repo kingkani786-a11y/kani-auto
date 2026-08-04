@@ -1252,6 +1252,36 @@ they set V7.1's direction:**
    item, and it must not change any existing Kill Switch / Risk / Greeks /
    Premium threshold.
 
+### V7.1 Item #1 — Signal ↔ Execution separation: BUILT 2026-08-04 (`b975034`)
+
+**First V7.1 change-set. V7.0 baseline intact: 114 insertions, 0 deletions.**
+
+| Layer | Change |
+|---|---|
+| `confluence.py` | `signal["signal_candidate"]` added inside the veto branch — would-be signal, direction, confidence, bull/bear score, confirmations, `execution: "BLOCKED"`, `blocked_by` |
+| `memory.py` | new `_blocked` ring + `blocked_signals()`; `track_signal()` records the candidate **before** its unchanged early-return |
+| `routes.py` | `GET /api/blocked-signals` (read-only) |
+| `SignalExecutionCard.tsx` | SIGNAL / EXECUTION / REASON as three lines, under the Hero, quiet unless a direction was actually refused |
+
+**What did NOT change, asserted in test:** `signal` stays `"NO TRADE"`,
+`direction` stays `"NONE"`, `signal_candidate` never appears in the tradable
+branch, and a blocked signal leaves `_tracked = 0` / `_outcomes = 0`.
+
+**Why `_blocked` is a separate ring — load-bearing, do not "simplify" it
+later:** `_outcomes` feeds `analytics._calibration()`, which feeds
+`kill_switch.MIN_CALIBRATION`. Merging blocked candidates into `_outcomes`
+would silently change *when the Kill Switch releases* — a Trading Doctrine
+change this item explicitly must not make. The reason is duplicated in the
+code comment at the ring's definition.
+
+**Scope honesty:** this makes a blocked signal **visible**, it does not open
+the trade. Calibration 54 stays locked (OBS-10, evidence-collection only,
+deliberately untouched — owner: *"தொடாதே — evidence தொடரட்டும்"*).
+
+**Not deployed at commit time** — owner holds the restart for before the next
+market open, so the first session with this live is the first session where
+blocked signals get recorded.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
