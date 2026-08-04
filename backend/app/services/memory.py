@@ -96,7 +96,8 @@ def track_signal(symbol: str, signal: dict[str, Any], regime: str = "",
                  engines_pass: list[str] | None = None,
                  dna: dict | None = None, strike: Any = None,
                  premium_entry: float | None = None,
-                 premium_target: float | None = None) -> None:
+                 premium_target: float | None = None,
+                 structural_targets: dict | None = None) -> None:
     if signal.get("signal") in (None, "NO TRADE"):
         # V7.1 Signal <-> Execution separation: before dropping this cycle,
         # record the blocked directional candidate (if the engine produced
@@ -147,6 +148,13 @@ def track_signal(symbol: str, signal: dict[str, Any], regime: str = "",
         "stop": signal["stop_loss"],
         "target": signal["target1"],
         "dna": dna or {},                 # Phase 20 feature snapshot
+        # V7.1 Trade Explorer Phase 3A observational persistence (owner,
+        # 2026-08-04) — recorded so the observation window can later answer
+        # "did the structural target get hit first?". OBSERVATIONAL ONLY:
+        # _settle() below never reads this key, so it cannot affect win/loss,
+        # PnL, regime accuracy, calibration or the Kill Switch. Same
+        # append-only, no-feedback contract as `dna` above.
+        "structural_targets": structural_targets or {},
         "strike": strike,
         "premium_expansion_pct": pexp,
         "mfe": 0.0, "mae": 0.0,           # V25 §5 — max favorable/adverse excursion (pts)
@@ -176,6 +184,10 @@ def _settle(t: dict, win: bool) -> None:
                       "confidence": t.get("confidence", 0), "grade": t.get("grade", ""),
                       "direction": t.get("direction", ""),
                       "dna": t.get("dna", {}), "strike": t.get("strike"),
+                      # Phase 3A observational persistence — carried through
+                      # exactly like `dna` above: pure data, read by nothing
+                      # in this function or in analytics._calibration().
+                      "structural_targets": t.get("structural_targets", {}),
                       "premium_expansion_pct": t.get("premium_expansion_pct"),
                       "mfe": t.get("mfe", 0.0), "mae": t.get("mae", 0.0),
                       "missed_pts": round(max(0.0, t.get("mfe", 0.0) - (pnl if win else 0)), 1),

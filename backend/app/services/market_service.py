@@ -583,7 +583,8 @@ class MarketService:
                             engines_pass=_pass, dna=_dna_snap,
                             strike=_strk.get("strike"),
                             premium_entry=_strk.get("premium_entry"),
-                            premium_target=_ptgt)
+                            premium_target=_ptgt,
+                            structural_targets=packet["layers"].get("structural_targets"))
         # live DNA match — what has historically happened in setups like this one
         try:
             state.market_dna = market_dna.analyze(_dna_snap, list(memory._outcomes))
