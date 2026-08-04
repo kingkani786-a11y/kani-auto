@@ -16,6 +16,7 @@ import { DecisionChain } from "@/components/DecisionChain";
 import { StateConsistencyBanner } from "@/components/StateConsistencyBanner";
 import { SignalExecutionCard } from "@/components/SignalExecutionCard";
 import { CandlePatternCard } from "@/components/CandlePatternCard";
+import { EvidenceRankCard } from "@/components/EvidenceRankCard";
 import { MarketStatusBanner } from "@/components/MarketStatusBanner";
 import { friendlyMessage } from "@/lib/status";
 import { ProbabilityLadder } from "@/components/ProbabilityLadder";
@@ -357,6 +358,15 @@ export default function Dashboard() {
           changes no score, threshold or gate. See the component header. */}
       <SafeBoundary name="Candle Patterns">
         <CandlePatternCard />
+      </SafeBoundary>
+
+      {/* WHY THIS DIRECTION — V7.1 Trade Explorer Phase 2 (owner, 2026-08-04).
+          Names the PRIMARY driver instead of leaving seven layers blended into
+          one opaque composite, and names any layer leaning the other way
+          (the general form of OBS-15's fix). Classification only — no new
+          score, no threshold, no effect on the decision. */}
+      <SafeBoundary name="Why This Direction">
+        <EvidenceRankCard />
       </SafeBoundary>
 
       {/* TRADE RISK PANEL (owner Step 7, 2026-07-26) — Stop Loss, Risk,

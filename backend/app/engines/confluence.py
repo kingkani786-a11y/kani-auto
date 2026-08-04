@@ -19,8 +19,9 @@ from typing import Any
 from ..config import settings
 from ..core.text import truncate_at_word
 from . import (
-    candles as candle_eng, early_warning, expiry as expiry_eng, market_profile,
-    mtf, narrator, orderflow, probability, quality, regime, risk, smart_money,
+    candles as candle_eng, early_warning, evidence_rank, expiry as expiry_eng,
+    market_profile, mtf, narrator, orderflow, probability, quality, regime,
+    risk, smart_money,
     strike_selector, structure, technicals, volume_profile,
 )
 
@@ -414,6 +415,22 @@ def run(
     levels_ok = all(x > 0 for x in (spot, abs(sl), *targets)) and risk_pts > 0
     if not levels_ok:
         vetoes.append("incomplete trade levels — signal blocked")
+
+    # V7.1 Trade Explorer Phase 2 — Evidence Ranking + Contradiction
+    # (owner, 2026-08-04). Classifies the SAME layer scores already used above
+    # into PRIMARY / CONFIRMING / CONTRADICTORY / INSUFFICIENT, so the trader
+    # can see WHICH layer is driving the read rather than only a blended
+    # number. Computes no new score and changes none: remove this block and
+    # the decision is byte-identical. Runs on BOTH branches (blocked and
+    # tradable) because "why this direction" matters most when the trade is
+    # refused. Wrapped — an explainer must never break the decision path.
+    try:
+        layers["evidence_rank"] = evidence_rank.analyze(
+            layers, win_dir, layers.get("candles"))
+    except Exception:
+        layers["evidence_rank"] = {"ready": False, "primary": None,
+                                   "confirming": [], "contradicting": [],
+                                   "insufficient": [], "conclusion": ""}
 
     tech_block = {
         "trend": layers["trend"]["trend"], "vwap": vwap_v, "atr": atr_v,
