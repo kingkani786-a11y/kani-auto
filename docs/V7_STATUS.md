@@ -950,6 +950,56 @@ claims; only the first has evidence.
 **Deliberately NOT built during this Observation Window** — no new
 feature, no new engine, no UI change, per the window's lock.
 
+### OBS-17 — "Big Movers Today" capture badge keyed by strike, not by the move it describes (MEDIUM, measurement/display)
+
+**Found 2026-08-04, Observation Window**, comparing two live NIFTY dumps of
+the same "🏁 BIG MOVERS TODAY" panel 36 minutes apart. Same six strikes,
+same peak-move percentages, but the ✓/✗ capture badge flipped for four of
+them with **zero new price data**:
+
+| Strike | 10:56 IST | 11:32 IST | Price/% shown |
+|---|---|---|---|
+| 24450 PE | ✓ caught early | ✗ missed | identical (₹3.05→₹8.75, +186.9%) |
+| 24500 PE | ✓ caught early | ✗ missed | identical (₹6.4→₹17.65, +175.8%) |
+| 24550 PE | ✓ caught early | ✗ missed | identical (₹13.7→₹33.75, +146.4%) |
+| 24600 PE | ✓ caught early | ✗ missed | identical (₹27.85→₹60.3, +116.5%) |
+| 24700 CE | ✗ missed | ✗ missed | base price itself changed (₹5.85→₹4.9) |
+| 24650 CE | ✗ missed | ✗ missed | base price itself changed (₹12.4→₹11.15) |
+
+**Trace** (`premium_radar.py:507-518`, `opportunity_metrics.py:748-760`):
+the "Missed Opportunity" row is built once per strike that ran ≥30% today,
+then tagged via `capture_status(strike, type)` — which looks up **whichever
+episode is currently live for that (strike, type), or else the last closed
+one** — not the *specific* episode responsible for the ≥30% move being
+displayed. The four PE strikes above had re-ignited into brand-new, unrelated,
+still-immature live episodes by 11:32 (visible in this same dump's own
+`WATCH ZONE`, all freshly `🟢 BUILDING`). `capture_status()` then returned
+*that new episode's* not-yet-EARLY status, silently overwriting the badge
+for the **earlier, already-settled, already-correctly-classified** move.
+The two CE strikes' shifting base price is a separate but related symptom —
+`sess_low` (session low) is read live each cycle, so the "from low" anchor
+for an already-reported move can itself keep changing.
+
+**Precise framing:** the panel's own code comment states its intent
+correctly — *"a strike shown here ran ≥30%, but that does NOT mean we
+missed it... Tag each row with its real capture."* The implementation
+assumed one episode per strike per day; it does not hold once a strike
+re-ignites. This is a **measurement/reporting bug in a review-only panel**,
+not a gate, threshold, or decision defect — Kill Switch, DecisionChain,
+and the actual trade block are entirely unaffected.
+
+**Severity: MEDIUM — measurement/display only.** No capital-protection
+impact, no gate impact. Does affect the *trustworthiness of a daily
+review metric* the trader may use to judge the radar's own performance
+(the ✓/✗ badge existing specifically so "big mover ≠ automatically missed"
+is defeated when it can flip to ✗ for a move that WAS genuinely caught).
+**Does not block V7 freeze.** V7.1 backlog: `capture_status()` needs to be
+called with (or store) an episode/move identifier, not just (strike, type),
+so a badge is permanently bound to the move it was computed for.
+
+**Deliberately NOT fixed** — read-only trace only, per the Observation
+Window lock; no code touched.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
