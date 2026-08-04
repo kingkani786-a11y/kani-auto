@@ -822,6 +822,63 @@ no Kill Switch impact, no persistence corruption. Diagnostic metadata only.
 a single fix (`_restarts = 0` in `_roll_day()` before the rehydrate attempt,
 plus OBS-13's persist-on-rehydrate) would likely close both.
 
+### OBS-15 — DecisionChain's scope doesn't cover per-trade-tier gate vetoes (MEDIUM, explainability)
+
+**Found 2026-08-04, Observation Window, live NIFTY session** — first seen at
+09:19 IST, recurring and intensifying across three checkpoints the same
+morning:
+
+| Time | Gate FAILs outside DecisionChain's scope | DecisionChain's own header |
+|---|---|---|
+| 09:19 | Premium (1) | "1 root cause → 1 panel echo → 1 decision" |
+| 10:23 | Premium (1) | "1 root cause → 1 panel echo → 1 decision" |
+| 10:56 | Premium + Greeks (2) | "1 root cause → 1 panel echo → 1 decision" |
+
+**Precise framing — do not round this up to "DecisionChain is wrong."**
+DecisionChain correctly explains the Kill Switch root cause every time; its
+*scope* was deliberately built to cover only Kill Switch / Safe Mode / the
+Gate's Data Quality row (see P1's own header comment). `Premium` and
+`Greeks` are independent hard-veto conditions in `execution_gate.py`
+(`decision.premium_forecast.classification == "AVOID"`; a Greeks delta-skew
+check) — genuinely outside that scope, by design, not by bug.
+
+**The gap:** `BlockReasonHero` — the panel meant to own "per-trade blocking
+reasons for a specific candidate" per DecisionChain's own disclaimer — was
+confirmed live (`GET /api/decision-contract` → `block_reason_hero.active:
+false`) to be silent throughout all three checkpoints, despite Premium
+and/or Greeks being active vetoes each time. So:
+
+```
+Kill Switch  → explained by DecisionChain
+Premium veto → active, explained by nothing
+Greeks veto  → active, explained by nothing
+```
+
+"1 root cause → 1 panel echo → 1 decision" is therefore accurate for the
+subset DecisionChain covers, but is not a complete account of *why* the
+trade is blocked once a second independent gate also fails — and the
+Observation Window has now shown that subset shrinking in coverage (1
+uncovered cause → 2) as more conditions fail simultaneously.
+
+**Severity: MEDIUM — explainability / decision-narrative gap, not a safety
+issue.** Capital protection is unaffected: Premium/Greeks genuinely block
+execution regardless of whether a panel explains them. **Does not block V7
+freeze.** V7.1 backlog.
+
+**Explicit Critical-upgrade threshold (set at classification time, so a
+future session doesn't have to re-derive it):** OBS-15 becomes Critical
+only if evidence shows either (a) an active per-trade veto being bypassed
+— i.e. a trade actually clearing the gate despite Premium/Greeks/etc.
+failing, or (b) a genuine contradiction between veto state and the
+displayed decision (e.g. dashboard reads "no active veto" while the gate
+is failing). Neither has been observed. Today's evidence shows protection
+correct, explanation incomplete — that stays MEDIUM.
+
+**Deliberately NOT fixed, and P1's scope must NOT change during this
+Observation Window** — even though this is exactly the kind of finding
+that would motivate rescoping DecisionChain (or extending BlockReasonHero's
+trigger condition) once the window closes.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
