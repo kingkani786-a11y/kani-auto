@@ -423,6 +423,49 @@ def run(
             "reasons": [f"NO TRADE — {v}" for v in vetoes[:4]],
             "tech": tech_block,
         }
+        # ---- V7.1 Signal <-> Execution separation (owner, 2026-08-04) ----
+        # THE PROBLEM THIS SOLVES: above, `direction` is forced to "NONE" the
+        # moment any veto fires, so a directional read the engine genuinely
+        # HAD is erased before anything downstream can see it. The dashboard
+        # then shows a bare "NO TRADE", which reads to a trader as "the system
+        # found nothing" — when the truth is "the system found something and
+        # execution was blocked". Those are completely different facts and the
+        # 2026-08-04 session showed the cost of conflating them: the radar was
+        # flagging Runner-90 BUY CANDIDATEs all day while the Hero read NO TRADE.
+        #
+        # `signal_candidate` records what the engine WOULD have called, exactly
+        # as the non-veto branch below computes it, alongside why execution was
+        # refused. It is additive metadata ONLY:
+        #   * `signal` stays "NO TRADE" and `direction` stays "NONE" — every
+        #     existing consumer (execution_gate, decision build, track_signal,
+        #     every panel) sees byte-identical behaviour to V7.0.
+        #   * NO threshold, veto, gate or scoring rule is changed. Nothing here
+        #     can make a blocked trade tradable. Capital protection is untouched.
+        # It exists so the UI can render SIGNAL / EXECUTION / REASON as three
+        # separate lines instead of collapsing them into one misleading word.
+        _cand_name = ("BUY CE" if win_dir == "BULL" else "BUY PE") \
+            if (market_type == "INDEX" or has_chain) else (
+                ("BUY STOCK" if win_dir == "BULL" else "SELL STOCK")
+                if market_type == "STOCK" else
+                ("BUY FUTURES" if win_dir == "BULL" else "SELL FUTURES"))
+        signal["signal_candidate"] = {
+            "would_be_signal": _cand_name,
+            "direction": win_dir,
+            "confidence": round(win, 1),
+            "dynamic_confidence": dyn_conf,
+            "bull_score": round(bull_adj, 1),
+            "bear_score": round(bear_adj, 1),
+            "confirmations": confirmations,
+            "confirmations_count": len(confirmations),
+            "execution": "BLOCKED",
+            "blocked_by": vetoes,
+            "blocked_count": len(vetoes),
+            "note": ("Directional read the engine computed BEFORE execution was "
+                     "refused. NOT a recommendation and NOT tradable — the "
+                     "vetoes above are what actually govern. Recorded so a "
+                     "blocked signal is visible as blocked, rather than "
+                     "disappearing into a bare NO TRADE."),
+        }
         strike = None
         strikes_top = []
         # V16 — PREPARING intel while the gate holds: the strike + levels the

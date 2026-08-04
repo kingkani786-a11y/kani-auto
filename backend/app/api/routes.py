@@ -413,6 +413,18 @@ async def decision_contract_ep():
     return decision_contract.contract()
 
 
+@router.get("/blocked-signals")
+async def blocked_signals_ep(limit: int = 50):
+    """V7.1 Signal <-> Execution separation (2026-08-04) — directional
+    candidates the engine computed but execution refused, newest first.
+    Read-only: these never enter _outcomes, so calibration and the Kill
+    Switch are unaffected. Exists so a blocked signal is visible AS blocked
+    instead of disappearing into a bare "NO TRADE"."""
+    from ..services import memory
+    rows = memory.blocked_signals(max(1, min(limit, 200)))
+    return {"count": len(rows), "rows": rows}
+
+
 @router.get("/state-consistency")
 async def state_consistency_ep():
     """State Consistency Detector (P5A, 2026-08-03) — read-only cross-check

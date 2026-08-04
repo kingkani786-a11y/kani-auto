@@ -14,6 +14,7 @@ import { KillSwitchBanner } from "@/components/KillSwitchBanner";
 import { SafeModeBanner } from "@/components/SafeModeBanner";
 import { DecisionChain } from "@/components/DecisionChain";
 import { StateConsistencyBanner } from "@/components/StateConsistencyBanner";
+import { SignalExecutionCard } from "@/components/SignalExecutionCard";
 import { MarketStatusBanner } from "@/components/MarketStatusBanner";
 import { friendlyMessage } from "@/lib/status";
 import { ProbabilityLadder } from "@/components/ProbabilityLadder";
@@ -284,6 +285,15 @@ export default function Dashboard() {
           Always visible, both modes — this IS the "Simple Mode" hero. */}
       <SafeBoundary name="Trade Now">
         <TradeNowCard />
+      </SafeBoundary>
+
+      {/* SIGNAL vs EXECUTION — V7.1 item #1 (owner, 2026-08-04). Quiet unless
+          the engine computed a direction that execution then refused. Sits
+          directly under the Hero because it explains what the Hero's bare
+          "NO TRADE" is hiding — see the component header. Rule 11 intact:
+          this never issues a decision, TradeNowCard above still owns that. */}
+      <SafeBoundary name="Signal vs Execution">
+        <SignalExecutionCard />
       </SafeBoundary>
 
       {/* Execution Status — Final Decision + Gate PASS/BLOCKED only, sourced

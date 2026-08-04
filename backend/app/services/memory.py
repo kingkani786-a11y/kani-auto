@@ -63,6 +63,19 @@ def history(symbol: str, limit: int = 500) -> list[dict]:
 # Generated-signal log (for analytics "signals generated" counts & journal).
 _generated: deque = deque(maxlen=2000)
 
+# ---- V7.1 Signal <-> Execution separation (owner, 2026-08-04) ----
+# Blocked directional candidates: signals the engine genuinely computed but
+# execution refused. DELIBERATELY a separate ring from _tracked/_outcomes.
+#
+# WHY SEPARATE, and why this must stay that way: _outcomes feeds
+# analytics._calibration(), which feeds kill_switch.MIN_CALIBRATION. Putting
+# blocked candidates in there would silently change the calibration score and
+# therefore change when the Kill Switch releases — a Trading Doctrine change,
+# which this V7.1 item explicitly must NOT make (owner: "தொடாதே — evidence
+# தொடரட்டும்"). These rows are observational only: nothing reads them to make
+# a decision, score anything, or open/settle a position.
+_blocked: deque = deque(maxlen=500)
+
 
 def _dedupe_recent(symbol: str, signal: dict) -> bool:
     """True if this exact signal was already logged in the last 10 min — the
@@ -85,6 +98,34 @@ def track_signal(symbol: str, signal: dict[str, Any], regime: str = "",
                  premium_entry: float | None = None,
                  premium_target: float | None = None) -> None:
     if signal.get("signal") in (None, "NO TRADE"):
+        # V7.1 Signal <-> Execution separation: before dropping this cycle,
+        # record the blocked directional candidate (if the engine produced
+        # one) into the observational _blocked ring. The early-return below
+        # is UNCHANGED — nothing enters _tracked/_outcomes, so calibration
+        # and the Kill Switch behave exactly as in V7.0. This only stops the
+        # engine's own directional read from vanishing without trace.
+        try:
+            cand = signal.get("signal_candidate")
+            if cand and cand.get("direction") in ("BULL", "BEAR"):
+                last = _blocked[-1] if _blocked else None
+                dup = (last and last.get("symbol") == symbol
+                       and last.get("direction") == cand.get("direction")
+                       and last.get("would_be_signal") == cand.get("would_be_signal")
+                       and (time.time() - last.get("ts", 0)) < 600)
+                if not dup:
+                    _blocked.append({
+                        "ts": time.time(), "symbol": symbol,
+                        "would_be_signal": cand.get("would_be_signal"),
+                        "direction": cand.get("direction"),
+                        "confidence": cand.get("confidence"),
+                        "dynamic_confidence": cand.get("dynamic_confidence"),
+                        "confirmations_count": cand.get("confirmations_count"),
+                        "blocked_by": list(cand.get("blocked_by") or [])[:6],
+                        "blocked_count": cand.get("blocked_count"),
+                        "regime": regime, "session": session,
+                    })
+        except Exception:
+            pass          # observation must never break the trading loop
         return
     conf = float(signal.get("dynamic_confidence") or signal.get("confidence") or 0)
     grade = signal.get("grade", "")
@@ -234,6 +275,13 @@ def historical_accuracy(regime: str | None = None) -> float | None:
     if len(_outcomes) < 5:
         return None
     return round(sum(o["win"] for o in _outcomes) / len(_outcomes) * 100, 1)
+
+
+def blocked_signals(limit: int = 50) -> list[dict[str, Any]]:
+    """V7.1 — directional candidates the engine produced but execution refused,
+    newest first. Read-only observation: nothing here scores, gates, or settles
+    anything, and these rows never reach _outcomes (see the _blocked comment)."""
+    return list(reversed(_blocked))[:limit]
 
 
 def engine_reliability() -> dict:
