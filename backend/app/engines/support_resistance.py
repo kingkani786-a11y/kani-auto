@@ -394,3 +394,113 @@ def hero_card(levels_result: dict[str, Any], candles: list[dict[str, Any]] | Non
         card["workflow"] = entry_workflow(row, cmp, candles, is_support)
         card["action"] = card["workflow"]["stage"]
     return card
+
+
+# ── Structural targets (V7.1 Trade Explorer Phase 3A, owner 2026-08-04) ─────
+def structural_targets(candles: list[dict[str, Any]], spot: float,
+                       direction: str,
+                       atr_targets: tuple | list | None = None) -> dict[str, Any]:
+    """Where the REAL S/R levels sit ahead of a position — MEASUREMENT ONLY.
+
+    WHY THIS EXISTS. confluence.py sets its tradable targets as fixed ATR
+    multiples (SL 1.0x, T1/T2/T3 = 2.0/3.0/4.5x) — market structure plays no
+    part. This function records where the touch/bounce-scored levels actually
+    are, so the two can be compared on live data.
+
+    IT CHANGES NOTHING. The audit that preceded this (2026-08-04) found the
+    tradable `targets` feed the reward:risk veto directly
+    (`if round(rr_t1, 2) < 2.0: vetoes.append(...)`), so altering them would
+    change WHICH TRADES ARE BLOCKED — a Trading Doctrine change. That is a
+    separate phase (3B) needing its own evidence and approval. Nothing here
+    touches targets, the stop, the veto, any score, gate or threshold.
+
+    NO NEW THRESHOLD IS INTRODUCED — deliberately. Every threshold in play
+    (SWING_WINDOW, CLUSTER_TOL_PCT, TOUCH_TOL_PCT, MIN_TOUCHES_STRENGTH)
+    already belongs to compute_levels() and is used unchanged. Every strength,
+    touch and bounce number below is the engine's OWN value, passed through
+    verbatim — never recomputed here, never an invented count-based formula.
+
+    NO FABRICATION. If S/R is not available, this returns available=False with
+    an empty list. It never falls back to the ATR numbers under a structural
+    name — a caller must be able to tell the two apart, always.
+
+    Pure function of its arguments (no live state read), so it is unit-testable
+    against synthetic OHLC — the same contract compute_levels() declares.
+
+    `candles` must be the SAME series exit_intelligence.py feeds this engine
+    (1-minute, state.candles). Feeding a different timeframe would produce
+    different levels from the same engine — a second, disagreeing S/R, which is
+    the mistake documented and already fixed once in exit_intelligence.py.
+    """
+    lv = compute_levels(candles, cmp=spot)
+    base = {"available": False, "direction": direction, "targets": [],
+            "comparison": [],
+            "note": ("Measurement only — the engine trades its ATR targets. "
+                     "These are the same levels the S/R panel and Exit "
+                     "Intelligence use; they feed no target, stop or gate.")}
+    if not lv.get("ready"):
+        # reason comes from compute_levels(), not invented here
+        return {**base, "reason": lv.get("reason") or "S/R engine not ready"}
+
+    side = "resistance" if direction == "BULL" else "support" if direction == "BEAR" else None
+    if side is None:
+        return {**base, "reason": "no directional read to project targets for"}
+
+    rows = lv.get(side) or []
+    if not rows:
+        # DISTINCT from "insufficient history" above: the engine IS ready, it
+        # simply found no scored level on the side the position would run into.
+        return {**base, "reason": f"no {side} level ahead of {round(spot, 2)}"}
+
+    targets: list[dict[str, Any]] = []
+    for r in rows[:3]:
+        lvl = float(r["level"])
+        targets.append({
+            "label": r.get("label"),                     # engine's own
+            "level": lvl,                                # engine's own
+            "distance_pts": round(abs(lvl - spot), 2),   # arithmetic only
+            "strength_score": r.get("strength_score"),   # engine's own
+            "strength_stars": r.get("strength_stars"),   # engine's own
+            "touches": r.get("touches"),                 # engine's own
+            "bounce_pct": r.get("bounce_pct"),           # engine's own observed
+            "break_pct": r.get("break_pct"),             # engine's own observed
+            "established": r.get("established"),         # engine's own
+        })
+
+    # Side-by-side against the traded ATR targets, when supplied. Tiers pair by
+    # index only; missing tiers are simply absent, never padded with a
+    # placeholder that could later be mistaken for a real level.
+    comparison: list[dict[str, Any]] = []
+    if atr_targets:
+        for i, t in enumerate(list(atr_targets)[:3]):
+            if i >= len(targets):
+                break
+            atr_pts = round(abs(float(t) - spot), 2)
+            s_pts = targets[i]["distance_pts"]
+            comparison.append({
+                "tier": f"T{i + 1}",
+                "atr_pts": atr_pts,
+                "atr_level": round(float(t), 2),
+                "structural_pts": s_pts,
+                "structural_level": targets[i]["level"],
+                "structural_label": targets[i]["label"],
+                # negative = structure is NEARER than the ATR target
+                "delta_pts": round(s_pts - atr_pts, 2),
+                "structural_is_nearer": s_pts < atr_pts,
+            })
+
+    return {
+        "available": True,
+        "direction": direction,
+        "spot": round(spot, 2),
+        "side": side,
+        "targets": targets,
+        "comparison": comparison,
+        "count": len(targets),
+        "note": ("Measurement only — the engine trades its ATR targets "
+                 "(2.0/3.0/4.5x ATR); these structural levels change no "
+                 "target, stop, score or gate. Same touch/bounce-scored "
+                 "levels the S/R panel and Exit Intelligence already use. "
+                 "No claim is made that a structural target is better — that "
+                 "needs outcome data this has not collected yet."),
+    }

@@ -424,6 +424,29 @@ def _engine_snapshot() -> dict[str, Any]:
                 .get("intelligence", {}).get("decision_matrix", {})
                 .get("rows", []))
         layers = {r.get("layer"): r.get("score") for r in rows if r.get("layer")}
+        # V7.1 Trade Explorer Phase 3A (owner, 2026-08-04) — OBSERVATIONAL.
+        # Persist where the real S/R levels sat at this instant so the
+        # question "did the structural target get hit before the ATR one?"
+        # can be answered from data later instead of from screenshots.
+        # This is recorded ONLY. It feeds no target, veto, score, calibration,
+        # kill switch or execution — the engine still trades its fixed ATR
+        # multiples, unchanged. Trimmed to the fields the observation window
+        # actually needs; the full payload stays in the live packet.
+        st = ((state.intelligence or {}).get("layers") or {}).get("structural_targets") or {}
+        structural = {
+            "available": bool(st.get("available")),
+            "direction": st.get("direction"),
+            "source": "support_resistance.compute_levels",
+            "spot": st.get("spot"),
+            "levels": [
+                {"label": t.get("label"), "level": t.get("level"),
+                 "distance_pts": t.get("distance_pts"),
+                 "strength_score": t.get("strength_score"),
+                 "touches": t.get("touches"), "bounce_pct": t.get("bounce_pct")}
+                for t in (st.get("targets") or [])
+            ],
+            "comparison": st.get("comparison") or [],
+        } if st else {"available": False, "source": "support_resistance.compute_levels"}
         return {
             "decision": dec.get("primary_action"),
             "grade": dec.get("grade"),
@@ -436,6 +459,7 @@ def _engine_snapshot() -> dict[str, Any]:
             "atr": tech.get("atr"),
             "underlying": (state.spot or {}).get("ltp"),
             "layers": layers,          # {"Trend":70,"OI":39,"Institutional":30,…}
+            "structural_targets": structural,   # Phase 3A — observation only
             "rsi": None, "efi": None, "cpr": None,   # IEIE Phase 1 — filled later
         }
     except Exception:

@@ -21,8 +21,8 @@ from ..core.text import truncate_at_word
 from . import (
     candles as candle_eng, early_warning, evidence_rank, expiry as expiry_eng,
     market_profile, mtf, narrator, orderflow, probability, quality, regime,
-    risk, smart_money,
-    strike_selector, structure, technicals, volume_profile,
+    risk, smart_money, strike_selector, structure, support_resistance,
+    technicals, volume_profile,
 )
 
 # per-symbol context from the previous cycle (for phase detection deltas)
@@ -431,6 +431,26 @@ def run(
         layers["evidence_rank"] = {"ready": False, "primary": None,
                                    "confirming": [], "contradicting": [],
                                    "insufficient": [], "conclusion": ""}
+
+    # V7.1 Trade Explorer Phase 3A — Structural targets (owner, 2026-08-04).
+    # MEASUREMENT ONLY. `targets`, SL_MULT, T_MULTS and the reward:risk veto
+    # above are untouched — this records where the real touch/bounce-scored
+    # S/R levels sit so the two can be compared on live data BEFORE anyone
+    # proposes changing the tradable targets. That is Phase 3B and it needs
+    # its own approval, because the R:R veto reads `targets` directly:
+    # moving T1 would change WHICH TRADES ARE BLOCKED (a Trading Doctrine
+    # change, not a display change).
+    # Fed candles_1m — the SAME series exit_intelligence.py gives this engine
+    # — so there is exactly one S/R source of truth, never a second
+    # disagreeing one. Wrapped: a measurement layer must never be able to
+    # break the decision path.
+    try:
+        layers["structural_targets"] = support_resistance.structural_targets(
+            candles_1m, spot, win_dir, atr_targets=targets)
+    except Exception:
+        layers["structural_targets"] = {"available": False, "targets": [],
+                                        "comparison": [],
+                                        "reason": "unavailable"}
 
     tech_block = {
         "trend": layers["trend"]["trend"], "vwap": vwap_v, "atr": atr_v,

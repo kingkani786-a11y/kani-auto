@@ -17,6 +17,7 @@ import { StateConsistencyBanner } from "@/components/StateConsistencyBanner";
 import { SignalExecutionCard } from "@/components/SignalExecutionCard";
 import { CandlePatternCard } from "@/components/CandlePatternCard";
 import { EvidenceRankCard } from "@/components/EvidenceRankCard";
+import { StructuralTargetsCard } from "@/components/StructuralTargetsCard";
 import { MarketStatusBanner } from "@/components/MarketStatusBanner";
 import { friendlyMessage } from "@/lib/status";
 import { ProbabilityLadder } from "@/components/ProbabilityLadder";
@@ -367,6 +368,15 @@ export default function Dashboard() {
           score, no threshold, no effect on the decision. */}
       <SafeBoundary name="Why This Direction">
         <EvidenceRankCard />
+      </SafeBoundary>
+
+      {/* STRUCTURAL TARGETS — V7.1 Trade Explorer Phase 3A (owner, 2026-08-04).
+          MEASUREMENT ONLY: shows where the real touch/bounce-scored S/R levels
+          sit next to the fixed ATR targets the engine actually trades. Changes
+          no target, stop, score or gate — replacing the traded targets is
+          Phase 3B and needs its own evidence and approval. */}
+      <SafeBoundary name="Structural Targets">
+        <StructuralTargetsCard />
       </SafeBoundary>
 
       {/* TRADE RISK PANEL (owner Step 7, 2026-07-26) — Stop Loss, Risk,
