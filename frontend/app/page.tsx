@@ -15,6 +15,7 @@ import { SafeModeBanner } from "@/components/SafeModeBanner";
 import { DecisionChain } from "@/components/DecisionChain";
 import { StateConsistencyBanner } from "@/components/StateConsistencyBanner";
 import { SignalExecutionCard } from "@/components/SignalExecutionCard";
+import { CandlePatternCard } from "@/components/CandlePatternCard";
 import { MarketStatusBanner } from "@/components/MarketStatusBanner";
 import { friendlyMessage } from "@/lib/status";
 import { ProbabilityLadder } from "@/components/ProbabilityLadder";
@@ -347,6 +348,15 @@ export default function Dashboard() {
           Panel (here) -> Support & Resistance -> Market Structure. */}
       <SafeBoundary name="Evidence">
         <EvidencePanel />
+      </SafeBoundary>
+
+      {/* CANDLE PATTERNS — V7.1 Trade Explorer Phase 1 (owner, 2026-08-04).
+          Sits with Evidence because that is what it is: what the candles did,
+          reported as its own visible layer instead of being blended into a
+          score. Detection + context only — no win rate is claimed, and it
+          changes no score, threshold or gate. See the component header. */}
+      <SafeBoundary name="Candle Patterns">
+        <CandlePatternCard />
       </SafeBoundary>
 
       {/* TRADE RISK PANEL (owner Step 7, 2026-07-26) — Stop Loss, Risk,

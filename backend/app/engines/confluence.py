@@ -19,8 +19,8 @@ from typing import Any
 from ..config import settings
 from ..core.text import truncate_at_word
 from . import (
-    early_warning, expiry as expiry_eng, market_profile, mtf, narrator,
-    orderflow, probability, quality, regime, risk, smart_money,
+    candles as candle_eng, early_warning, expiry as expiry_eng, market_profile,
+    mtf, narrator, orderflow, probability, quality, regime, risk, smart_money,
     strike_selector, structure, technicals, volume_profile,
 )
 
@@ -216,6 +216,25 @@ def run(
 
     # ---- V7.5: order flow + advanced regime phases (informational layers) ----
     layers["order_flow"] = orderflow.analyze(c5)
+    # V7.1 Trade Explorer Phase 1 — Candle Pattern layer (owner, 2026-08-04).
+    # OBSERVATIONAL ONLY: it is NOT in WEIGHTS, not in `applicable`, not in
+    # `mandatory_eff`, and never appended to `vetoes` — so it cannot move the
+    # composite, flip a confirmation count, or open/close the gate. It exists
+    # so "what did the candles actually do" is a first-class, visible piece of
+    # evidence instead of being implicit inside a blended score. Levels are
+    # passed in so a pattern is reported AT a level when it is, per the spec's
+    # "pattern + context" rule. Wrapped: a display layer must never be able to
+    # break the decision path.
+    try:
+        _sr = layers["structure"]
+        layers["candles"] = candle_eng.analyze(c5, atr=atr_v, levels={
+            "support": (_sr.get("liquidity_below") or [None])[0],
+            "resistance": (_sr.get("liquidity_above") or [None])[0],
+            "vwap": vwap_v,
+        })
+    except Exception:
+        layers["candles"] = {"ready": False, "patterns": [], "count": 0,
+                             "bias": "NONE", "summary": "unavailable"}
     iv_now = float((analytics or {}).get("greeks", {}).get("ce", {}).get("iv") or 0)
     prev = _prev_ctx.get(symbol, {})
     layers["regime"]["phases"] = regime.phases(
