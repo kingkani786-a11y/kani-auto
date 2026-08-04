@@ -1000,6 +1000,160 @@ so a badge is permanently bound to the move it was computed for.
 **Deliberately NOT fixed** — read-only trace only, per the Observation
 Window lock; no code touched.
 
+## V7.1 SPEC — Signal–Execution Separation (owner, 2026-08-04)
+
+**Status: SPEC ONLY. No code written. Do not implement during the
+Observation Window.** Recorded verbatim from the owner's own architectural
+proposal so it survives the window intact and is ready to execute the
+moment the window closes and the full-session review is done.
+
+**This is the concrete fix that OBS-15 and OBS-16 were each pointing at
+from different angles** — and it also resolves the reporting half of
+OBS-10. Log those three as its dependencies.
+
+### The problem it fixes
+
+The pipeline today collapses two genuinely different questions into one
+output:
+
+```
+MARKET DATA -> CONFLUENCE/SIGNAL -> KILL SWITCH -> SAFE MODE
+            -> EXECUTION GATE -> "NO TRADE"
+```
+
+Once the execution gate blocks, the *directional opportunity itself
+disappears from the record.* "Was a PUT correctly detected?" and "may we
+execute that PUT right now?" have become the same field. A trader who
+watches a ₹100 PE move happen and sees only `NO TRADE` cannot tell whether
+the system missed the direction or saw it and refused to trade it.
+
+### Target architecture
+
+```
+                    MARKET
+                      |
+                      v
+              SIGNAL ENGINE
+                      |
+             +--------+--------+
+             v                 v
+       SIGNAL CANDIDATE    MARKET EVENT
+       PUT / CALL          +100 pts
+             |
+             v
+       EXECUTION GATE
+       |- Kill Switch
+       |- Greeks
+       |- Premium
+       |- Risk
+       +- other vetoes
+             |
+       +-----+-----+
+       v           v
+   EXECUTE      BLOCKED
+```
+
+**Core rule: the gate must never destroy a signal.** It annotates it.
+
+### The three states that must become distinguishable
+
+Today all three render as `NO TRADE`. They are not the same event and must
+not share a label:
+
+| Case | SIGNAL | EXECUTION | Meaning |
+|---|---|---|---|
+| 1 | `NONE` — no directional confluence | — | The system genuinely saw nothing |
+| 2 | `PUT BUY`, confidence 78 | `BLOCKED` — Calibration / Premium / Greeks | Saw it, refused to trade it |
+| 3 | `PUT BUY` | `READY`, entry ₹xxx | Saw it, will trade it |
+
+Target dashboard shape:
+
+```
++------------------------------+
+| SIGNAL                       |
+| PUT BUY                      |
+| Confidence: 78               |
+|                              |
+| EXECUTION: BLOCKED           |
+|                              |
+| Reasons:                     |
+| - Calibration                |
+| - Premium                    |
+| - Greeks                     |
++------------------------------+
+```
+
+### Implementation shape
+
+```python
+candidate = signal_engine.generate(...)      # immutable, captured FIRST
+execution = execution_gate.evaluate(...)     # evaluated separately
+
+result = {
+    "signal":       candidate,
+    "execution":    execution,
+    "final_action": ...,
+}
+```
+
+Both survive into the API response. `final_action` stays the single
+authoritative verdict (Rule 11 unchanged — one decision surface), but the
+candidate that produced it is no longer erased.
+
+### The eight work items, as specified
+
+1. Directional candidate is always recorded.
+2. `NO TRADE` must not hide the signal.
+3. Execution veto becomes its own status field.
+4. **`track_signal()` must not early-return because of an execution
+   result.** (This is the same `memory.py:87` early-return already traced
+   in OBS-10 — fixing it here also unblocks calibration's outcome supply.)
+5. Event capture for a PUT/CE opportunity.
+6. Before/after price + timestamp capture for a big move (this is OBS-16's
+   Market Event Engine, scoped to the minimum useful record).
+7. Dashboard renders SIGNAL / EXECUTION / BLOCK REASON as three separate
+   fields (this is OBS-15's coverage gap, solved structurally rather than
+   by widening DecisionChain's scope).
+8. **Existing Kill Switch / Risk / Greeks / Premium thresholds are NOT
+   changed.** Protection is untouched; only the reporting separates.
+
+### The owner's own caution, recorded because it is the load-bearing part
+
+> *"₹100 PUT move நடந்தது மட்டும் வைத்து 'System PUT BUY signal கொடுக்க
+> வேண்டியது கட்டாயம்' என்று சொல்ல முடியாது. அது hindsight bias
+> ஆகிவிடும்."*
+
+The correct question is not "did the market move?" but **"at the moment
+the move began, did the system's then-available data satisfy its own
+directional conditions?"** Answering that needs a per-event record:
+
+```
+timestamp · underlying price · option price · strike · CE/PE
+signal score · direction score · confidence
+volume · OI · IV · Greeks · premium state · execution vetoes
+```
+
+Only with that record can these three be told apart — and telling them
+apart is the entire point:
+
+- **Signal missed** (conditions were met, system didn't fire)
+- **Signal correctly absent** (conditions were not met; market moved anyway)
+- **Signal generated but execution blocked**
+
+Without this record, any claim about which case occurred is
+unfalsifiable — the same epistemic trap OBS-16 already warns about.
+
+### Files this will touch when implemented
+
+`confluence.py` · `execution_gate.py` · `market_service.py` ·
+`memory.py` (the `track_signal()` early-return) · the API response
+assembly in `routes.py` · frontend decision panels.
+
+**All of these are live-tree, gate-adjacent files** — see
+`feedback-no-live-tree-edits` in memory: an unattended auto-restart can
+activate them before an explicit deploy approval. Plan the sequencing
+accordingly when this is picked up.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
