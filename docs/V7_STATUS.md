@@ -1154,6 +1154,104 @@ assembly in `routes.py` · frontend decision panels.
 activate them before an explicit deploy approval. Plan the sequencing
 accordingly when this is picked up.
 
+### OBS-19 — Market auto-switch is not an atomic state transaction (MEDIUM, transition/display-integrity)
+
+**Found 2026-08-04 ~15:41 IST**, at the exact NSE-close → MCX auto-switch
+boundary, during the full-session Observation Window. Verified read-only
+against the live API at the same moment:
+
+```
+Dashboard header : "MARKET CLOSED" (NSE framing, last close 1,41,951)
+Live API         : symbol=CRUDEOIL, market_open=True   <- already switched
+Kill Switch      : DATA_QUALITY (POOR) + DATA_COMPLETENESS (40%) + CALIBRATION
+```
+
+The Market Independence auto-switch (`market_service.py`'s NSE-closed →
+best-open-market handover) had already moved `state.symbol` to
+`MCX:CRUDEOIL`, but the dashboard was still rendering the previous NSE
+context alongside partially-loaded MCX data. Symptoms in the same dump:
+NIFTY-scale strike labels shown with MCX-scale premiums
+(`141500 CE ₹65,134`, `142500 PE ₹44,667` — impossible for those strikes),
+every radar row at `+0% / vel 0 / OI +0%`, and Liquidity collapsing to 24.
+
+**Owner's framing, adopted verbatim:** *"Instrument/market switch must be
+treated as a state transaction: old data must be invalidated before the new
+market data becomes displayable."* Until then, stale NIFTY values and
+incomplete MCX values must not be shown together.
+
+**This is not merely cosmetic** — `market_open=True` from the live API
+directly contradicts the dashboard's own "MARKET CLOSED" header at the same
+instant, which is the same class of contradiction P0/P5A were built to
+eliminate (one state, two answers).
+
+**Severity: MEDIUM.** **Not a freeze blocker** — on this occurrence NSE was
+already closed, so no trade was at risk during the mixed-state window, and
+the Kill Switch was correctly firing on the genuinely-incomplete MCX feed
+(`DATA_COMPLETENESS 40%`), i.e. capital protection behaved correctly
+*because* the data was honestly reported as incomplete. V7.1 backlog.
+
+**Deliberately NOT fixed** — read-only observation, per the Observation
+Window lock.
+
+## V7.0 FUNCTIONAL FREEZE — DECLARED 2026-08-04 🔒
+
+**Owner approved the freeze after the full-session Observation Window
+completed.** V7 is now the baseline. The Observation Window that preceded
+this is closed.
+
+**Exit criteria, all met:**
+
+| Criterion | Result |
+|---|---|
+| P0/P1/P2/P3/P5A across one uninterrupted session (open → intraday → close) | ✅ CLEAN, no regression |
+| No new Critical-severity OBS | ✅ none |
+| Existing OBS reviewed and classified | ✅ all → V7.1 backlog |
+| No production instability (crash / stale state / inconsistent truth source) | ✅ none |
+
+**Session evidence (2026-08-04, NSE 09:15 → 15:30):** five verification
+checkpoints — post-restart, market-open, mid-session, market-close
+transition, midnight rollover — plus a real multi-cause fault at ~10:04
+(broker rate-limit cooldown) where P1 correctly collapsed **3 root causes →
+4 panel echoes → 1 decision** and recovered on its own. P3 closed the day
+with `samples: 26`, `restarts: 0`, `reconstructed: false`.
+
+**OBS-10's status changed today — the wording matters:** the trigger fired
+for the first *complete, non-reconstructed* session (peak confidence 73.3
+≥ 70 with calibration flat at 54 all day, 26 observations). Per the owner:
+*"This is evidence of persistent calibration starvation/deadlock, not yet
+proof of causal failure."* It is **not** a finding that the calibration
+engine is wrong — that would need more days and a settlement-count check
+(see OBS-10's own honest-limits section).
+
+### The freeze rule from here
+
+**No code changes to V7.** Everything below is V7.1 backlog and must arrive
+as a V7.1 change-set that does not break this baseline:
+
+| Item | Kind |
+|---|---|
+| `/api/decision` duplicate route (`task_3231b832`) | dead code / routing |
+| OBS-10 — calibration starvation | evidence collection continues |
+| OBS-11 — Order Flow low-data vs neutral ambiguity | provenance |
+| OBS-12 — three panels reading data-quality source A only | truth-source |
+| OBS-13 / OBS-14 — `restarts` counter accounting | diagnostic-only |
+| OBS-15 — DecisionChain scope vs per-trade vetoes | explainability |
+| OBS-16 — no Market Event capture layer | architecture |
+| OBS-17 — Big Movers badge keyed by strike, not by move | measurement |
+| OBS-19 — market auto-switch not atomic | transition-state |
+| Signal ↔ Execution separation | architecture (see below) |
+
+**The two conclusions the owner drew from this session, recorded because
+they set V7.1's direction:**
+1. V7's functional architecture is stable — full-session evidence says so.
+2. V7's **explainability / opportunity layer still has gaps** — above all,
+   *an execution block must not erase the underlying directional
+   opportunity.* A blocked signal should still be recorded and shown as
+   `SIGNAL: <direction> / EXECUTION: BLOCKED / REASON: <vetoes>`, never
+   collapsed into a bare `NO TRADE`. That separation is the headline V7.1
+   item, and it must not change any existing Kill Switch / Risk / Greeks /
+   Premium threshold.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
