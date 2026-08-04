@@ -879,6 +879,77 @@ Observation Window** — even though this is exactly the kind of finding
 that would motivate rescoping DecisionChain (or extending BlockReasonHero's
 trigger condition) once the window closes.
 
+### OBS-16 — No explicit Market Event capture layer (MEDIUM, architecture/explainability)
+
+**Found 2026-08-04, Observation Window** — an architecture-level finding
+about what V7 *cannot* currently do, not a bug in what it does. **This is
+a design gap, not a confirmed missed event** — see the epistemic caveat at
+the end before treating this as "the system missed a real spike."
+
+**The gap:** V7 is state-oriented, not event-oriented. Every engine cycle
+computes `price → indicators → order flow → confidence → Greeks/Premium →
+Kill Switch → decision` fresh, from the current snapshot. There is no
+`Market Event Engine` layer that watches consecutive snapshots, recognises
+"this delta between cycles is an abnormal, fast move," and emits a
+timestamped, explicit event record for the trader. So if price moves from
+X to X+20 between two engine cycles, the system only ever knows *"current
+price is X+20"* — never *"a sudden 20-point move just happened."*
+
+**Four reasons this falls through today's architecture, precisely:**
+1. **Sampling ≠ tick/event capture.** Two cycle snapshots 20 seconds apart
+   only show the before/after price — not whether the move was a single
+   tick, a 2-second burst, or gradual across the full interval. Speed of
+   move is lost.
+2. **Existing indicators are lagging/aggregated** (momentum, ATR, RSI,
+   confidence) — they absorb a price shock into their own rolling
+   computation rather than emitting a discrete "shock happened" event.
+3. **Kill Switch / Premium / Greeks are veto engines, not market-narrators.**
+   They correctly answer "should we block the trade" — they were never
+   designed to answer "why did the market just move like that."
+4. **P1 (DecisionChain) is a root-cause-for-a-block explainer, not a
+   market-event detector** — a different question by design (see OBS-15
+   for the related, but distinct, per-trade-veto-coverage gap).
+
+**Proposed design (recorded for later — NOT built now):** a separate
+`Market Event Engine` sitting alongside the existing pipeline, watching for
+Spike/Velocity-shock/Volume-shock, emitting an `EVENT RECORD` consumed by
+both a trader-facing explanation and the decision context. Minimum fields
+sketched: `event_type, direction, price_before, price_after, absolute_move,
+percentage_move, duration, timestamp, volume_change, ATR_multiple,
+confidence_before, confidence_after`. Example shape: *"⚡ SUDDEN UP MOVE —
++20.4 points / +0.18% — Duration 7.8s — Volume 3.1× baseline — Move 1.7×
+short-term ATR — Confidence 68 → 76."*
+
+**Explicit design caution carried forward with the idea:** do NOT gate this
+on a bare `if abs(price_change) > 20`. ₹20 is huge on one instrument and
+routine on another. A real detector needs all three: **absolute move +
+normalized move (move / ATR) + speed (points / second)**, ideally with
+volume confirmation — same "declared, not fabricated" discipline as every
+other threshold in this codebase.
+
+**Proposed dashboard placement (deferred, NOT built):** no new large panel
+— a compact strip above the existing decision line, e.g. `⚡ MARKET EVENT
+— NIFTY +20.4 pts in 8 sec — Volume 3.1× · Momentum SHOCK` sitting above
+`Decision: WAIT — Reason: Premium + Greeks veto`, so a trader can read
+"what the market did" and "what the system did" as two separate,
+non-conflated lines.
+
+**Severity: MEDIUM — explainability / situational-awareness, not safety.**
+No capital-protection impact: this is about narrating market behaviour to
+the trader, not about the block/veto/gate logic which is unaffected either
+way. **Does not block V7 freeze.** V7.1 backlog: "Market Event Engine".
+
+**Epistemic caveat — load-bearing, do not drop it in a future summary:**
+no specific 20-point spike was captured with a timestamp, before/after
+price, and duration in this session — because the mechanism to capture one
+does not exist yet. The only claim this observation supports is **"V7 has
+no mechanism to explicitly capture and report sudden intraday price
+events"** — not "V7 missed a confirmed real spike." Those are different
+claims; only the first has evidence.
+
+**Deliberately NOT built during this Observation Window** — no new
+feature, no new engine, no UI change, per the window's lock.
+
 ## Deferred spec — owner's 7 "decision clarity" dashboard improvements
 
 Requested 2026-08-03. Framed correctly by the owner as *"not more indicators —
