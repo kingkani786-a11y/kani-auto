@@ -11,7 +11,7 @@ const CRITICAL = ["ENTRY", "SL"];   // entry-window + kill-switch/feed alerts
 const MAX_AGE_MS = 180_000;
 
 export function SmartAlertBar() {
-  const { alerts, status } = useMarket();
+  const { alerts, status, killSwitch } = useMarket();
   const [seen, setSeen] = useState<{ id: string; at: number } | null>(null);
   const [dismissed, setDismissed] = useState<string>("");
   const [, tick] = useState(0);
@@ -28,8 +28,16 @@ export function SmartAlertBar() {
   if (Date.now() - seen.at > MAX_AGE_MS) return null;
   if (dismissed === latest.id) return null;
   // feed-quality alert self-clears the moment quality recovers (no stale POOR
-  // banner while the system strip says GOOD)
-  if (/feed quality/i.test(latest.title || "") && (status as any)?.data_quality === "GOOD") return null;
+  // banner while the system strip says GOOD).
+  // OBS-12 fix (owner, 2026-08-05) — status?.data_quality is source A
+  // (state.data_quality), NOT source B (data_quality.report().overall,
+  // what Kill Switch/the gate actually run on). Suppressing on A alone
+  // could auto-hide a genuine feed-quality alert while B (and therefore
+  // the actual Execution Lock) still says POOR. Require B to agree too,
+  // via the already-computed killSwitch.reason_tags — no new fetch.
+  const bDataQualityPoor = (killSwitch?.reason_tags || []).includes("DATA_QUALITY");
+  if (/feed quality/i.test(latest.title || "")
+      && (status as any)?.data_quality === "GOOD" && !bDataQualityPoor) return null;
 
   const isEntry = latest.kind === "ENTRY";
   return (

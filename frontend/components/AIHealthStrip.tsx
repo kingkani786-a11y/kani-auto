@@ -23,7 +23,7 @@ function Item({ label, value, tone }: { label: string; value: string; tone: Tone
 }
 
 export function AIHealthStrip() {
-  const { status, decision } = useMarket();
+  const { status, decision, killSwitch } = useMarket();
   const [hc, setHc] = useState<any>(null);
   const [rc, setRc] = useState<any>(null);
 
@@ -40,7 +40,18 @@ export function AIHealthStrip() {
   if (!status?.connected || !hc) return null;
   const prod = hc.production || {};
   const comps = hc.components || {};
-  const dq = comps.data_quality?.detail ?? "—";
+  // OBS-12 fix (owner, 2026-08-05) — comps.data_quality?.detail traces to
+  // health_center.py's `state.data_quality` (source A: did the last tick
+  // raise a BrokerError?), NOT the same value Kill Switch/the gate actually
+  // run on (source B: data_quality.report().overall). A can read GOOD while
+  // B reads POOR — P5A's state_consistency.py caught this live on
+  // 2026-08-04 and self-cleared once the two re-synced, exactly as
+  // designed. Mirrors the OR-in-B guard P0 already shipped in
+  // FeedDiagnostics.tsx — reuses killSwitch.reason_tags (already computed
+  // from B, no new fetch) rather than re-deriving B here. Conservative
+  // only: can turn a false "GOOD" into "POOR", never the reverse.
+  const bPoor = (killSwitch?.reason_tags || []).includes("DATA_QUALITY");
+  const dq = bPoor ? "POOR" : (comps.data_quality?.detail ?? "—");
   const latency = prod.latency_ms;
   const conf = (decision as any)?.intelligence_synthesis?.conviction;
   const cal = rc?.scorecard?.calibration_grade;

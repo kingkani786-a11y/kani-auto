@@ -23,7 +23,7 @@ function Stat({ label, value, tone }: { label: string; value: React.ReactNode; t
 const trendTone = (t?: string) => (t === "BULLISH" ? "bull" : t === "BEARISH" ? "bear" : undefined);
 
 export function MarketOverview() {
-  const { status, spot, signal, risk, analytics } = useMarket();
+  const { status, spot, signal, risk, analytics, killSwitch } = useMarket();
   const tech = signal?.tech;
   return (
     <section className="panel">
@@ -52,7 +52,17 @@ export function MarketOverview() {
         <Stat label="Confidence" value={signal ? `${signal.dynamic_confidence ?? signal.confidence}%` : "—"} />
         <Stat label="VWAP" value={fmt(tech?.vwap)} />
         <Stat label="Max Pain" value={fmt(analytics.max_pain, 0)} />
-        <Stat label="Data Quality" value={risk?.data_quality ?? status?.data_quality ?? "—"} tone={risk?.data_quality !== "GOOD" ? "warn" : undefined} />
+        {/* OBS-12 fix (owner, 2026-08-05) — risk?.data_quality and the
+            status?.data_quality fallback are BOTH source A (state.data_quality),
+            never source B (data_quality.report().overall — what Kill Switch/
+            the gate actually run on). Same OR-in-B guard as FeedDiagnostics.tsx
+            (P0) and AIHealthStrip.tsx, via the already-computed
+            killSwitch.reason_tags — no new fetch. Conservative only. */}
+        <Stat label="Data Quality"
+              value={(killSwitch?.reason_tags || []).includes("DATA_QUALITY")
+                     ? "POOR" : (risk?.data_quality ?? status?.data_quality ?? "—")}
+              tone={((killSwitch?.reason_tags || []).includes("DATA_QUALITY")
+                     || risk?.data_quality !== "GOOD") ? "warn" : undefined} />
       </div>
     </section>
   );
