@@ -13,7 +13,13 @@ from typing import Any
 
 def analyze(candles: list[dict]) -> dict[str, Any]:
     if len(candles) < 30:
-        return {"score": 50, "events": [], "notes": [], "delta_imbalance": 0}
+        # OBS-11 fix (owner, 2026-08-05) — a displayed 50 here was
+        # indistinguishable from a genuine computed neutral (real buy/sell
+        # pressure happening to net near zero on a quiet market). low_data
+        # marks WHICH case this is; the score, events and notes are all
+        # unchanged, so no threshold/gate/confluence behaviour changes.
+        return {"score": 50, "events": [], "notes": [], "delta_imbalance": 0,
+                "low_data": True, "candles_seen": len(candles)}
 
     recent = candles[-20:]
     vols = [max(float(c.get("volume", 0)), 0.0) for c in candles[-40:]]
@@ -74,4 +80,5 @@ def analyze(candles: list[dict]) -> dict[str, Any]:
         "delta_imbalance": round(imbalance, 3),
         "events": events,
         "notes": notes,
+        "low_data": False, "candles_seen": len(candles),
     }

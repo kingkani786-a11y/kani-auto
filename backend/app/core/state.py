@@ -52,6 +52,14 @@ class AppState:
     simulator: dict[str, Any] = field(default_factory=dict)     # Phase 29 — today/tomorrow scenarios
     safe_mode: dict[str, Any] = field(default_factory=dict)     # Phase D — disaster-recovery safe mode
     opportunities: dict[str, Any] = field(default_factory=dict)  # V26 — market opportunity board
+    # Warm-up gate visibility (owner audit, 2026-08-05). _ai_cycle() has
+    # always required >=60 historical 1m bars before it will run confluence
+    # at all (market_service.py) — a real, deliberate anti-fabrication gate,
+    # not new here. What was missing: the gate fired SILENTLY, so a freshly
+    # switched-to instrument with thin broker history showed a blank
+    # dashboard with no indication why. This field makes that existing gate
+    # visible; it changes no threshold, no gate condition, no decision.
+    warmup: dict[str, Any] = field(default_factory=dict)
     # V7 Market Independence Phase A (owner, 2026-07-23) — when True, the
     # service auto-switches the active symbol to whichever registered market
     # is open (NSE closed -> MCX open -> switch). False pins the current
@@ -79,6 +87,7 @@ class AppState:
             "auto_market_switch": self.auto_market_switch,
             "last_close": (self.spot or {}).get("ref") or (self.spot or {}).get("ltp"),
             "server_time": time.time(),
+            "warmup": self.warmup,
         }
 
 

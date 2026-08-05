@@ -508,7 +508,10 @@ def radar(top: int = 8) -> dict[str, Any]:
             # each row with its real capture so "big mover" ≠ "missed opportunity".
             try:
                 from . import opportunity_metrics as _om
-                caught = _om.capture_status(t["strike"], t["type"])
+                # OBS-17 fix — peak_hint pins the verdict to the SPECIFIC
+                # move being reported (t["peak_prem"], stable across episode
+                # resets), not whichever episode happens to be live right now
+                caught = _om.capture_status(t["strike"], t["type"], peak_hint=t["peak_prem"])
             except Exception:
                 caught = None
             missed.append({

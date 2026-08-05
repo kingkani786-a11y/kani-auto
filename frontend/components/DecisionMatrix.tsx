@@ -63,8 +63,13 @@ export function DecisionMatrix() {
           </span>
           {["data_quality", "signal_confidence", "institutional", "market_alignment", "risk_environment"].map((k) => (
             cal[k] ? (
-              <span key={k} className={cal[k].pass ? "text-terminal-muted" : "text-terminal-bear"}>
+              <span key={k} className={cal[k].pass ? "text-terminal-muted" : "text-terminal-bear"}
+                title={cal[k].low_data ? "Chain-less instrument, <30 candles — this 50 is an insufficient-data default, not a computed neutral reading." : undefined}>
                 {k.replace(/_/g, " ")} {cal[k].value}{cal[k].pass ? "✓" : `✕(${cal[k].min})`}
+                {/* OBS-11 fix (owner, 2026-08-05) — disambiguate a displayed
+                    50 that could otherwise mean either "insufficient data"
+                    or "genuinely computed neutral". Display-only. */}
+                {cal[k].low_data ? <sup className="text-terminal-muted"> (insufficient data)</sup> : null}
               </span>
             ) : null
           ))}

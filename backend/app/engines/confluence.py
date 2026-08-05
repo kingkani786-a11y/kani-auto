@@ -316,10 +316,18 @@ def run(
     score_key = "score_bull" if win_dir == "BULL" else "score_bear"
     inst_conf = float((layers.get("oi", {}) or {}).get(score_key, 50)) if has_chain \
         else float((layers.get("order_flow", {}) or {}).get("score", 50))
+    # OBS-11 fix (owner, 2026-08-05) — on chain-less instruments this reads
+    # orderflow.py's genuine proxy score, whose own <30-candle guard returns
+    # the same 50 a real quiet-market computation can also produce. Without
+    # this flag "institutional 50" was ambiguous between "insufficient data"
+    # and "computed, neutral". Display-only: value/min/pass are unchanged.
+    inst_low_data = (not has_chain) and bool(
+        (layers.get("order_flow", {}) or {}).get("low_data"))
     calibration = {
         "data_quality": {"value": round(dq_score, 0), "min": 90, "pass": dq_score > 90},
         "signal_confidence": {"value": round(win, 0), "min": 70, "pass": win > 70},
-        "institutional": {"value": round(inst_conf, 0), "min": 60, "pass": inst_conf > 60},
+        "institutional": {"value": round(inst_conf, 0), "min": 60, "pass": inst_conf > 60,
+                          "low_data": inst_low_data},
         "market_alignment": {"value": round(layers["mtf"]["alignment"], 0), "min": 60,
                              "pass": layers["mtf"]["alignment"] > 60},
         "risk_environment": {"value": round(layers["regime"]["score"], 0), "min": 60,

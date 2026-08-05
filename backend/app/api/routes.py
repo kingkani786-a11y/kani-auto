@@ -858,13 +858,6 @@ async def exit_intelligence():
     return state.exit_intel or {"active": False}
 
 
-@router.get("/decision")
-async def decision():
-    """V10 ultra-simple decision view — the 3-second trader summary."""
-    _require_connection()
-    return state.decision
-
-
 # (symbol, tf) -> (fetched_at, candles); fast switching without re-hitting broker
 _candle_cache: dict[tuple[str, str], tuple[float, list]] = {}
 

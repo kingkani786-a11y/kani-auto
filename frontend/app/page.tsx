@@ -19,6 +19,7 @@ import { CandlePatternCard } from "@/components/CandlePatternCard";
 import { EvidenceRankCard } from "@/components/EvidenceRankCard";
 import { StructuralTargetsCard } from "@/components/StructuralTargetsCard";
 import { MarketStatusBanner } from "@/components/MarketStatusBanner";
+import { WarmupBanner } from "@/components/WarmupBanner";
 import { friendlyMessage } from "@/lib/status";
 import { ProbabilityLadder } from "@/components/ProbabilityLadder";
 import { DecisionIntelligence } from "@/components/DecisionIntelligence";
@@ -245,6 +246,12 @@ export default function Dashboard() {
       {/* PHASE 4/11 — calm Market-Closed banner (amber, with countdown) */}
       <SafeBoundary name="Market Status">
         <MarketStatusBanner />
+      </SafeBoundary>
+
+      {/* Warm-up gate visibility (owner audit, 2026-08-05) — surfaces the
+          existing >=60-bar analysis gate instead of a silent blank dashboard */}
+      <SafeBoundary name="Warmup">
+        <WarmupBanner />
       </SafeBoundary>
 
       {/* PHASE D — Safe Mode (disaster recovery) — highest-priority banner */}

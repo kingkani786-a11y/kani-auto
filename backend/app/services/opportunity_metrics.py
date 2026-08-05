@@ -38,6 +38,11 @@ MIN_RUNNER_PTS = 5.0  # …AND ≥5 absolute pts — a +33% penny wiggle (₹0.6
 #                       inflating the runner count and printing absurd % (2422%)
 EARLY_MAX_PCT = 15.0  # alerted while still < +15% = caught EARLY, else LATE
 REAL_MOVE_PCT = 10.0  # an alert is FALSE if the strike never reaches +10%…
+# OBS-17 fix (owner, 2026-08-05) — how close an episode's own peak must sit to
+# the peak a caller is asking about before it's accepted as THAT episode,
+# rather than whichever one happens to be live right now for the same
+# (strike, type). See capture_status() below for why this exists.
+PEAK_MATCH_TOL_PCT = 2.0
 FALSE_WINDOW_S = 300  # …within 5 min of the alert
 CLOSE_GAP_S = 300     # episode closes only after 5 min quiet past the peak
 GIVEBACK_CLOSE = 0.70 # …AND only once it has given back ≥70% of the run. A
@@ -769,12 +774,39 @@ def report() -> dict[str, Any]:
     }
 
 
-def capture_status(strike: int, typ: str) -> str | None:
-    """Best-known capture verdict (EARLY / LATE / MISSED) for a strike's current
-    or last episode today — lets the radar's 'Missed' panel label big movers by
+def capture_status(strike: int, typ: str, peak_hint: float | None = None) -> str | None:
+    """Best-known capture verdict (EARLY / LATE / MISSED) for a strike's
+    episode today — lets the radar's 'Missed' panel label big movers by
     whether we ACTUALLY caught them, reconciling that panel with the black box.
-    None = not a runner / unknown."""
+    None = not a runner / unknown.
+
+    OBS-17 (found 2026-08-04, Observation Window): a strike can re-ignite
+    into a brand-new episode (_new_ep) after its first big move closes.
+    Without `peak_hint`, this function always answered for "whichever
+    episode is live right now for this strike" — so a caller displaying an
+    already-settled +186.9% move got the verdict for a fresh, still-immature
+    +3% episode instead, flipping an already-correct ✓ to ✗ with zero new
+    price data. `peak_hint` is the peak premium the CALLER is actually asking
+    about (e.g. premium_radar.py's own `t["peak_prem"]`, which tracks a
+    strike's peak-of-the-day and does not reset when the episode does) — this
+    searches CLOSED episodes first for the one whose own peak actually
+    matches that value, so the verdict is for the move being displayed, not
+    for whatever happens to be live at query time. Backward compatible: with
+    no hint, behaviour is unchanged (live-first, then last-closed)."""
     _roll_day()
+    if peak_hint is not None and peak_hint > 0:
+        tol = peak_hint * PEAK_MATCH_TOL_PCT / 100
+        # closed episodes are the definitive record of a completed move —
+        # check them before any live (possibly unrelated, still-forming) one
+        for e in reversed(_closed):
+            if e["strike"] == strike and e["type"] == typ and abs(e["peak"] - peak_hint) <= tol:
+                return _classify(e)["capture"]
+        for e in _eps.values():
+            if e["strike"] == strike and e["type"] == typ and abs(e["peak"] - peak_hint) <= tol:
+                return _classify(e)["capture"]
+        # no episode's own peak explains this value — honest unknown rather
+        # than guessing via whatever is live (the exact bug being fixed)
+        return None
     for e in _eps.values():                       # live episode first
         if e["strike"] == strike and e["type"] == typ:
             return _classify(e)["capture"]

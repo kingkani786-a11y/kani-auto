@@ -490,7 +490,19 @@ class MarketService:
             return
         candles_1m = await self.client.get_intraday_candles(inst, interval="1", lookback_days=4)
         if len(candles_1m) < 60:
+            # Warm-up gate visibility (owner audit, 2026-08-05) — this >=60-bar
+            # requirement already existed and already silently blocked analysis
+            # (anti-fabrication: no partial/fake read below this floor). What
+            # was missing is telling the dashboard WHY it's blank instead of
+            # leaving it blank with no reason. No threshold changed — this is
+            # the exact existing gate, just surfaced. Cleared below once bars
+            # are sufficient so the banner disappears on its own.
+            state.warmup = {"ready": False, "symbol": inst.symbol,
+                            "bars": len(candles_1m), "required": 60}
+            await manager.broadcast("status", state.status())
             return
+        if state.warmup:
+            state.warmup = {}
         state.candles = candles_1m[-600:]
 
         spot = float(state.spot.get("ltp") or candles_1m[-1]["close"])
