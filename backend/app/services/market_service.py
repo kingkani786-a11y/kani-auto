@@ -181,8 +181,25 @@ class MarketService:
         while True:
             from ..broker.dhan import DhanClient
             try:
-                # lowest-priority loop: skip while cooling OR market closed
-                if (self.client and not DhanClient.stats()["cooldown_active"]
+                # Broker feed priority (owner, 2026-08-05). Root cause traced
+                # live: the FIXED loops alone (spot LTP 30/min + spot heavy
+                # quote 2/min + option tick 12/min + ai_cycle 2/min = 46/min)
+                # already exceed BUDGET_PER_MIN (45) before this — the lowest-
+                # priority loop — adds a single call. Dhan publishes no exact
+                # rate limit (checked: dhanhq.co/docs/v2/annexure/ names only
+                # error codes 904/805, no numeric ceiling), so raising the
+                # budget would be a guess against an unknown real ceiling.
+                # The safe lever is the one already declared in this loop's
+                # own comment ("lowest-priority") but never fully enforced:
+                # skip when utilization is already high, not only when a
+                # cooldown has already been tripped. This protects the
+                # continuous spot/option/ai_cycle data the owner wants never
+                # interrupted, at the cost of the scanner/opportunity board
+                # (already documented as lowest-priority) running one cycle
+                # later under load. No Kill Switch, threshold or gate touched.
+                _bstats = DhanClient.stats()
+                if (self.client and not _bstats["cooldown_active"]
+                        and _bstats["utilization_pct"] < 85
                         and is_market_open(state.market_type)):
                     await scanner.scan(self.client, state.watchlist, state.market_type)
                     state.heartbeats["scanner"] = time.time()
