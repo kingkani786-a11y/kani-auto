@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,6 +61,11 @@ class AppState:
     # dashboard with no indication why. This field makes that existing gate
     # visible; it changes no threshold, no gate condition, no decision.
     warmup: dict[str, Any] = field(default_factory=dict)
+    # OBS-16 Step 2 (owner, 2026-08-05) — Market Event Engine's observational
+    # ring. Populated only from market_event.on_tick() inside _spot_tick();
+    # never read by any gate/threshold/score. maxlen=50 mirrors memory.py's
+    # _tracked cap — enough for a session's worth of review, bounded memory.
+    market_events: deque = field(default_factory=lambda: deque(maxlen=50))
     # V7 Market Independence Phase A (owner, 2026-07-23) — when True, the
     # service auto-switches the active symbol to whichever registered market
     # is open (NSE closed -> MCX open -> switch). False pins the current

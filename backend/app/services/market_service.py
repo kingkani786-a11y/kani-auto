@@ -374,6 +374,34 @@ class MarketService:
         except Exception:
             pass
 
+        # OBS-16 Step 2 (owner, 2026-08-05) — Market Event Engine, wired per
+        # docs/V7_1_MARKET_EVENT_ENGINE_SPEC.md. Hooked here (not _ai_cycle)
+        # because this loop is the only 2s-cadence price source in the app;
+        # the spec's own audit found _ai_cycle's 30s cadence too coarse to
+        # honestly report a duration in seconds. atr_hint reads
+        # state.decision["tech"]["atr"] — the last AI cycle's ATR, tagged
+        # with that cycle's own timestamp (state.signal["ts"]) as atr_as_of
+        # so the event record never claims fresher context than it has.
+        # volume_hint/baseline are intentionally omitted here: no rolling
+        # baseline volume exists anywhere in this codebase yet, and the
+        # module's own contract is to report None rather than invent one —
+        # VOLUME_SHOCK simply won't classify until a real baseline exists.
+        # Wrapped exactly like every other additive observational hook this
+        # session (candles.py, evidence_rank.py, memory.track_signal) —
+        # observation must never break the spot loop.
+        try:
+            from ..engines import market_event
+            _atr_hint = (state.decision.get("tech") or {}).get("atr")
+            ev = market_event.on_tick(
+                inst.symbol, ltp, now,
+                atr_hint=float(_atr_hint) if _atr_hint else None,
+                atr_as_of=state.signal.get("ts"))
+            if ev:
+                state.market_events.append(ev)
+                await manager.broadcast("market_event", ev)
+        except Exception:
+            pass
+
         # lifecycle is price-driven between AI cycles
         if self.lifecycle.on_tick(ltp):
             snap = self.lifecycle.snapshot()
