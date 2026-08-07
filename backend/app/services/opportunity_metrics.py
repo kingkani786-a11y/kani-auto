@@ -199,6 +199,18 @@ def _new_ep(strike: int, typ: str, premium: float, now: float) -> dict[str, Any]
             "session_type": _session_type(), "regime": _behavioural_regime(),
             "move_start_ts": None, "move_start_prem": None,
             "alert_ts": None, "alert_prem": None, "alert_rise": None,
+            # Late-catch diagnosis (owner, 2026-08-07) — Step 1, observational
+            # only. `record()`'s own `rise_pct` PARAMETER (the detector's
+            # rolling-5-min-window rise from premium_radar._series_metrics)
+            # was received every tick but never once read in this function —
+            # alert_rise above comes from a SEPARATE episode-base `rise`
+            # computed locally. So the black box has never recorded what the
+            # rolling detector actually saw at the instant it fired IGNITING,
+            # which is the number _coil()'s own thresholds (rise_pct<18-20)
+            # gate on. Capturing it here changes no threshold, no gate, no
+            # classification — it only makes an already-computed number
+            # visible for future root-cause work.
+            "alert_detector_rise_pct": None,
             "runner_ts": None, "runner_prem": None, "exhaust_ts": None,
             # ideal-entry tracking (owner's missing KPI): after the alert, the
             # lowest premium BEFORE the final peak = the best entry that was
@@ -283,6 +295,7 @@ def record(key: str, strike: int, typ: str, premium: float, rise_pct: float,
         ep["snap_start"] = _engine_snapshot()   # what did the engine see at birth?
     if ep["alert_ts"] is None and coil_state == "IGNITING":
         ep["alert_ts"], ep["alert_prem"], ep["alert_rise"] = now, premium, rise
+        ep["alert_detector_rise_pct"] = rise_pct   # the rolling value _coil() actually gated on
         ep["ignite_path"] = ignite_path      # 1 = velocity spike · 2 = C6 coil breakout
         # wave_n = same-type strikes loaded at ignite — recorded so tomorrow's
         # data can answer whether chain-wave corroboration separates false
@@ -583,6 +596,14 @@ def _black_box(ep: dict[str, Any]) -> dict[str, Any]:
         "base": c["base"], "alert_prem": c["alert_prem"], "peak": c["peak"],
         "potential": c["potential"], "captured": c["captured"], "lost": c["lost"],
         "peak_rise": c["peak_rise"], "delay_s": c["delay_s"],
+        # Late-catch diagnosis (owner, 2026-08-07) — Step 1. alert_rise (above,
+        # via `c`/`peak_rise` context) is the EPISODE-BASE rise at ignite time.
+        # This is the separate rolling-5-min-window rise_pct _coil() actually
+        # gated its IGNITING decision on. The gap between the two is the
+        # suspected root cause of late catches on smooth trend days — this
+        # field lets that be checked against real data instead of assumed.
+        "alert_rise": ep.get("alert_rise"),
+        "alert_detector_rise_pct": ep.get("alert_detector_rise_pct"),
         "reason": ep["reason"], "stability": c["stability"],
         "traj": ep["traj"], "capture": c["capture"], "outcome": c["outcome"],
         # ideal-entry KPI: the best price actually available after the alert
@@ -847,7 +868,9 @@ def _black_box_preview(ep: dict[str, Any]) -> dict[str, Any]:
             "t_peak": _hhmmss(ep["peak_ts"]), "t_exhaust": _hhmmss(ep["exhaust_ts"]),
             "base": c["base"], "peak": c["peak"], "potential": c["potential"],
             "captured": c["captured"], "reason": ep["reason"],
-            "stability": c["stability"], "capture": c["capture"], "outcome": "OPEN"}
+            "stability": c["stability"], "capture": c["capture"], "outcome": "OPEN",
+            "alert_rise": ep.get("alert_rise"),
+            "alert_detector_rise_pct": ep.get("alert_detector_rise_pct")}
 
 
 # ── OBSERVED OUTCOME STATISTICS (owner, 2026-07-21) ─────────────────────────
