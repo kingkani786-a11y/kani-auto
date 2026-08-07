@@ -94,7 +94,12 @@ def rsi(closes: list[float], period: int = 14) -> float:
         avg_gain = (avg_gain * (period - 1) + g) / period
         avg_loss = (avg_loss * (period - 1) + l) / period
     if avg_loss == 0:
-        return 100.0
+        # No losses at all. Distinguish a genuine one-way advance (gains > 0,
+        # RSI 100) from a completely FLAT series (gains also 0), which has no
+        # movement in either direction and is neutral, not maximally strong —
+        # returning 100 there would report a dead instrument as the strongest
+        # possible uptrend.
+        return 100.0 if avg_gain > 0 else 50.0
     rs = avg_gain / avg_loss
     return 100.0 - (100.0 / (1.0 + rs))
 

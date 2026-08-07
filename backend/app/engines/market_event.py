@@ -1,9 +1,13 @@
 """Market Event Engine — OBS-16, Step 1 (owner, 2026-08-05).
 
-Per docs/V7_1_MARKET_EVENT_ENGINE_SPEC.md. STEP 1 ONLY: pure ring-buffer +
-threshold logic, unit-testable against synthetic tick sequences. NOT WIRED —
-no caller in this codebase invokes on_tick() yet. Wiring into _spot_tick()
-is a separate step in the spec's own build order, needing its own approval.
+Per docs/V7_1_MARKET_EVENT_ENGINE_SPEC.md. Pure ring-buffer + threshold logic,
+unit-testable against synthetic tick sequences.
+
+WIRING STATUS: Step 2 wired this into _spot_tick() on 2026-08-05 —
+market_service.py calls on_tick() every spot tick and appends any event to
+state.market_events. (This docstring said "NOT WIRED" until the 2026-08-07
+architecture audit caught that it had gone stale one step behind the code.)
+Step 3 — surfacing market_events on the dashboard — is still not built.
 
 WHY THIS EXISTS. V7 is state-oriented: every cycle computes
 price -> indicators -> decision fresh from the current snapshot. Nothing

@@ -1,15 +1,22 @@
 """Cloud AI Trader X — Confluence Engine.
 
-Orchestrates all ten layers and applies the FINAL RULE:
+Orchestrates the decision layers and applies the FINAL RULE:
   * never a signal from a single indicator,
   * mandatory layers must all confirm the same direction,
   * unclear conditions return NO TRADE with explicit vetoes,
   * quality over quantity.
 
-Directional layers (weighted blend):
+SEVEN layers carry weight in the composite:
   trend .16 | structure .16 | oi .16 | mtf .16 | smart .12 | greeks .12 | vp .12
 Regime acts as a quality multiplier; probability is derived from the edge;
 risk qualifies the final output.
+
+(This said "all ten layers" until the 2026-08-07 architecture audit counted
+the literal WEIGHTS dict and found seven. The extra entries in `layers{}` —
+candles, supertrend, evidence_rank, structural_targets, expiry, market_profile
+and the rest — are OBSERVATIONAL or veto-only, deliberately outside the score.
+The distinction matters: anyone designing against "ten weighted layers" would
+be designing against a system that does not exist.)
 """
 from __future__ import annotations
 
@@ -21,8 +28,8 @@ from ..core.text import truncate_at_word
 from . import (
     candles as candle_eng, early_warning, evidence_rank, expiry as expiry_eng,
     market_profile, mtf, narrator, orderflow, probability, quality, regime,
-    risk, smart_money, strike_selector, structure, support_resistance,
-    technicals, volume_profile,
+    risk, smart_money, strike_selector, structure, supertrend as supertrend_eng,
+    support_resistance, technicals, volume_profile,
 )
 
 # per-symbol context from the previous cycle (for phase detection deltas)
@@ -236,6 +243,22 @@ def run(
     except Exception:
         layers["candles"] = {"ready": False, "patterns": [], "count": 0,
                              "bias": "NONE", "summary": "unavailable"}
+    # Supertrend layer (owner, 2026-08-07) — the one absent evidence layer the
+    # Master Architecture Audit found that was buildable from data already in
+    # hand. OBSERVATIONAL ONLY, identical contract to the candles block above:
+    # NOT in WEIGHTS, not in `applicable`, not in `mandatory_eff`, never
+    # appended to `vetoes`. It cannot move the composite, flip a confirmation
+    # count, or open/close the gate. It exists because the existing `trend`
+    # layer is entirely level-based (EMA stack/VWAP/ADX) and structurally
+    # cannot express a stateful trend ratchet — the two genuinely disagree at
+    # turns, and that disagreement is information worth SEEING rather than
+    # blending away. Promotion into the composite needs its own evidence and
+    # its own approval. Wrapped: a display layer must never break the decision.
+    try:
+        layers["supertrend"] = supertrend_eng.analyze(c5)
+    except Exception:
+        layers["supertrend"] = {"ready": False, "direction": "NONE",
+                                "supertrend": None, "summary": "unavailable"}
     iv_now = float((analytics or {}).get("greeks", {}).get("ce", {}).get("iv") or 0)
     prev = _prev_ctx.get(symbol, {})
     layers["regime"]["phases"] = regime.phases(
