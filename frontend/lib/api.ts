@@ -82,6 +82,7 @@ export const api = {
   riskApproval: () => req<any>(`/api/risk-approval`),
   decisionContract: () => req<any>(`/api/decision-contract`),
   calibrationWatch: () => req<any>(`/api/calibration-watch`),
+  shadowCalibration: () => req<any>(`/api/shadow-calibration`),
   stateConsistency: () => req<any>(`/api/state-consistency`),
   blockedSignals: () => req<any>(`/api/blocked-signals`),
   supportResistance: () => req<any>(`/api/support-resistance`),

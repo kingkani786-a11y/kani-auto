@@ -66,6 +66,17 @@ def record_decision(decision: dict[str, Any], intel: dict[str, Any],
         "clarity": (intel.get("decision_clarity") or {}).get("label", ""),
         "data_confidence": intel.get("data_confidence", ""),
         "regime": regime, "session": session,
+        # Shadow Calibration (owner, 2026-08-07) — the ONE field this module
+        # was missing. It already forward-tracks a HYPOTHETICAL sample on
+        # every blocked cycle (hypothetical=True above) all the way to a real
+        # win/loss, but never recorded WHAT CONFIDENCE the engine predicted at
+        # that moment — so blocked cycles could never be calibration-scored.
+        # Same expression memory.track_signal() uses for the real calibration
+        # (dynamic_confidence or confidence), so the two are comparable.
+        # Recorded only; changes no audit metric, no gate, no threshold.
+        "signal_confidence": float(signal.get("dynamic_confidence")
+                                   or signal.get("confidence") or 0),
+        "direction": direction,
     })
 
 
@@ -109,6 +120,13 @@ def _settle(s: dict) -> None:
         "animal": s["animal"], "clarity": s["clarity"],
         "data_confidence": s["data_confidence"], "regime": s["regime"],
         "session": s["session"], "ts": time.time(),
+        # Shadow Calibration (owner, 2026-08-07) — carried through to the
+        # settled record so shadow_calibration.py can pair predicted
+        # confidence with the realised win/loss. Additive: every existing
+        # key above is untouched, so every existing report() consumer is
+        # byte-identical.
+        "signal_confidence": s.get("signal_confidence", 0.0),
+        "direction": s.get("direction", ""),
     })
 
 

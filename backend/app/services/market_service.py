@@ -1142,6 +1142,18 @@ class MarketService:
         except Exception:
             log.exception("audit record failed")  # never affects main flow
 
+        # Shadow Calibration (owner, 2026-08-07) — persist newly SETTLED audit
+        # records so the blocked-cycle calibration sample survives the
+        # watchdog's ~1-3x/day restarts (audit._history is an in-memory
+        # deque with no persistence). Read-only over audit's own output;
+        # feeds no gate, threshold or score. Runs AFTER record_decision so
+        # this cycle's settlements are included.
+        try:
+            from . import shadow_calibration
+            shadow_calibration.harvest()
+        except Exception:
+            log.exception("shadow calibration harvest failed")  # never affects main flow
+
         state.intelligence = {**packet, "lifecycle": lc_snap, "decision": decision}
         state.signal = {**packet["signal"], "symbol": inst.symbol, "ts": packet["ts"]}
         state.decision = decision

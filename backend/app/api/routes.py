@@ -437,6 +437,23 @@ async def state_consistency_ep():
     return state_consistency.report()
 
 
+@router.get("/shadow-calibration")
+async def shadow_calibration_ep():
+    """SHADOW CALIBRATION (owner, 2026-08-07) — RESEARCH ONLY.
+
+    The real calibration score can only be moved by SETTLED TAKEN signals,
+    but the Kill Switch forces "NO TRADE" whenever calibration < 55, and
+    memory.track_signal() early-returns on "NO TRADE" — so while the gate is
+    shut the real score is structurally unable to receive new evidence
+    (proven loop, see shadow_calibration.py's docstring). This endpoint
+    reports the same calibration maths over the cycles the gate BLOCKED,
+    which audit.py already forward-tracks to a real win/loss.
+
+    Reads only. Changes no calibration value, no threshold, no gate."""
+    from ..services import shadow_calibration
+    return shadow_calibration.report()
+
+
 @router.get("/calibration-watch")
 async def calibration_watch_ep():
     """Calibration Watch (item #4, 2026-07-23) — observational only: today's

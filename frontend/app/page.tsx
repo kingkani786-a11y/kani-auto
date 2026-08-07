@@ -45,6 +45,7 @@ import { TradeRiskPanel } from "@/components/TradeRiskPanel";
 import { AIDealerPanel } from "@/components/AIDealerPanel";
 import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
 import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
+import { ShadowCalibrationCard } from "@/components/ShadowCalibrationCard";
 import { SRHeroCard } from "@/components/SRHeroCard";
 import { PremiumSRStrip } from "@/components/PremiumSRStrip";
 import { ExecutionStatusStrip } from "@/components/ExecutionStatusStrip";
@@ -525,6 +526,14 @@ export default function Dashboard() {
       </SafeBoundary>
       <SafeBoundary name="Calibration Watch">
         <CalibrationWatchCard />
+      </SafeBoundary>
+      {/* Shadow Calibration (owner, 2026-08-07) — sits directly under the real
+          Calibration Watch so REAL vs SHADOW read as a pair, per the owner's
+          "dashboard should make it obvious" requirement. Research-styled
+          (dashed border + RESEARCH tag) so it can never be misread as the
+          production number. */}
+      <SafeBoundary name="Shadow Calibration">
+        <ShadowCalibrationCard />
       </SafeBoundary>
       <SafeBoundary name="S/R Heat Map">
         <SRHeatMap />
