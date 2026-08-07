@@ -197,31 +197,58 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         target1_px = extreme
         target2_px = target1_px + or_range if bias == "CALL" else target1_px - or_range
 
+        # BUGFIX 2026-08-08 (found by disbelieving my own result). The first
+        # version of this loop `break`ed the instant T1 was touched, with the
+        # T2 check nested inside that same branch — so WIN_T2 could only ever
+        # register if ONE 1-minute candle spanned from below T1 to beyond T2,
+        # i.e. a full OR-range-width inside a single minute. It therefore
+        # reported t2_rate = 0.0 in every bucket and every regime across 288
+        # rows, and I wrongly read that as "the T2 rule is set too far". The
+        # rule was never tested; the measurement stopped before T2 could be
+        # observed. A 0.0 that is identical across every stratum is a
+        # measurement artifact, not a market fact.
+        #
+        # Corrected trade management: T1 is BANKED when touched, then the
+        # position keeps running toward T2. A stop touched AFTER T1 no longer
+        # turns the trade into a loss (T1 was already realised) — it just ends
+        # the run at WIN_T1. Stop is still checked BEFORE targets within the
+        # same candle, keeping the existing conservative fill convention.
+        d = 1.0 if bias == "CALL" else -1.0
+
+        def _fav(c):    # favourable excursion in trade direction
+            return (c["high"] - entry_px) if d > 0 else (entry_px - c["low"])
+
+        def _adv(c):    # adverse excursion in trade direction
+            return (entry_px - c["low"]) if d > 0 else (c["high"] - entry_px)
+
         outcome, exit_px = "OPEN", None
         mfe = mae = 0.0
+        t1_hit = False
+        t1_ts = t2_ts = None
         for c in post_or[touch_idx + 1:]:
-            if bias == "CALL":
-                mfe = max(mfe, c["high"] - entry_px)
-                mae = max(mae, entry_px - c["low"])
-                if c["low"] <= stop_px:
+            mfe = max(mfe, _fav(c))
+            mae = max(mae, _adv(c))
+            hit_stop = (c["low"] <= stop_px) if d > 0 else (c["high"] >= stop_px)
+            hit_t1 = (c["high"] >= target1_px) if d > 0 else (c["low"] <= target1_px)
+            hit_t2 = (c["high"] >= target2_px) if d > 0 else (c["low"] <= target2_px)
+
+            if not t1_hit:
+                if hit_stop:                      # conservative: stop fills first
                     outcome, exit_px = "LOSS", stop_px
                     break
-                if c["high"] >= target1_px:
+                if hit_t1:
+                    t1_hit, t1_ts = True, c["time"]
                     outcome, exit_px = "WIN_T1", target1_px
-                    if c["high"] >= target2_px:
-                        outcome, exit_px = "WIN_T2", target2_px
-                    break
+                    if hit_t2:                    # same candle reached both
+                        outcome, exit_px, t2_ts = "WIN_T2", target2_px, c["time"]
+                        break
+                    continue                      # keep running toward T2
             else:
-                mfe = max(mfe, entry_px - c["low"])
-                mae = max(mae, c["high"] - entry_px)
-                if c["high"] >= stop_px:
-                    outcome, exit_px = "LOSS", stop_px
+                if hit_t2:
+                    outcome, exit_px, t2_ts = "WIN_T2", target2_px, c["time"]
                     break
-                if c["low"] <= target1_px:
-                    outcome, exit_px = "WIN_T1", target1_px
-                    if c["low"] <= target2_px:
-                        outcome, exit_px = "WIN_T2", target2_px
-                    break
+                if hit_stop:
+                    break                         # T1 already banked — stays WIN_T1
 
         rows.append({
             "day": day, "bias": bias, "regime": regime,
@@ -231,6 +258,12 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
             "target2_px": round(target2_px, 2), "outcome": outcome,
             "exit_px": round(exit_px, 2) if exit_px is not None else None,
             "mfe_pts": round(mfe, 2), "mae_pts": round(mae, 2),
+            # time-to-target (owner's Phase 5 field). None when that target was
+            # never reached — never zero-filled, which would read as "instant".
+            "t1_time": _hhmm(t1_ts) if t1_ts else None,
+            "t2_time": _hhmm(t2_ts) if t2_ts else None,
+            "mins_to_t1": round((t1_ts - entry_time) / 60, 1) if t1_ts else None,
+            "mins_to_t2": round((t2_ts - entry_time) / 60, 1) if t2_ts else None,
             "vwap_930": round(vwap_930, 2), "ema9_930": round(ema9, 2),
             "ema21_930": round(ema21, 2),
             "adx_930": round(adx_930, 1) if adx_930 is not None else None,
