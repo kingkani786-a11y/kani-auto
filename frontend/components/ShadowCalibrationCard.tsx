@@ -53,7 +53,7 @@ export function ShadowCalibrationCard() {
       {building ? (
         <div className="text-sm">
           <span className="text-terminal-warn font-bold">BUILDING</span>
-          <div className="text-xs text-terminal-muted mt-1">{r.note}</div>
+          <div className="text-xs text-terminal-muted mt-1">{r.progress}</div>
         </div>
       ) : (
         <div className="flex items-baseline gap-3 mb-3">

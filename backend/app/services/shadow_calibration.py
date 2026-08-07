@@ -173,9 +173,13 @@ def report() -> dict[str, Any]:
                 "shadow_calibration_score": None, "error": None,
                 "buckets": rated, "buckets_measured": 0,
                 "status": "BUILDING",
-                "note": f"Need >={need} settled samples in at least one "
-                        f"confidence bucket. Have: "
-                        + (", ".join(f"{k}:{v['n']}" for k, v in rated.items()) or "none"),
+                # Deliberately NOT called "note": the outer return below adds its
+                # own "note" (the research disclaimer) and would silently
+                # overwrite this one, hiding the only field that tells the
+                # reader how far off a usable sample actually is.
+                "progress": f"Need >={need} settled samples in at least one "
+                            f"confidence bucket. Have: "
+                            + (", ".join(f"{k}:{v['n']}" for k, v in rated.items()) or "none"),
             }
         errs = {k: abs(BUCKET_MIDS[k] - v["win_rate"]) for k, v in qualifying.items()}
         err = sum(errs.values()) / len(errs)
