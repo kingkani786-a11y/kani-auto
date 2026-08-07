@@ -1126,6 +1126,28 @@ async def historical_learning_run():
     return await historical_learning.run(service.client)
 
 
+@router.get("/orfe-research")
+async def orfe_research_stats(symbol: str = "NIFTY"):
+    """ORFE Phase 0 — read-only per-fib-level statistics over persisted
+    research rows. Research artifact; feeds no gate, evidence or execution."""
+    from ..services import orfe_research
+    return orfe_research.level_stats(symbol.upper())
+
+
+@router.post("/orfe-research/run")
+async def orfe_research_run(symbol: str = "NIFTY", months: int = 6):
+    """ORFE Phase 0 — run the Opening-Range + Fibonacci research backtest
+    (~2-3 broker calls per run; 90-day chunks). On demand only, same
+    isolation contract as /historical-learning/run."""
+    if not state.connected:
+        raise HTTPException(409, "Not connected. Save credentials in Settings first.")
+    from ..services import orfe_research
+    try:
+        return await orfe_research.run(service.client, symbol.upper(), months)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
 @router.get("/opportunities")
 async def opportunities():
     """V26 — AI Market Opportunity Board (staged scan; cached, no extra calls)."""

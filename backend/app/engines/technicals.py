@@ -78,6 +78,27 @@ def adx(candles: list[dict], period: int = 14) -> float:
     return a
 
 
+def rsi(closes: list[float], period: int = 14) -> float:
+    """Wilder's RSI. Added for ORFE research (2026-08-07) — no prior caller
+    needed it; pure function, changes nothing for existing callers of this file."""
+    if len(closes) < period + 1:
+        return 50.0
+    gains, losses = [], []
+    for prev, cur in zip(closes, closes[1:]):
+        d = cur - prev
+        gains.append(max(d, 0.0))
+        losses.append(max(-d, 0.0))
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for g, l in zip(gains[period:], losses[period:]):
+        avg_gain = (avg_gain * (period - 1) + g) / period
+        avg_loss = (avg_loss * (period - 1) + l) / period
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
 def momentum(closes: list[float], period: int = 10) -> float:
     """Rate of change, percent."""
     if len(closes) <= period or closes[-period - 1] == 0:

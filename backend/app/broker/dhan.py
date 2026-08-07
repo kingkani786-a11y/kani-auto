@@ -654,6 +654,26 @@ class DhanClient:
             for i in range(len(data.get("open", [])))
         ]
 
+    async def get_intraday_range(self, inst: Instrument, interval: str,
+                                 from_date: "datetime.date", to_date: "datetime.date") -> list[dict]:
+        """Multi-month 1-min/5-min history for RESEARCH backtests (ORFE, 2026-08-07)
+        — distinct from get_tf_candles(), which is tuned for live indicator
+        warm-up (500 recent candles, 5-day windows) and deliberately capped
+        at 40 days total. Dhan's own docs: /charts/intraday holds up to 5
+        years but caps each REQUEST at 90 days — so this chunks by 90 days,
+        oldest-first, same _request() path as every other call (shared
+        rate-limit budget/backoff applies automatically, no separate throttle
+        needed). Read-only historical pull; never called from the live loop."""
+        out: list[dict] = []
+        cur = from_date
+        while cur <= to_date:
+            window_end = min(cur + datetime.timedelta(days=90), to_date)
+            chunk = await self._intraday_window(inst, interval, cur, window_end)
+            out.extend(chunk)
+            cur = window_end + datetime.timedelta(days=1)
+        out.sort(key=lambda c: c["time"])
+        return out
+
     async def get_intraday_candles(
         self, inst: Instrument, interval: str = "5", lookback_days: int = 5
     ) -> list[dict]:
