@@ -68,6 +68,7 @@ from typing import Any
 from ..broker.dhan import DhanClient
 from ..broker.instruments import get_instrument
 from ..core.clock import IST
+from ..engines import candles as candle_eng
 from ..engines import supertrend
 from ..engines.technicals import adx, atr, ema, rsi, vwap
 
@@ -172,10 +173,35 @@ def _r_multiple(res: dict[str, Any], entry_px: float, stop_px: float,
     return None
 
 
-def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
+SESSION_BUCKETS = (
+    ("09:15-10:00", (9, 15), (10, 0)),
+    ("10:00-11:00", (10, 0), (11, 0)),
+    ("11:00-12:00", (11, 0), (12, 0)),
+    ("12:00-13:00", (12, 0), (13, 0)),
+    ("13:00-14:00", (13, 0), (14, 0)),
+    ("14:00-15:00", (14, 0), (15, 0)),
+    ("15:00-15:30", (15, 0), (15, 31)),
+)
+
+
+def _session_of(ts: float) -> str | None:
+    hm = _hm(ts)
+    for label, lo, hi in SESSION_BUCKETS:
+        if lo <= hm < hi:
+            return label
+    return None
+
+
+def _process_day(day: str, candles: list[dict], prev_close: float | None = None) -> list[dict[str, Any]]:
     """Pure function over one day's 1-min candles -> zero or more (fib_level)
     rows. Never raises on thin data — returns [] and lets the caller move on,
-    same as every other honest-exclusion path in this codebase."""
+    same as every other honest-exclusion path in this codebase.
+
+    `prev_close` is optional and used ONLY to record the opening gap. It is
+    passed in rather than derived here because a single day's candles cannot
+    know the prior session's close — deriving it internally would be a silent
+    lookahead-shaped bug. Callers that don't track it get gap_pct: None,
+    never a fabricated 0.0."""
     candles = sorted(candles, key=lambda c: c["time"])
     or_candles = [c for c in candles if OR_START <= _hm(c["time"]) < OR_END]
     if len(or_candles) < MIN_OR_CANDLES:
@@ -323,6 +349,12 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         "adx_930": round(adx_930, 1) if adx_930 is not None else None,
         "atr_930": round(atr_930, 2) if atr_930 is not None else None,
         "rsi_930": round(rsi_930, 1),
+        # gap + calendar context (owner Sections 15/16). gap_pct is None when
+        # the caller did not supply prev_close — never 0.0, which would read
+        # as a measured flat open.
+        "gap_pct": (round((candles[0]["open"] - prev_close) / prev_close * 100, 3)
+                    if prev_close else None),
+        "day_of_week": datetime.datetime.strptime(day, "%Y-%m-%d").strftime("%a"),
         "levels_touched": [],            # filled below
     }
 
@@ -390,6 +422,16 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         supertrend_agrees = (None if supertrend_direction is None else
                              (supertrend_direction == "BULLISH") == (bias == "CALL"))
 
+        # Candle pattern AT THE TOUCH bar — reuses candles.py verbatim (the
+        # live, already-proven detector), no second pattern engine. Same
+        # no-future-candle discipline: only `_upto` is passed in. candles.py
+        # itself returns ready:False under MIN_CANDLES=20, handled honestly.
+        _cd = candle_eng.analyze(_upto, atr=(atr_touch or 0.0)) if _upto else {"ready": False}
+        cd_patterns = [p.get("name") for p in (_cd.get("patterns") or [])]
+        cd_bias = _cd.get("bias") if _cd.get("ready") else None
+        cd_agrees = (None if cd_bias in (None, "NONE") else
+                    (cd_bias == "BULL") == (bias == "CALL"))
+
         target1_px = extreme
         target2_px = target1_px + or_range if bias == "CALL" else target1_px - or_range
 
@@ -428,6 +470,12 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
             "atr_touch": round(atr_touch, 2) if atr_touch is not None else None,
             "supertrend_direction": supertrend_direction,
             "supertrend_agrees": supertrend_agrees,
+            "candle_patterns": cd_patterns,
+            "candle_bias": cd_bias,
+            "candle_agrees": cd_agrees,
+            "session": _session_of(entry_time),
+            "day_of_week": setup_row["day_of_week"],
+            "gap_pct": setup_row["gap_pct"],
             "deepest_frac": round(deepest_frac, 4),
             "day": day, "bias": bias, "regime": regime,
             "or_high": round(or_high, 2), "or_low": round(or_low, 2),
@@ -505,8 +553,11 @@ def reanalyze(symbol: str = "NIFTY") -> dict[str, Any]:
     candles, meta = cached
     days = _group_by_day(candles)
     all_rows: list[dict[str, Any]] = []
+    prev_close: float | None = None
     for day, day_candles in sorted(days.items()):
-        all_rows.extend(_process_day(day, day_candles))
+        dcs = sorted(day_candles, key=lambda c: c["time"])
+        all_rows.extend(_process_day(day, dcs, prev_close=prev_close))
+        prev_close = dcs[-1]["close"]      # for the NEXT day's gap only
     _write_rows(symbol, all_rows)
     return {"symbol": symbol, "source": "cached candles (offline)",
             "cached_meta": meta, "candles": len(candles),
@@ -909,6 +960,107 @@ def dynamic_zone_backtest(symbol: str = "NIFTY",
     }
 
 
+def _wilson(k: int, n: int, z: float = 1.96) -> dict[str, Any]:
+    """Wilson score interval — the honest way to report a proportion.
+
+    Section 23's requirement: 63.5% on n=9 and 63.5% on n=500 are not the same
+    claim, and a bare point estimate hides that entirely. Wilson (not normal
+    approximation) because it stays inside [0,1] and behaves at small n and at
+    p near 0 or 1 — precisely the cells this research keeps producing.
+    """
+    if n <= 0:
+        return {"pct": None, "n": 0, "lo": None, "hi": None, "width": None}
+    p = k / n
+    d = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / d
+    half = (z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)) / d
+    lo, hi = max(0.0, centre - half), min(1.0, centre + half)
+    return {"pct": round(100 * p, 1), "n": n,
+            "lo": round(100 * lo, 1), "hi": round(100 * hi, 1),
+            "width": round(100 * (hi - lo), 1)}
+
+
+MIN_CELL_STRONG = 30      # declared: below this a cell is reported but not trusted
+MIN_CELL_WEAK = 10        # below this it is actively warned about
+
+
+def transition_matrix(symbol: str = "NIFTY") -> dict[str, Any]:
+    """FIB LADDER TRANSITION MATRIX (owner Sections 5/26).
+
+    Answers the conditional question a per-level table cannot: GIVEN price has
+    already reached level L, what happens next — does it go deeper, or turn?
+
+    Levels are ordered shallow -> deep (1.0 is the breakout boundary, 0.236 the
+    deepest), so "deeper" means the NEXT SMALLER fraction. Reach is judged from
+    each setup's own `deepest_frac`, which is why the setup denominator row had
+    to exist before this was computable at all.
+
+    Every probability carries a Wilson interval and its n. Conditional cells
+    thin out fast — P(0.236 | 0.382) has a much smaller base than P(0.786 |
+    1.0) — so the interval is the point, not decoration."""
+    rows = _read_rows(symbol)
+    setups = [r for r in rows if r.get("kind") == "setup"]
+    touch = [r for r in rows if r.get("kind", "touch") == "touch"]
+    if not setups:
+        return {"symbol": symbol, "setups": 0,
+                "note": "no setup rows — run or reanalyze first"}
+
+    ladder = sorted(FIB_LEVELS, reverse=True)      # 1.0 -> 0.236, shallow to deep
+    by_level_touch: dict[float, list[dict]] = collections.defaultdict(list)
+    for t in touch:
+        by_level_touch[t["fib_level"]].append(t)
+
+    def _reached(f: float) -> list[dict]:
+        return [s for s in setups
+                if s.get("deepest_frac") is not None and s["deepest_frac"] <= f]
+
+    steps = []
+    for shallow, deeper in zip(ladder, ladder[1:]):
+        base = _reached(shallow)
+        went_deeper = [s for s in base
+                       if s.get("deepest_frac") is not None and s["deepest_frac"] <= deeper]
+        steps.append({
+            "from": shallow, "to": deeper,
+            "p_deeper_given_reached": _wilson(len(went_deeper), len(base)),
+            "stopped_here": len(base) - len(went_deeper),
+        })
+
+    # Outcome conditional on having touched a level — computed from the touch
+    # rows, which already resolved each entry by the shared _resolve_trade.
+    outcomes = []
+    for f in ladder:
+        ts = [t for t in by_level_touch.get(f, []) if t["outcome"] != "OPEN"]
+        n = len(ts)
+        t1 = sum(1 for t in ts if t["outcome"].startswith("WIN"))
+        t2 = sum(1 for t in ts if t["outcome"] == "WIN_T2")
+        stop = sum(1 for t in ts if t["outcome"] == "LOSS")
+        base = _reached(f)
+        deeper_next = next((s["to"] for s in steps if s["from"] == f), None)
+        outcomes.append({
+            "fib_level": f,
+            "reach": _wilson(len(base), len(setups)),
+            "p_t1_given_touch": _wilson(t1, n),
+            "p_t2_given_touch": _wilson(t2, n),
+            "p_stop_given_touch": _wilson(stop, n),
+            "next_deeper_level": deeper_next,
+        })
+
+    return {
+        "symbol": symbol,
+        "setups": len(setups),
+        "ladder_order": "shallow -> deep (1.0 = breakout boundary, 0.236 = deepest)",
+        "transitions": steps,
+        "outcomes_given_touch": outcomes,
+        "method_note": (
+            "p_deeper_given_reached uses each setup's own deepest_frac, so it is "
+            "a fact about how far the retracement actually travelled — not a "
+            "model. Outcome probabilities come from touch rows resolved by the "
+            "same _resolve_trade used everywhere else. Every cell carries a "
+            "Wilson 95% interval and its n; read the interval, not the point."),
+        "as_of": int(time.time()),
+    }
+
+
 def _level_row_stats(rs: list[dict[str, Any]]) -> dict[str, Any]:
     """Core per-level statistics over a set of touch rows. Shared by every
     breakdown below (overall / CALL-PUT / regime / train-test) so the
@@ -950,6 +1102,179 @@ def _level_row_stats(rs: list[dict[str, Any]]) -> dict[str, Any]:
                    "against": _split("vwap_supports", False)},
         "by_supertrend": {"agrees": _split("supertrend_agrees", True),
                           "disagrees": _split("supertrend_agrees", False)},
+    }
+
+
+def research_warnings(symbol: str = "NIFTY") -> dict[str, Any]:
+    """OVERFITTING DETECTOR (owner Section 22).
+
+    WHY THIS IS AUTOMATED. Twice in one session a plausible-looking result was
+    an artifact, and BOTH were caught only because a human re-read the code:
+      * t2_rate = 0.0 identical across every bucket AND every regime — that
+        uniformity was the tell, and it was a broken loop, not a market fact.
+      * rejection confirmation helping at 0.5/0.786 but HURTING at 0.382/0.618
+        — a sign flip between adjacent levels on n=9-20 cells.
+    Relying on a human to notice the next one is not a control. These checks
+    fire on the same signatures, mechanically.
+
+    Emits warnings. Decides nothing, blocks nothing — the gate does that."""
+    rows = _read_rows(symbol)
+    setups = [r for r in rows if r.get("kind") == "setup"]
+    touch = [r for r in rows if r.get("kind", "touch") == "touch"]
+    decided = [t for t in touch if t["outcome"] != "OPEN"]
+    warns: list[dict[str, Any]] = []
+
+    def _warn(code: str, severity: str, detail: str, **extra):
+        warns.append({"code": code, "severity": severity, "detail": detail, **extra})
+
+    if not decided:
+        return {"symbol": symbol, "warnings": [
+            {"code": "NO_DATA", "severity": "CRITICAL",
+             "detail": "no resolved touch rows to audit"}], "clean": False}
+
+    by_level: dict[float, list[dict]] = collections.defaultdict(list)
+    for t in decided:
+        by_level[t["fib_level"]].append(t)
+
+    # 1. thin cells
+    for f, ts in sorted(by_level.items()):
+        if len(ts) < MIN_CELL_WEAK:
+            _warn("SAMPLE_CRITICALLY_THIN", "CRITICAL",
+                  f"fib {f}: n={len(ts)} < {MIN_CELL_WEAK}", fib_level=f, n=len(ts))
+        elif len(ts) < MIN_CELL_STRONG:
+            _warn("SAMPLE_THIN", "WARNING",
+                  f"fib {f}: n={len(ts)} < {MIN_CELL_STRONG}", fib_level=f, n=len(ts))
+
+    # 2. identical statistic across every level — the t2_rate signature.
+    #
+    # REFINED after this check false-positived on its own clean-data test
+    # (2026-08-08): "T2 uniform" alone is NOT the artifact. If a sample simply
+    # contains no T2 hits, uniform 0.0 is the honest truth. What made the real
+    # bug detectable was that T2 sat perfectly flat WHILE T1 ranged 15.9%-80.2%
+    # across the same levels — a metric that refuses to move while its sibling
+    # moves freely is the tell. Requiring that contrast keeps the check sharp
+    # instead of crying wolf on every T2-less dataset.
+    IDENTICAL_MIN_LEVELS = 3
+    SIBLING_SPREAD_PP = 20.0        # T1 must vary at least this much to compare
+    t2_rates, t1_rates = {}, {}
+    for f, ts in by_level.items():
+        t2_rates[f] = round(sum(1 for t in ts if t["outcome"] == "WIN_T2") / len(ts), 4)
+        t1_rates[f] = 100 * sum(1 for t in ts if t["outcome"].startswith("WIN")) / len(ts)
+    if len(t2_rates) >= IDENTICAL_MIN_LEVELS and len(set(t2_rates.values())) == 1:
+        t1_spread = (max(t1_rates.values()) - min(t1_rates.values())) if t1_rates else 0.0
+        if t1_spread >= SIBLING_SPREAD_PP:
+            _warn("IDENTICAL_ACROSS_ALL_STRATA", "CRITICAL",
+                  f"T2 rate identical ({list(t2_rates.values())[0]}) at every fib "
+                  f"level while T1 varies by {t1_spread:.0f}pp across the same "
+                  "levels — a metric frozen while its sibling moves freely is a "
+                  "measurement-artifact signature, not a market fact",
+                  value=list(t2_rates.values())[0], t1_spread_pp=round(t1_spread, 1))
+
+    # 3. rejection-effect sign flips between adjacent levels
+    ladder = sorted(by_level)
+    signs = {}
+    for f in ladder:
+        rej = [t["r_multiple"] for t in by_level[f]
+               if t.get("rejection") and t.get("r_multiple") is not None]
+        bare = [t["r_multiple"] for t in by_level[f]
+                if t.get("rejection") is False and t.get("r_multiple") is not None]
+        if len(rej) >= 3 and len(bare) >= 3:
+            signs[f] = (sum(rej) / len(rej)) - (sum(bare) / len(bare))
+    flips = [(a, b) for a, b in zip(ladder, ladder[1:])
+             if a in signs and b in signs and signs[a] * signs[b] < 0]
+    if flips:
+        _warn("REJECTION_DIRECTION_INCONSISTENT", "CRITICAL",
+              "rejection confirmation helps at some levels and hurts at adjacent "
+              "ones — an effect that reverses sign across the ladder on small "
+              "cells is noise, not structure",
+              flips=[{"between": [a, b],
+                     "delta_a": round(signs[a], 3), "delta_b": round(signs[b], 3)}
+                     for a, b in flips])
+
+    # 4. single-day / single-outlier dominance of total profit
+    for f, ts in sorted(by_level.items()):
+        Rs = [(t.get("day"), t["r_multiple"]) for t in ts if t.get("r_multiple") is not None]
+        total = sum(r for _, r in Rs)
+        if total <= 0 or len(Rs) < 5:
+            continue
+        top = max(Rs, key=lambda x: x[1])
+        if top[1] / total > 0.5:
+            _warn("SINGLE_TRADE_DOMINATES", "CRITICAL",
+                  f"fib {f}: one trade ({top[0]}) is {100*top[1]/total:.0f}% of total R",
+                  fib_level=f, day=top[0], share_pct=round(100 * top[1] / total, 1))
+        by_day: dict[str, float] = collections.defaultdict(float)
+        for d_, r in Rs:
+            by_day[d_] += r
+        topday = max(by_day.items(), key=lambda x: x[1])
+        if topday[1] / total > 0.5:
+            _warn("SINGLE_DAY_DOMINATES", "WARNING",
+                  f"fib {f}: one day ({topday[0]}) is {100*topday[1]/total:.0f}% of total R",
+                  fib_level=f, day=topday[0], share_pct=round(100 * topday[1] / total, 1))
+
+    # 5. train/test divergence on the same level
+    all_days = sorted({r["day"] for r in rows})
+    split = int(len(all_days) * TRAIN_FRACTION)
+    tr_days, te_days = set(all_days[:split]), set(all_days[split:])
+    for f, ts in sorted(by_level.items()):
+        tr = [t["r_multiple"] for t in ts if t["day"] in tr_days and t.get("r_multiple") is not None]
+        te = [t["r_multiple"] for t in ts if t["day"] in te_days and t.get("r_multiple") is not None]
+        if len(tr) >= 10 and len(te) >= 10:
+            # Compare against SAMPLING ERROR, not a fixed R cutoff.
+            #
+            # Both this and the sign test previously used constants, and both
+            # false-positived on their own random-data test (2026-08-08). The
+            # reason is structural: with R of +-1 and n~10-30 per side, the
+            # standard error of the mean is ~0.2-0.3, so a "large" delta or a
+            # sign flip occurs readily by chance. A warning that fires on
+            # noise trains the reader to ignore it — strictly worse than no
+            # warning. Separation is therefore measured in standard errors,
+            # which scales correctly with sample size instead of pretending
+            # n=10 and n=500 deserve the same threshold.
+            def _mean_se(xs):
+                n = len(xs)
+                m = sum(xs) / n
+                if n < 2:
+                    return m, None
+                var = sum((x - m) ** 2 for x in xs) / (n - 1)
+                return m, (var / n) ** 0.5
+
+            a, se_a = _mean_se(tr)
+            b, se_b = _mean_se(te)
+            sep = ((se_a or 0) ** 2 + (se_b or 0) ** 2) ** 0.5
+            SE_MULTIPLE = 2.0        # declared ~95% separation
+            meaningful = sep > 0 and abs(a - b) > SE_MULTIPLE * sep
+            if meaningful:
+                _warn("TRAIN_TEST_DIVERGENCE", "WARNING",
+                      f"fib {f}: mean R {a:.3f} (train, n={len(tr)}) vs {b:.3f} "
+                      f"(test, n={len(te)}) — delta {b-a:+.3f}, "
+                      f"{abs(a-b)/sep:.1f} standard errors apart",
+                      fib_level=f, train_mean_R=round(a, 3), test_mean_R=round(b, 3),
+                      delta=round(b - a, 3), sigma=round(abs(a - b) / sep, 2))
+                if a * b < 0:
+                    _warn("EXPECTANCY_SIGN_FLIP_OUT_OF_SAMPLE", "CRITICAL",
+                          f"fib {f}: expectancy changes sign between train "
+                          f"({a:.3f}) and test ({b:.3f}) AND the two are "
+                          f"{abs(a-b)/sep:.1f} standard errors apart — an edge "
+                          "that inverts out-of-sample beyond sampling error is "
+                          "not an edge", fib_level=f)
+
+    # 6. does the whole study clear the owner's bar at all?
+    if len(setups) < UNLOCK_MIN_SIGNALS and len({r["day"] for r in rows}) < UNLOCK_MIN_DAYS:
+        _warn("BELOW_OWNER_EVIDENCE_BAR", "CRITICAL",
+              f"{len(setups)} setups over {len({r['day'] for r in rows})} days — "
+              f"below the declared bar ({UNLOCK_MIN_DAYS} days OR "
+              f"{UNLOCK_MIN_SIGNALS} signals). Nothing here can be LIVE_ELIGIBLE.")
+
+    crit = sum(1 for w in warns if w["severity"] == "CRITICAL")
+    return {
+        "symbol": symbol,
+        "warnings": warns,
+        "critical_count": crit,
+        "warning_count": len(warns) - crit,
+        "clean": not warns,
+        "note": ("Automated overfitting/artifact detection. Fires on the exact "
+                 "signatures that produced two false findings in this project "
+                 "already. Emits warnings only — it decides and blocks nothing."),
     }
 
 
@@ -1096,8 +1421,11 @@ async def run(client: DhanClient, symbol: str = "NIFTY", months: int = 6) -> dic
     })
     days = _group_by_day(candles)
     all_rows: list[dict[str, Any]] = []
+    prev_close: float | None = None
     for day, day_candles in sorted(days.items()):
-        all_rows.extend(_process_day(day, day_candles))
+        dcs = sorted(day_candles, key=lambda c: c["time"])
+        all_rows.extend(_process_day(day, dcs, prev_close=prev_close))
+        prev_close = dcs[-1]["close"]      # for the NEXT day's gap only
     _write_rows(symbol, all_rows)
     return {
         "symbol": symbol, "from_date": from_date.isoformat(), "to_date": to_date.isoformat(),

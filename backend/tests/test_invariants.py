@@ -389,6 +389,194 @@ class BacktestGateTests(unittest.TestCase):
         self.assertGreater(r["split"]["train_days"], r["split"]["test_days"])
 
 
+class WilsonIntervalTests(unittest.TestCase):
+    """A proportion without its n and interval is a misleading number —
+    63.5% on n=9 is not the same claim as 63.5% on n=500."""
+
+    def test_known_values(self):
+        w = orfe._wilson(50, 100)
+        self.assertEqual(w["pct"], 50.0)
+        self.assertAlmostEqual(w["lo"], 40.4, delta=0.5)
+        self.assertAlmostEqual(w["hi"], 59.6, delta=0.5)
+
+    def test_interval_narrows_as_n_grows(self):
+        """Same point estimate, more data -> tighter interval. If this ever
+        stopped holding, the interval would be decorative rather than real."""
+        small = orfe._wilson(6, 10)
+        large = orfe._wilson(600, 1000)
+        self.assertEqual(small["pct"], large["pct"])
+        self.assertGreater(small["width"], large["width"] * 5)
+
+    def test_stays_inside_zero_one_at_extremes(self):
+        """Why Wilson and not the normal approximation: at p=0 or p=1 the
+        normal interval escapes [0,1] and reports impossible probabilities."""
+        for w in (orfe._wilson(0, 5), orfe._wilson(5, 5)):
+            self.assertGreaterEqual(w["lo"], 0.0)
+            self.assertLessEqual(w["hi"], 100.0)
+
+    def test_zero_sample_returns_none_not_zero(self):
+        w = orfe._wilson(0, 0)
+        self.assertIsNone(w["pct"])
+        self.assertEqual(w["n"], 0)
+
+
+class OverfittingDetectorTests(unittest.TestCase):
+    """This exists because TWO false findings in this project were caught only
+    by a human re-reading code. A detector that cannot catch those exact
+    signatures is decorative."""
+
+    def setUp(self):
+        orfe._DATA_DIR = pathlib.Path(tempfile.mkdtemp())
+
+    @staticmethod
+    def _rows(spec):
+        """spec: list of (day, fib, outcome, R, rejection)"""
+        out = [{"kind": "setup", "day": d, "bias": "CALL", "regime": "TRENDING",
+                "deepest_frac": 0.3, "day_of_week": "Mon"}
+               for d in sorted({s[0] for s in spec})]
+        for day, fib, outcome, R, rej in spec:
+            out.append({"kind": "touch", "day": day, "fib_level": fib,
+                        "outcome": outcome, "r_multiple": R, "rejection": rej,
+                        "mae_pts": 10.0, "mfe_pts": 10.0, "bias": "CALL",
+                        "regime": "TRENDING"})
+        return out
+
+    def test_catches_the_actual_t2_bug_signature(self):
+        """MUTATION CHECK against a real historical bug (fixed in 9076e13):
+        the T2 loop broke on T1 touch, so t2_rate was 0.0 at EVERY level while
+        T1 ranged 15.9%-80.2%. Reproduces that exact shape — T1 spread wide,
+        T2 frozen at zero — and asserts the detector catches it."""
+        spec = []
+        for i in range(1, 21):
+            d = f"2026-06-{i:02d}"
+            # T1 rate deliberately varies steeply by level, T2 never occurs
+            for fib, wr in ((0.236, 0.15), (0.5, 0.45), (1.0, 0.80)):
+                win = (i / 20.0) <= wr
+                spec.append((d, fib, "WIN_T1" if win else "LOSS",
+                             1.0 if win else -1.0, False))
+        orfe._write_rows("TEST_W", self._rows(spec))
+        codes = [w["code"] for w in orfe.research_warnings("TEST_W")["warnings"]]
+        self.assertIn("IDENTICAL_ACROSS_ALL_STRATA", codes)
+
+    def test_uniform_t2_alone_is_not_flagged(self):
+        """The refinement that fixed a false positive: if T1 is ALSO flat, a
+        uniform T2 is just a sample with no T2 hits — honest, not an artifact.
+        Without this the detector would fire on every T2-less dataset."""
+        spec = [(f"2026-06-{i:02d}", fib, "WIN_T1", 1.0, False)
+                for i in range(1, 16) for fib in (0.382, 0.5, 0.618)]
+        orfe._write_rows("TEST_W", self._rows(spec))
+        codes = [w["code"] for w in orfe.research_warnings("TEST_W")["warnings"]]
+        self.assertNotIn("IDENTICAL_ACROSS_ALL_STRATA", codes)
+
+    def test_catches_rejection_sign_flip(self):
+        """The 2026-08-08 finding: rejection helped at some levels and hurt at
+        adjacent ones on thin cells. Found by hand then; must be automatic now."""
+        spec = []
+        for i in range(1, 9):
+            d = f"2026-06-{i:02d}"
+            spec += [(d, 0.5, "WIN_T1", 2.0, True), (d, 0.5, "LOSS", -1.0, False)]
+            spec += [(d, 0.618, "LOSS", -1.0, True), (d, 0.618, "WIN_T1", 2.0, False)]
+        orfe._write_rows("TEST_W", self._rows(spec))
+        codes = [w["code"] for w in orfe.research_warnings("TEST_W")["warnings"]]
+        self.assertIn("REJECTION_DIRECTION_INCONSISTENT", codes)
+
+    def test_catches_single_trade_dominance(self):
+        spec = [(f"2026-06-{i:02d}", 0.5, "LOSS", -1.0, False) for i in range(1, 10)]
+        spec.append(("2026-06-20", 0.5, "WIN_T2", 60.0, False))
+        orfe._write_rows("TEST_W", self._rows(spec))
+        codes = [w["code"] for w in orfe.research_warnings("TEST_W")["warnings"]]
+        self.assertIn("SINGLE_TRADE_DOMINATES", codes)
+
+    def test_catches_thin_cells_and_the_owner_bar(self):
+        spec = [("2026-06-01", 0.5, "WIN_T1", 1.0, False)]
+        orfe._write_rows("TEST_W", self._rows(spec))
+        codes = [w["code"] for w in orfe.research_warnings("TEST_W")["warnings"]]
+        self.assertIn("SAMPLE_CRITICALLY_THIN", codes)
+        self.assertIn("BELOW_OWNER_EVIDENCE_BAR", codes)
+
+    def test_clean_data_produces_no_false_alarm(self):
+        """A detector that fires on everything is as useless as one that fires
+        on nothing. Well-behaved, adequately-sampled, level-varying data must
+        not trigger the artifact checks."""
+        import random
+        random.seed(7)
+        spec = []
+        for i in range(1, 41):
+            d = f"2026-06-{i:02d}"
+            for fib, wr in ((0.5, 0.55), (0.618, 0.45), (0.786, 0.35)):
+                win = random.random() < wr
+                spec.append((d, fib, "WIN_T1" if win else "LOSS",
+                             1.0 if win else -1.0, random.random() < 0.5))
+        orfe._write_rows("TEST_W", self._rows(spec))
+        codes = [w["code"] for w in orfe.research_warnings("TEST_W")["warnings"]]
+        for artifact in ("IDENTICAL_ACROSS_ALL_STRATA", "SINGLE_TRADE_DOMINATES",
+                         "EXPECTANCY_SIGN_FLIP_OUT_OF_SAMPLE"):
+            self.assertNotIn(artifact, codes)
+
+
+class TransitionMatrixTests(unittest.TestCase):
+    def setUp(self):
+        orfe._DATA_DIR = pathlib.Path(tempfile.mkdtemp())
+
+    def test_conditional_probability_matches_hand_computation(self):
+        """4 setups at known depths: 0.9, 0.7, 0.55, 0.3.
+        Reached 0.786 -> those with deepest<=0.786 = 0.7/0.55/0.3 = 3.
+        Of those, reached 0.618 -> 0.55/0.3 = 2. So P = 2/3 = 66.7%."""
+        rows = [{"kind": "setup", "day": f"2026-06-0{i+1}", "bias": "CALL",
+                 "regime": "TRENDING", "deepest_frac": d}
+                for i, d in enumerate((0.9, 0.7, 0.55, 0.3))]
+        orfe._write_rows("TEST_TM", rows)
+        tm = orfe.transition_matrix("TEST_TM")
+        step = next(s for s in tm["transitions"] if s["from"] == 0.786)
+        self.assertEqual(step["to"], 0.618)
+        self.assertEqual(step["p_deeper_given_reached"]["n"], 3)
+        self.assertAlmostEqual(step["p_deeper_given_reached"]["pct"], 66.7, delta=0.1)
+
+    def test_every_probability_carries_n_and_interval(self):
+        rows = [{"kind": "setup", "day": "2026-06-01", "bias": "CALL",
+                 "regime": "TRENDING", "deepest_frac": 0.4}]
+        orfe._write_rows("TEST_TM", rows)
+        tm = orfe.transition_matrix("TEST_TM")
+        for s in tm["transitions"]:
+            for key in ("pct", "n", "lo", "hi"):
+                self.assertIn(key, s["p_deeper_given_reached"])
+
+
+class NoLookaheadTests(unittest.TestCase):
+    """The single most dangerous class of bug in backtest research: using a
+    candle that had not printed yet."""
+
+    def test_touch_indicators_ignore_all_future_candles(self):
+        """Same day, but with extra candles appended AFTER the touch. Every
+        touch-time field must be byte-identical — if any of them changed, an
+        indicator was reading the future."""
+        def C(h, m, op, hi, lo, cl):
+            t = datetime.datetime(2026, 6, 1, h, m, tzinfo=IST).timestamp()
+            return {"time": t, "open": op, "high": hi, "low": lo,
+                    "close": cl, "volume": 1000}
+        base = []
+        for i in range(15):
+            p = 100 + i * 0.7
+            base.append(C(9, 15 + i, p, p + 0.3, p - 0.3, p + 0.2))
+        base.append(C(9, 30, 110.5, 118.0, 110.4, 117.5))
+        for i, p in enumerate([115, 112, 109, 107.5]):
+            base.append(C(9, 31 + i, p + 1, p + 1.2, p - 0.2, p))
+        for i, p in enumerate([112, 116, 118.5, 121, 124, 127, 129]):
+            base.append(C(9, 35 + i, p - 1, p + 0.5, p - 1.5, p))
+        short = base + [C(10, i % 60, 129, 129.5, 128.5, 129) for i in range(40)]
+        # a wildly different future that must not influence touch-time context
+        wild = base + [C(10, i % 60, 300, 400.0, 250.0, 350) for i in range(40)]
+
+        def touch_ctx(cs):
+            return [{k: r.get(k) for k in ("fib_level", "rsi_touch", "atr_touch",
+                                           "supertrend_direction", "vwap_side",
+                                           "candle_bias", "entry_time")}
+                    for r in orfe._process_day("2026-06-01", cs)
+                    if r.get("kind") == "touch"]
+
+        self.assertEqual(touch_ctx(short), touch_ctx(wild))
+
+
 class IndicatorTests(unittest.TestCase):
     def test_rsi_on_a_flat_series_is_neutral_not_maximum(self):
         """Regression (fixed in a313c9d): a completely flat series has zero
