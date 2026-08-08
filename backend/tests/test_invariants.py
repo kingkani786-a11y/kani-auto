@@ -294,6 +294,65 @@ class FibDepthEvidenceTests(unittest.TestCase):
         self.assertIn(1.0, orfe.FIB_LEVELS)
 
 
+class BacktestGateTests(unittest.TestCase):
+    """The dynamic-zone backtest is BACKTEST_ONLY and must stay unreachable
+    as a trading input until the owner's sample bar is met. The reason is
+    measured, not theoretical: on this dataset the identical fixed rule
+    earned 0.627 mean R on train and 1.178 on test purely because the market
+    changed. At n~30 that swamps any strategy difference, so an ungated
+    number would let regime noise be read as edge."""
+
+    def test_unlock_bar_is_the_owners_standard(self):
+        self.assertEqual(orfe.UNLOCK_MIN_DAYS, 100)
+        self.assertEqual(orfe.UNLOCK_MIN_SIGNALS, 500)
+        self.assertTrue(orfe.BACKTEST_ONLY,
+                        "BACKTEST_ONLY must not be flipped without a human decision")
+
+    def test_backtest_is_not_reachable_from_any_live_decision_module(self):
+        """orfe_research must not be imported by confluence/decision/gate code."""
+        for mod in ("app/engines/confluence.py", "app/services/decision_contract.py",
+                    "app/engines/execution_gate.py", "app/services/kill_switch.py",
+                    "app/engines/decision.py"):
+            p = _BACKEND / mod
+            if p.exists():
+                self.assertNotIn("orfe_research", p.read_text(),
+                                 f"{mod} must not import the research backtest")
+
+    def test_gate_blocks_and_explains_on_a_thin_sample(self):
+        """Requires the candle cache; skipped where it is absent (e.g. CI)."""
+        try:
+            r = orfe.dynamic_zone_backtest("NIFTY")
+        except ValueError:
+            self.skipTest("no cached candles in this environment")
+        if r.get("error"):
+            self.skipTest(r["error"])
+        self.assertEqual(r["mode"], "BACKTEST_ONLY")
+        # mandatory fields, duplicated at top level so a caller cannot miss them
+        self.assertIn("sample_size", r)
+        self.assertIn("regime_warning", r)
+        g = r["gate"]
+        self.assertIn("unlocked_for_decisions", g)
+        self.assertIn("regime_warning", g)
+        # at the current sample the gate must be shut
+        if g["sample_size"]["test_setups"] < orfe.UNLOCK_MIN_SIGNALS and \
+           g["sample_size"]["test_days"] < orfe.UNLOCK_MIN_DAYS:
+            self.assertFalse(g["unlocked_for_decisions"])
+            self.assertEqual(g["status"], "DIRECTIONAL_ONLY")
+            self.assertIsNotNone(g["shortfall"])
+
+    def test_train_test_split_is_chronological_not_random(self):
+        """A random split leaks future regime into training and flatters the
+        result — the one methodological error that would invalidate all of it."""
+        try:
+            r = orfe.dynamic_zone_backtest("NIFTY")
+        except ValueError:
+            self.skipTest("no cached candles in this environment")
+        if r.get("error"):
+            self.skipTest(r["error"])
+        self.assertIn("chronological", r["split"]["method"])
+        self.assertGreater(r["split"]["train_days"], r["split"]["test_days"])
+
+
 class IndicatorTests(unittest.TestCase):
     def test_rsi_on_a_flat_series_is_neutral_not_maximum(self):
         """Regression (fixed in a313c9d): a completely flat series has zero

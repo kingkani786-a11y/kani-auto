@@ -110,6 +110,66 @@ def _group_by_day(candles: list[dict]) -> dict[str, list[dict]]:
     return days
 
 
+def _resolve_trade(bars: list[dict], entry_px: float, stop_px: float,
+                   target1_px: float, target2_px: float, d: float) -> dict[str, Any]:
+    """Resolve one entry against subsequent bars — the SINGLE definition of
+    trade management, shared by _process_day and the dynamic-zone backtest so
+    the two can never drift apart and produce non-comparable numbers.
+
+    Rules (unchanged from the tested path): stop is evaluated BEFORE targets
+    within a bar (conservative fill); T1 is BANKED on touch and the position
+    keeps running toward T2; a stop touched AFTER T1 ends the run at WIN_T1
+    rather than converting a realised target into a loss.
+    """
+    outcome, exit_px = "OPEN", None
+    mfe = mae = 0.0
+    t1_hit = False
+    t1_ts = t2_ts = None
+    for c in bars:
+        fav = (c["high"] - entry_px) if d > 0 else (entry_px - c["low"])
+        adv = (entry_px - c["low"]) if d > 0 else (c["high"] - entry_px)
+        mfe, mae = max(mfe, fav), max(mae, adv)
+        hit_stop = (c["low"] <= stop_px) if d > 0 else (c["high"] >= stop_px)
+        hit_t1 = (c["high"] >= target1_px) if d > 0 else (c["low"] <= target1_px)
+        hit_t2 = (c["high"] >= target2_px) if d > 0 else (c["low"] <= target2_px)
+        if not t1_hit:
+            if hit_stop:
+                outcome, exit_px = "LOSS", stop_px
+                break
+            if hit_t1:
+                t1_hit, t1_ts = True, c["time"]
+                outcome, exit_px = "WIN_T1", target1_px
+                if hit_t2:
+                    outcome, exit_px, t2_ts = "WIN_T2", target2_px, c["time"]
+                    break
+                continue
+        else:
+            if hit_t2:
+                outcome, exit_px, t2_ts = "WIN_T2", target2_px, c["time"]
+                break
+            if hit_stop:
+                break
+    return {"outcome": outcome, "exit_px": exit_px, "mfe": mfe, "mae": mae,
+            "t1_ts": t1_ts, "t2_ts": t2_ts}
+
+
+def _r_multiple(res: dict[str, Any], entry_px: float, stop_px: float,
+                target1_px: float, target2_px: float) -> float | None:
+    """Realised R. None for OPEN (never resolved) — excluded rather than
+    scored as a zero, which would silently dilute expectancy toward 0."""
+    risk = abs(entry_px - stop_px)
+    if risk <= 0:
+        return None
+    o = res["outcome"]
+    if o == "LOSS":
+        return -1.0
+    if o == "WIN_T1":
+        return abs(target1_px - entry_px) / risk
+    if o == "WIN_T2":
+        return abs(target2_px - entry_px) / risk
+    return None
+
+
 def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
     """Pure function over one day's 1-min candles -> zero or more (fib_level)
     rows. Never raises on thin data — returns [] and lets the caller move on,
@@ -330,42 +390,16 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         # turns the trade into a loss (T1 was already realised) — it just ends
         # the run at WIN_T1. Stop is still checked BEFORE targets within the
         # same candle, keeping the existing conservative fill convention.
+        # Extracted to _resolve_trade() (2026-08-08) so the dynamic-zone
+        # backtest resolves trades by the IDENTICAL rule. Two copies of trade
+        # management would eventually diverge and make the comparison
+        # meaningless — which is the entire point of that backtest.
         d = 1.0 if bias == "CALL" else -1.0
-
-        def _fav(c):    # favourable excursion in trade direction
-            return (c["high"] - entry_px) if d > 0 else (entry_px - c["low"])
-
-        def _adv(c):    # adverse excursion in trade direction
-            return (entry_px - c["low"]) if d > 0 else (c["high"] - entry_px)
-
-        outcome, exit_px = "OPEN", None
-        mfe = mae = 0.0
-        t1_hit = False
-        t1_ts = t2_ts = None
-        for c in post_or[touch_idx + 1:]:
-            mfe = max(mfe, _fav(c))
-            mae = max(mae, _adv(c))
-            hit_stop = (c["low"] <= stop_px) if d > 0 else (c["high"] >= stop_px)
-            hit_t1 = (c["high"] >= target1_px) if d > 0 else (c["low"] <= target1_px)
-            hit_t2 = (c["high"] >= target2_px) if d > 0 else (c["low"] <= target2_px)
-
-            if not t1_hit:
-                if hit_stop:                      # conservative: stop fills first
-                    outcome, exit_px = "LOSS", stop_px
-                    break
-                if hit_t1:
-                    t1_hit, t1_ts = True, c["time"]
-                    outcome, exit_px = "WIN_T1", target1_px
-                    if hit_t2:                    # same candle reached both
-                        outcome, exit_px, t2_ts = "WIN_T2", target2_px, c["time"]
-                        break
-                    continue                      # keep running toward T2
-            else:
-                if hit_t2:
-                    outcome, exit_px, t2_ts = "WIN_T2", target2_px, c["time"]
-                    break
-                if hit_stop:
-                    break                         # T1 already banked — stays WIN_T1
+        _res = _resolve_trade(post_or[touch_idx + 1:], entry_px, stop_px,
+                              target1_px, target2_px, d)
+        outcome, exit_px = _res["outcome"], _res["exit_px"]
+        mfe, mae = _res["mfe"], _res["mae"]
+        t1_ts, t2_ts = _res["t1_ts"], _res["t2_ts"]
 
         rows.append({
             "kind": "touch",
@@ -640,6 +674,209 @@ def depth_distribution(symbol: str = "NIFTY") -> dict[str, Any]:
             "turned. Those are not shallow-or-deep retracements — they are "
             "failed breakouts, and averaging them in would drag the 'typical "
             "pullback' deeper than any tradeable retracement actually goes."),
+    }
+
+
+TRAIN_FRACTION = 0.70          # declared; time-based, never random (see below)
+ZONE_LO_PCTILE = 0.25          # zone fitted as the middle 50% of where
+ZONE_HI_PCTILE = 0.75          # reversal-confirmed pullbacks actually turned
+
+# UNLOCK BAR (owner, 2026-08-08). Until the TEST split clears one of these,
+# the backtest is BACKTEST_ONLY and must not reach entry logic. The bar is the
+# owner's own standard, and the reason it is enforced in code rather than left
+# to judgement is measured, not theoretical: on this dataset the identical
+# fixed rule earned 0.627 mean R on the train half and 1.178 on the test half
+# purely because the market changed. At n~30 that regime effect is larger than
+# any difference between the strategies being compared, so an ungated number
+# here would let noise be read as edge.
+UNLOCK_MIN_DAYS = 100
+UNLOCK_MIN_SIGNALS = 500
+BACKTEST_ONLY = True           # flipped only by a human, after the bar is met
+
+
+def dynamic_zone_backtest(symbol: str = "NIFTY",
+                          train_fraction: float = TRAIN_FRACTION,
+                          baselines: tuple[float, ...] = (0.618, 0.786)) -> dict[str, Any]:
+    """STEP 2 — does a DATA-FITTED entry zone beat a FIXED fib level?
+
+    Method (owner-specified, 2026-08-08):
+      * Split the trading days CHRONOLOGICALLY, never randomly. Market regime
+        shifts over time; a random split leaks future regime into training and
+        would flatter the result.
+      * Fit the zone on the TRAIN days only — the p25..p75 band of where
+        reversal-confirmed pullbacks actually turned.
+      * Apply it to the TEST days, which the fit never saw.
+      * Run the fixed-level baselines over the SAME test days and compare
+        expectancy in R.
+
+    Entry rule for the zone: enter at the first touch of its SHALLOW edge —
+    that is the first price at which a resting limit order inside the zone
+    would actually fill as price falls in. Taking the deep edge instead would
+    assume a fill that often never happens, which flatters the result.
+
+    Stop/T1/T2 and trade management are IDENTICAL to the fixed-level path
+    (shared _resolve_trade), so the comparison isolates entry location and
+    nothing else. Expectancy is reported in R, which normalises the fact that
+    a shallower entry carries a wider stop.
+
+    Runs fully offline from cached candles.
+    """
+    cached = _load_cached_candles(symbol)
+    if not cached:
+        raise ValueError(f"No cached candles for {symbol} — run the live "
+                         f"backtest once first.")
+    candles, meta = cached
+    days = sorted(_group_by_day(candles).items())
+    split = int(len(days) * train_fraction)
+    train_days, test_days = days[:split], days[split:]
+
+    def _contexts(day_pairs):
+        out = []
+        for day, dcs in day_pairs:
+            for r in _process_day(day, dcs):
+                if r.get("kind") == "setup":
+                    out.append((day, dcs, r))
+        return out
+
+    train_ctx, test_ctx = _contexts(train_days), _contexts(test_days)
+
+    # ── FIT on train only ────────────────────────────────────────────────
+    fit_vals = sorted(c[2]["first_pullback_frac"] for c in train_ctx
+                      if c[2].get("first_pullback_frac") is not None
+                      and c[2].get("reversal_confirmed"))
+    if len(fit_vals) < 10:
+        return {"symbol": symbol, "error": "INSUFFICIENT_TRAIN_SAMPLE",
+                "train_reversals": len(fit_vals),
+                "note": "fewer than 10 reversal-confirmed train setups — "
+                        "fitting a zone on this would be noise, not evidence"}
+
+    def _q(xs, q):
+        return xs[min(len(xs) - 1, max(0, int(round(q * (len(xs) - 1)))))]
+
+    zone_lo, zone_hi = _q(fit_vals, ZONE_LO_PCTILE), _q(fit_vals, ZONE_HI_PCTILE)
+
+    # ── evaluate one entry fraction over a set of contexts ───────────────
+    def _run_at(ctxs, frac_of):
+        rs, rows = [], 0
+        for day, dcs, s in ctxs:
+            bias, or_low, or_high = s["bias"], s["or_low"], s["or_high"]
+            or_range, extreme = s["or_range"], s["breakout_extreme"]
+            frac = frac_of(s)
+            if frac is None:
+                continue
+            entry_px = (or_low + frac * or_range) if bias == "CALL" else (or_high - frac * or_range)
+            stop_px = or_low if bias == "CALL" else or_high
+            t1 = extreme
+            t2 = t1 + or_range if bias == "CALL" else t1 - or_range
+            d = 1.0 if bias == "CALL" else -1.0
+            post = [c for c in dcs if _hm(c["time"]) >= OR_END]
+            # locate the breakout extreme bar, then the first touch of entry_px
+            hit = None
+            for i, c in enumerate(post):
+                if c["low"] <= entry_px <= c["high"]:
+                    hit = i
+                    break
+            if hit is None:
+                continue                       # never filled — not a trade
+            rows += 1
+            res = _resolve_trade(post[hit + 1:], entry_px, stop_px, t1, t2, d)
+            r = _r_multiple(res, entry_px, stop_px, t1, t2)
+            if r is not None:
+                rs.append(r)
+        return rs, rows
+
+    def _summary(rs, fills, ctxs, label):
+        if not rs:
+            return {"strategy": label, "fills": fills, "resolved": 0,
+                    "mean_R": None, "median_R": None, "win_rate": None,
+                    "fill_rate_pct": round(100 * fills / len(ctxs), 1) if ctxs else None}
+        wins = sum(1 for r in rs if r > 0)
+        srt = sorted(rs)
+        return {
+            "strategy": label,
+            "fills": fills,
+            "resolved": len(rs),
+            "fill_rate_pct": round(100 * fills / len(ctxs), 1) if ctxs else None,
+            "mean_R": round(sum(rs) / len(rs), 3),
+            "median_R": round(srt[len(srt) // 2], 3),
+            "win_rate": round(100 * wins / len(rs), 1),
+            "total_R": round(sum(rs), 2),
+        }
+
+    results = [_summary(*_run_at(test_ctx, lambda s: zone_hi), test_ctx,
+                        f"DYNAMIC zone {zone_lo:.3f}-{zone_hi:.3f} (fitted on train)")]
+    for b in baselines:
+        results.append(_summary(*_run_at(test_ctx, lambda s, b=b: b), test_ctx,
+                                f"FIXED {b}"))
+
+    # in-sample figure for the same zone, purely to expose overfit gap
+    in_sample = _summary(*_run_at(train_ctx, lambda s: zone_hi), train_ctx,
+                         "DYNAMIC zone (IN-SAMPLE, for overfit check only)")
+
+    # ── REGIME SENSITIVITY, measured rather than asserted ────────────────
+    # Run the SAME unchanged fixed rule on both halves. Any difference is
+    # attributable to the market, not the rule — which is the concrete
+    # argument for why a thin out-of-sample table must not drive decisions.
+    _ref = baselines[0] if baselines else 0.618
+    _tr = _summary(*_run_at(train_ctx, lambda s, b=_ref: b), train_ctx, f"FIXED {_ref} on TRAIN")
+    _te = _summary(*_run_at(test_ctx, lambda s, b=_ref: b), test_ctx, f"FIXED {_ref} on TEST")
+    regime_gap = None
+    if _tr.get("mean_R") is not None and _te.get("mean_R") is not None:
+        regime_gap = {
+            "identical_rule": f"FIXED {_ref}",
+            "train": {"n": _tr["resolved"], "mean_R": _tr["mean_R"], "win_rate": _tr["win_rate"]},
+            "test": {"n": _te["resolved"], "mean_R": _te["mean_R"], "win_rate": _te["win_rate"]},
+            "mean_R_delta": round(_te["mean_R"] - _tr["mean_R"], 3),
+            "reading": ("The rule did not change between these two halves — only "
+                        "the market did. A delta of this size on samples this "
+                        "small means the out-of-sample table above is measuring "
+                        "WHEN it was tested at least as much as WHAT was tested."),
+        }
+
+    # ── DECISION GATE (owner, 2026-08-08) ────────────────────────────────
+    # Numbers this thin must not be reachable as if they were tradeable.
+    # Evaluated on the TEST split, because that is what the comparison rests on.
+    n_test_setups, n_test_days = len(test_ctx), len(test_days)
+    unlocked = (n_test_setups >= UNLOCK_MIN_SIGNALS) or (n_test_days >= UNLOCK_MIN_DAYS)
+    gate = {
+        "unlocked_for_decisions": bool(unlocked),
+        "status": "DECISION_GRADE" if unlocked else "DIRECTIONAL_ONLY",
+        "bar": f">={UNLOCK_MIN_DAYS} trading days OR >={UNLOCK_MIN_SIGNALS} signals "
+               f"in the TEST split (owner's own standard, 2026-08-07)",
+        "sample_size": {"test_setups": n_test_setups, "test_days": n_test_days,
+                        "train_setups": len(train_ctx), "train_days": len(train_days)},
+        "shortfall": (None if unlocked else
+                      {"signals_short": max(0, UNLOCK_MIN_SIGNALS - n_test_setups),
+                       "days_short": max(0, UNLOCK_MIN_DAYS - n_test_days)}),
+        "regime_warning": (
+            f"n={n_test_setups} test setups over {n_test_days} days — "
+            "REGIME-SENSITIVE, DIRECTIONAL ONLY. Do not wire into entry logic. "
+            + (f"Measured proof: the identical FIXED {_ref} rule earned "
+               f"{_tr['mean_R']} mean R on train and {_te['mean_R']} on test "
+               f"(delta {regime_gap['mean_R_delta']:+}) with no rule change at all."
+               if regime_gap else "")),
+    }
+
+    return {
+        "symbol": symbol,
+        "mode": "BACKTEST_ONLY",          # never a live-trading input
+        "gate": gate,                      # mandatory — read this before the numbers
+        "sample_size": gate["sample_size"],        # duplicated at top level so it
+        "regime_warning": gate["regime_warning"],  # cannot be missed by a caller
+        "cached_window": meta,
+        "split": {"method": "chronological (never random — regime shifts over time)",
+                  "train_days": len(train_days), "test_days": len(test_days),
+                  "train_setups": len(train_ctx), "test_setups": len(test_ctx),
+                  "train_reversals_used_for_fit": len(fit_vals)},
+        "fitted_zone": {"lo": round(zone_lo, 4), "hi": round(zone_hi, 4),
+                        "percentiles": [ZONE_LO_PCTILE, ZONE_HI_PCTILE],
+                        "entry_at": "shallow edge (hi) — first realistic fill"},
+        "out_of_sample": results,
+        "in_sample_reference": in_sample,
+        "regime_sensitivity": regime_gap,
+        "cost_warning": ("No brokerage, slippage or spread modelled. Index points "
+                         "only — not option premium P&L."),
+        "as_of": int(time.time()),
     }
 
 

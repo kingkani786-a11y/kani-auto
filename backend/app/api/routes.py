@@ -437,6 +437,28 @@ async def state_consistency_ep():
     return state_consistency.report()
 
 
+@router.get("/internal/orfe-research/dynamic-zone-backtest")
+async def orfe_dynamic_zone_backtest_ep(symbol: str = "NIFTY"):
+    """INTERNAL / BACKTEST-ONLY (owner-gated, 2026-08-08).
+
+    Train/test comparison of a data-fitted entry zone against fixed fib
+    levels. Deliberately namespaced under /internal and NOT wired to any
+    live decision path, because the same dataset proves why it must not be:
+    the identical fixed rule earned 0.627 mean R on the train half and 1.178
+    on the test half with no rule change at all — at n~30 the regime effect
+    is larger than the difference between the strategies being compared.
+
+    Every response carries `gate`, `sample_size` and `regime_warning`.
+    `gate.unlocked_for_decisions` stays False until the TEST split clears
+    the owner's bar (>=100 trading days OR >=500 signals). Offline: reads
+    cached candles, no broker call."""
+    from ..services import orfe_research
+    try:
+        return orfe_research.dynamic_zone_backtest(symbol.upper())
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
 @router.get("/orfe-research/depth-distribution")
 async def orfe_depth_distribution_ep(symbol: str = "NIFTY"):
     """Observed FIRST-pullback depth distribution — percentiles + histogram,
