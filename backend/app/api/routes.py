@@ -437,6 +437,26 @@ async def state_consistency_ep():
     return state_consistency.report()
 
 
+@router.get("/orfe-research/depth-distribution")
+async def orfe_depth_distribution_ep(symbol: str = "NIFTY"):
+    """Observed FIRST-pullback depth distribution — percentiles + histogram,
+    split by whether the pullback actually reversed. Research read-only."""
+    from ..services import orfe_research
+    return orfe_research.depth_distribution(symbol.upper())
+
+
+@router.post("/orfe-research/reanalyze")
+async def orfe_reanalyze_ep(symbol: str = "NIFTY"):
+    """Re-run the ORFE study from CACHED candles — no broker, no market
+    session, no credential re-entry. Lets measurement rules be iterated
+    cheaply once a live run has populated the cache."""
+    from ..services import orfe_research
+    try:
+        return orfe_research.reanalyze(symbol.upper())
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
 @router.get("/strategy-router")
 async def strategy_router_ep(symbol: str = "NIFTY"):
     """STRATEGY ROUTER (owner, 2026-08-08) — one evidence view across all four

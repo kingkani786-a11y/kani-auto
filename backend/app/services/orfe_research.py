@@ -61,6 +61,7 @@ from __future__ import annotations
 import datetime
 import json
 import pathlib
+import time
 from typing import Any
 
 from ..broker.dhan import DhanClient
@@ -205,6 +206,43 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         deepest_px = max(c["high"] for c in retrace_window)
         deepest_frac = (or_high - deepest_px) / or_range
 
+    # ── FIRST PULLBACK, and where it actually REVERSED ────────────────────
+    # (owner, 2026-08-08: "pullback எங்க வரைக்கும் போச்சு, எங்க இருந்து
+    # reverse ஆச்சு"). deepest_frac above is the deepest point at ANY time
+    # after the breakout — so on a setup that ran to target and then faded
+    # into the close, it reports the late fade, not the entry pullback. That
+    # makes it the wrong statistic for "where does a retracement usually
+    # turn". Measured separately here: scan forward from the breakout
+    # extreme, track the running retracement low, and STOP the moment price
+    # exceeds the original extreme — that exceedance IS the resumption.
+    # If it never happens, the pullback never reversed: recorded as
+    # reversal_confirmed False rather than being mixed in as if it had.
+    pb_extreme_px = None
+    pb_end_idx = None
+    reversal_confirmed = False
+    running = None
+    for i in range(extreme_idx, len(post_or)):
+        c = post_or[i]
+        if bias == "CALL":
+            running = c["low"] if running is None else min(running, c["low"])
+            if c["high"] > extreme and i > extreme_idx:
+                pb_end_idx, reversal_confirmed = i, True
+                break
+        else:
+            running = c["high"] if running is None else max(running, c["high"])
+            if c["low"] < extreme and i > extreme_idx:
+                pb_end_idx, reversal_confirmed = i, True
+                break
+    pb_extreme_px = running
+    if pb_extreme_px is None:
+        first_pullback_frac = None
+    elif bias == "CALL":
+        first_pullback_frac = (pb_extreme_px - or_low) / or_range
+    else:
+        first_pullback_frac = (or_high - pb_extreme_px) / or_range
+    pb_mins = (round((post_or[pb_end_idx]["time"] - post_or[extreme_idx]["time"]) / 60, 1)
+               if pb_end_idx is not None else None)
+
     setup_row: dict[str, Any] = {
         "kind": "setup",                 # the denominator record
         "day": day, "bias": bias, "regime": regime,
@@ -213,6 +251,13 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         "breakout_extreme": round(extreme, 2),
         "deepest_px": round(deepest_px, 2),
         "deepest_frac": round(deepest_frac, 4),
+        # the FIRST pullback and whether it actually reversed — the honest
+        # basis for a retracement-depth distribution
+        "first_pullback_frac": (round(first_pullback_frac, 4)
+                                if first_pullback_frac is not None else None),
+        "first_pullback_px": round(pb_extreme_px, 2) if pb_extreme_px is not None else None,
+        "reversal_confirmed": reversal_confirmed,
+        "pullback_mins": pb_mins,
         "adx_930": round(adx_930, 1) if adx_930 is not None else None,
         "atr_930": round(atr_930, 2) if atr_930 is not None else None,
         "rsi_930": round(rsi_930, 1),
@@ -352,6 +397,60 @@ def _path(symbol: str) -> pathlib.Path:
     return _DATA_DIR / f"{symbol}.jsonl"
 
 
+def _candle_cache_path(symbol: str) -> pathlib.Path:
+    return _DATA_DIR / f"_candles_{symbol}.json.gz"
+
+
+def _cache_candles(symbol: str, candles: list[dict], meta: dict[str, Any]) -> None:
+    """Persist the raw 1-min history a run() fetched.
+
+    WHY: the fetch is ~6 chunked broker calls under a 45/min budget, and this
+    backend holds credentials in process memory only — so every re-analysis
+    previously meant restart -> lost credentials -> manual reconnect -> refetch.
+    With the candles on disk, reanalyze() can re-run the ENTIRE study offline,
+    with no broker and no market session. The measurement rules are what get
+    iterated during research; the underlying candles do not change."""
+    import gzip
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = _candle_cache_path(symbol).with_suffix(".tmp")
+    with gzip.open(tmp, "wt") as f:
+        json.dump({"meta": meta, "candles": candles}, f)
+    tmp.replace(_candle_cache_path(symbol))
+
+
+def _load_cached_candles(symbol: str) -> tuple[list[dict], dict[str, Any]] | None:
+    import gzip
+    p = _candle_cache_path(symbol)
+    if not p.exists():
+        return None
+    try:
+        with gzip.open(p, "rt") as f:
+            d = json.load(f)
+        return d.get("candles") or [], d.get("meta") or {}
+    except Exception:
+        return None
+
+
+def reanalyze(symbol: str = "NIFTY") -> dict[str, Any]:
+    """Re-run the whole study from CACHED candles — no broker, no market
+    session, no credentials. This is what makes iterating on the measurement
+    rules cheap: change a rule, reanalyze, compare. Raises if no cache yet."""
+    cached = _load_cached_candles(symbol)
+    if not cached:
+        raise ValueError(f"No cached candles for {symbol} — run the live "
+                         f"backtest once first to populate the cache.")
+    candles, meta = cached
+    days = _group_by_day(candles)
+    all_rows: list[dict[str, Any]] = []
+    for day, day_candles in sorted(days.items()):
+        all_rows.extend(_process_day(day, day_candles))
+    _write_rows(symbol, all_rows)
+    return {"symbol": symbol, "source": "cached candles (offline)",
+            "cached_meta": meta, "candles": len(candles),
+            "trading_days_seen": len(days), "rows_written": len(all_rows),
+            "stats": level_stats(symbol)}
+
+
 def _write_rows(symbol: str, rows: list[dict[str, Any]]) -> None:
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
     with _path(symbol).open("w") as f:
@@ -478,6 +577,72 @@ def level_stats(symbol: str) -> dict[str, Any]:
     }
 
 
+def depth_distribution(symbol: str = "NIFTY") -> dict[str, Any]:
+    """WHERE DOES THE PULLBACK ACTUALLY TURN? (owner, 2026-08-08)
+
+    Answers the question a fixed-level table structurally cannot: instead of
+    asking "is 0.618 good?", it reports the observed distribution of FIRST
+    pullback depth across every setup — percentiles, a histogram, and the
+    split between pullbacks that reversed and ones that never did.
+
+    Uses first_pullback_frac (retracement measured until price exceeds the
+    breakout extreme), NOT deepest_frac, because the latter includes any late
+    end-of-day fade after the trade already resolved.
+
+    Scale note: 1.0 = the breakout boundary, 0.0 = the far side of the opening
+    range, NEGATIVE = broke clean through the range. SMALLER IS DEEPER."""
+    setups = [r for r in _read_rows(symbol) if r.get("kind") == "setup"]
+    vals = [(s.get("first_pullback_frac"), bool(s.get("reversal_confirmed")))
+            for s in setups if s.get("first_pullback_frac") is not None]
+    if not vals:
+        return {"symbol": symbol, "setups": 0,
+                "note": "no setup rows with a measured first pullback — "
+                        "run or reanalyze first"}
+
+    reversed_ = [v for v, ok in vals if ok]
+    failed = [v for v, ok in vals if not ok]
+
+    def _p(xs: list[float], q: float) -> float | None:
+        if not xs:
+            return None
+        s = sorted(xs)
+        return round(s[min(len(s) - 1, max(0, int(round(q * (len(s) - 1)))))], 4)
+
+    # Histogram over the fib scale. Bins are declared, evenly spaced, and
+    # include an explicit below-range bucket so a clean breakdown is visible
+    # rather than being clipped into the deepest normal bin.
+    edges = [-0.25, 0.0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90, 1.05]
+    hist = []
+    for lo, hi in zip(edges, edges[1:]):
+        n = sum(1 for v, _ in vals if lo <= v < hi)
+        hist.append({"from": lo, "to": hi, "n": n,
+                     "pct": round(100 * n / len(vals), 1)})
+    below = sum(1 for v, _ in vals if v < edges[0])
+    above = sum(1 for v, _ in vals if v >= edges[-1])
+
+    return {
+        "symbol": symbol,
+        "setups": len(vals),
+        "reversal_confirmed": len(reversed_),
+        "never_reversed": len(failed),
+        "reversal_rate_pct": round(100 * len(reversed_) / len(vals), 1),
+        "percentiles_all": {f"p{int(q*100)}": _p([v for v, _ in vals], q)
+                            for q in (0.10, 0.25, 0.50, 0.75, 0.90)},
+        "percentiles_reversed_only": {f"p{int(q*100)}": _p(reversed_, q)
+                                      for q in (0.10, 0.25, 0.50, 0.75, 0.90)},
+        "histogram": hist,
+        "below_lowest_bin": below,
+        "above_highest_bin": above,
+        "scale_note": ("1.0 = breakout boundary · 0.0 = far side of the opening "
+                       "range · negative = broke clean through. SMALLER IS DEEPER."),
+        "why_reversed_only_matters": (
+            "percentiles_reversed_only excludes setups whose pullback never "
+            "turned. Those are not shallow-or-deep retracements — they are "
+            "failed breakouts, and averaging them in would drag the 'typical "
+            "pullback' deeper than any tradeable retracement actually goes."),
+    }
+
+
 async def run(client: DhanClient, symbol: str = "NIFTY", months: int = 6) -> dict[str, Any]:
     """On-demand: POST /api/orfe-research/run while connected (same pattern
     as historical_learning.run()). Fetches ~`months` of 1-min history via the
@@ -490,6 +655,13 @@ async def run(client: DhanClient, symbol: str = "NIFTY", months: int = 6) -> dic
     if len(candles) < 500:
         raise ValueError(f"Not enough historical intraday data returned for {symbol} "
                           f"({len(candles)} candles) — broker may not carry this far back")
+    # Cache the raw candles before analysing, so every later iteration of the
+    # measurement rules can run offline via reanalyze() — no broker call, no
+    # credential re-entry, no market session.
+    _cache_candles(symbol, candles, {
+        "from_date": from_date.isoformat(), "to_date": to_date.isoformat(),
+        "fetched_at": int(time.time()), "interval": "1",
+    })
     days = _group_by_day(candles)
     all_rows: list[dict[str, Any]] = []
     for day, day_candles in sorted(days.items()):
@@ -498,5 +670,6 @@ async def run(client: DhanClient, symbol: str = "NIFTY", months: int = 6) -> dic
     return {
         "symbol": symbol, "from_date": from_date.isoformat(), "to_date": to_date.isoformat(),
         "candles_fetched": len(candles), "trading_days_seen": len(days),
+        "candles_cached": True,
         "rows_written": len(all_rows), "stats": level_stats(symbol),
     }
