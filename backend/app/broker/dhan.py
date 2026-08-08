@@ -663,16 +663,43 @@ class DhanClient:
         years but caps each REQUEST at 90 days — so this chunks by 90 days,
         oldest-first, same _request() path as every other call (shared
         rate-limit budget/backoff applies automatically, no separate throttle
-        needed). Read-only historical pull; never called from the live loop."""
+        needed). Read-only historical pull; never called from the live loop.
+
+        A multi-year pull is ~20 chunks, so a single transient failure must not
+        discard the whole run: each window is retried with backoff, and a window
+        that still fails is RECORDED as a gap and skipped rather than aborting.
+        The caller receives `_gaps` via get_intraday_range_report() so a hole in
+        the data is visible and auditable, never silently interpolated.
+        """
         out: list[dict] = []
+        gaps: list[dict] = []
         cur = from_date
         while cur <= to_date:
             window_end = min(cur + datetime.timedelta(days=90), to_date)
-            chunk = await self._intraday_window(inst, interval, cur, window_end)
+            chunk: list[dict] = []
+            last_err = None
+            for attempt in range(3):
+                try:
+                    chunk = await self._intraday_window(inst, interval, cur, window_end)
+                    break
+                except BrokerError as e:
+                    last_err = str(e)
+                    if attempt < 2:
+                        await asyncio.sleep(2.0 * (attempt + 1))   # 2s, 4s
+            if not chunk and last_err:
+                gaps.append({"from": cur.isoformat(), "to": window_end.isoformat(),
+                             "error": last_err[:160]})
+                log.warning("historical chunk failed %s..%s: %s", cur, window_end, last_err)
             out.extend(chunk)
             cur = window_end + datetime.timedelta(days=1)
         out.sort(key=lambda c: c["time"])
+        self._last_range_gaps = gaps
         return out
+
+    def get_last_range_gaps(self) -> list[dict]:
+        """Windows that failed every retry during the most recent
+        get_intraday_range() call. Empty list means a complete pull."""
+        return list(getattr(self, "_last_range_gaps", []))
 
     async def get_intraday_candles(
         self, inst: Instrument, interval: str = "5", lookback_days: int = 5

@@ -1412,12 +1412,42 @@ async def run(client: DhanClient, symbol: str = "NIFTY", months: int = 6) -> dic
     if len(candles) < 500:
         raise ValueError(f"Not enough historical intraday data returned for {symbol} "
                           f"({len(candles)} candles) — broker may not carry this far back")
+    # Chunk-level failures are recorded, never silently interpolated — a hole
+    # in a multi-year pull must be visible in the manifest (owner Section 2/3).
+    gaps = client.get_last_range_gaps() if hasattr(client, "get_last_range_gaps") else []
+
+    # DATA QUALITY AUDIT (owner Section 3) — computed on the raw pull, before
+    # any analysis, and reported rather than repaired.
+    seen_ts: set[float] = set()
+    dupes = 0
+    malformed = 0
+    for c in candles:
+        if c["time"] in seen_ts:
+            dupes += 1
+        seen_ts.add(c["time"])
+        if not (c["low"] <= c["open"] <= c["high"] and c["low"] <= c["close"] <= c["high"]
+                and c["high"] >= c["low"] and c["low"] > 0):
+            malformed += 1
+    _days_tmp = _group_by_day(candles)
+    thin_sessions = sum(1 for d, cs in _days_tmp.items() if len(cs) < 300)
+    quality = {
+        "candles": len(candles), "unique_timestamps": len(seen_ts),
+        "duplicate_timestamps": dupes, "malformed_ohlc": malformed,
+        "trading_days": len(_days_tmp),
+        "thin_sessions_under_300_bars": thin_sessions,
+        "chunk_gaps": gaps,
+        "note": ("Reported, never repaired. Duplicates and malformed bars are "
+                 "counted and left in place; a chunk that failed every retry is "
+                 "listed in chunk_gaps rather than interpolated."),
+    }
+
     # Cache the raw candles before analysing, so every later iteration of the
     # measurement rules can run offline via reanalyze() — no broker call, no
     # credential re-entry, no market session.
     _cache_candles(symbol, candles, {
         "from_date": from_date.isoformat(), "to_date": to_date.isoformat(),
         "fetched_at": int(time.time()), "interval": "1",
+        "data_quality": quality,
     })
     days = _group_by_day(candles)
     all_rows: list[dict[str, Any]] = []
@@ -1429,6 +1459,7 @@ async def run(client: DhanClient, symbol: str = "NIFTY", months: int = 6) -> dic
     _write_rows(symbol, all_rows)
     return {
         "symbol": symbol, "from_date": from_date.isoformat(), "to_date": to_date.isoformat(),
+        "data_quality": quality,
         "candles_fetched": len(candles), "trading_days_seen": len(days),
         "candles_cached": True,
         "rows_written": len(all_rows), "stats": level_stats(symbol),
