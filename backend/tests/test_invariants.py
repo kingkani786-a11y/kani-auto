@@ -188,7 +188,10 @@ class OrfeResearchTests(unittest.TestCase):
         for i in range(40):
             cs.append(self._c(1, 10, i % 60, 129, 129.5, 128.5, 129))
 
-        rows = orfe._process_day("2026-06-01", cs)
+        # _process_day emits a leading kind="setup" denominator row (2026-08-08)
+        # alongside the per-level touch rows; outcomes live on the touch rows.
+        rows = [r for r in orfe._process_day("2026-06-01", cs)
+                if r.get("kind", "touch") == "touch"]
         self.assertTrue(any(r["outcome"] == "WIN_T2" for r in rows),
                         "T2 unreachable when hit on a candle after T1")
         won = next(r for r in rows if r["outcome"] == "WIN_T2")
@@ -204,7 +207,8 @@ class OrfeResearchTests(unittest.TestCase):
         for i in range(40):
             cs.append(self._c(2, 10, i % 60, 95, 95.5, 94.5, 95))
 
-        rows = {r["fib_level"]: r for r in orfe._process_day("2026-06-02", cs)}
+        rows = {r["fib_level"]: r for r in orfe._process_day("2026-06-02", cs)
+                if r.get("kind", "touch") == "touch"}
         deep = rows[0.786]           # the level touched on the genuine retracement
         self.assertEqual(deep["outcome"], "WIN_T1")
         self.assertIsNotNone(deep["t1_time"])
@@ -217,6 +221,77 @@ class OrfeResearchTests(unittest.TestCase):
             cs.append(self._c(3, 10, i % 60, 117, 117.5, 116.5, 117))
         rows = orfe._process_day("2026-06-03", cs)
         self.assertLess(len(rows), len(orfe.FIB_LEVELS))
+
+
+class FibDepthEvidenceTests(unittest.TestCase):
+    """Retracement-depth layer (owner, 2026-08-08). Its whole purpose is the
+    DENOMINATOR: before this, an untouched level emitted no row at all, so
+    'how often does a setup retrace to 0.618?' could not be computed —
+    the numerator was stored and the denominator discarded."""
+
+    def setUp(self):
+        orfe._DATA_DIR = pathlib.Path(tempfile.mkdtemp())
+
+    def _seed(self, depths):
+        rows = []
+        for i, depth in enumerate(depths):
+            rows.append({"kind": "setup", "day": f"2026-06-{i+1:02d}", "bias": "CALL",
+                         "regime": "TRENDING", "deepest_frac": depth, "or_range": 10.0})
+            for f in orfe.FIB_LEVELS:
+                if depth <= f:
+                    rows.append({"kind": "touch", "day": f"2026-06-{i+1:02d}",
+                                 "bias": "CALL", "regime": "TRENDING", "fib_level": f,
+                                 "outcome": "WIN_T1", "mfe_pts": 10.0, "mae_pts": 5.0,
+                                 "rejection": f <= 0.618, "deepest_frac": depth})
+        orfe._write_rows("TEST", rows)
+        return orfe.level_stats("TEST")
+
+    def test_reach_probability_uses_the_setup_denominator(self):
+        st = self._seed([0.90, 0.70, 0.55, 0.30])
+        by = {l["fib_level"]: l for l in st["levels"]}
+        # depths <= f count as having reached level f (smaller frac = deeper)
+        self.assertEqual(by[1.0]["reach_pct"], 100.0)     # all four
+        self.assertEqual(by[0.786]["reach_pct"], 75.0)    # 0.70/0.55/0.30
+        self.assertEqual(by[0.618]["reach_pct"], 50.0)    # 0.55/0.30
+        self.assertEqual(by[0.236]["reach_pct"], 0.0)     # none that deep
+        self.assertEqual(by[0.786]["of_setups"], 4)
+
+    def test_reach_is_none_not_zero_without_setup_rows(self):
+        """Legacy logs have only touch rows. 'not measured' must not render
+        as 'never happened' — that would read as a real 0% probability."""
+        orfe._write_rows("TEST", [
+            {"kind": "touch", "day": "2026-06-01", "bias": "CALL", "regime": "TRENDING",
+             "fib_level": 0.618, "outcome": "WIN_T1", "mfe_pts": 9.0, "mae_pts": 3.0}])
+        st = orfe.level_stats("TEST")
+        by = {l["fib_level"]: l for l in st["levels"]}
+        self.assertIsNone(by[0.618]["reach_pct"])
+        self.assertEqual(st["setup_rows"], 0)
+
+    def test_legacy_rows_without_kind_still_counted_as_touches(self):
+        orfe._write_rows("TEST", [
+            {"day": "2026-06-01", "bias": "CALL", "regime": "TRENDING",
+             "fib_level": 0.618, "outcome": "WIN_T1", "mfe_pts": 9.0, "mae_pts": 3.0}])
+        st = orfe.level_stats("TEST")
+        self.assertEqual(st["total_rows"], 1)
+
+    def test_mae_percentiles_reported_beside_the_mean(self):
+        """MAE is skewed; an average hides the tail that actually stops you out."""
+        st = self._seed([0.30, 0.55, 0.70])
+        lvl = next(l for l in st["levels"] if l["fib_level"] == 1.0)
+        self.assertIsNotNone(lvl["median_mae_pts"])
+        self.assertIsNotNone(lvl["p90_mae_pts"])
+
+    def test_rejection_split_is_reported_separately(self):
+        """'Fib touched' vs 'Fib gave a quality entry' must stay distinguishable."""
+        st = self._seed([0.30, 0.55])
+        deep = next(l for l in st["levels"] if l["fib_level"] == 0.618)
+        self.assertGreater(deep["n_with_rejection"], 0)
+        shallow = next(l for l in st["levels"] if l["fib_level"] == 1.0)
+        self.assertGreater(shallow["n_bare_touch"], 0)
+
+    def test_shallow_and_full_giveback_levels_exist(self):
+        self.assertIn(0.236, orfe.FIB_LEVELS)
+        self.assertIn(1.0, orfe.FIB_LEVELS)
 
 
 class IndicatorTests(unittest.TestCase):

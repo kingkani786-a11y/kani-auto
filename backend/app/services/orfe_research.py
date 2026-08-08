@@ -68,7 +68,12 @@ from ..broker.instruments import get_instrument
 from ..core.clock import IST
 from ..engines.technicals import adx, atr, ema, rsi, vwap
 
-FIB_LEVELS = (0.382, 0.5, 0.618, 0.786)
+# Retracement depths measured UP from or_low (CALL) / DOWN from or_high (PUT),
+# so f=1.0 sits at the breakout boundary and SMALLER f = DEEPER retracement.
+# 0.236 and 1.0 added 2026-08-08 (owner) to cover the shallow and full-give-back
+# ends — without 1.0 there is no record of "barely pulled back at all", and
+# without 0.236 no record of "nearly gave the whole range back but held".
+FIB_LEVELS = (0.236, 0.382, 0.5, 0.618, 0.786, 1.0)
 OR_START = (9, 15)
 OR_END = (9, 30)
 ADX_TRENDING = 25.0
@@ -179,7 +184,42 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
             if c["close"] >= or_low and i > extreme_idx:
                 break
 
-    rows: list[dict[str, Any]] = []
+    # ── THE DENOMINATOR (owner, 2026-08-08) ────────────────────────────────
+    # Until now an untouched level emitted NO row, so the log recorded only
+    # setups that DID retrace to a given depth. That makes "how often does a
+    # setup retrace to 0.618?" structurally uncomputable — the numerator was
+    # stored and the denominator thrown away. One setup-level row per
+    # qualifying day fixes that: it records how deep this setup actually
+    # pulled back, whether or not any particular level was reached.
+    #
+    # deepest_frac is the retracement extreme expressed on the SAME scale as
+    # the fib levels (0 = or_low, 1.0 = or_high for a CALL), measured over the
+    # same window the touch search uses (post-breakout-extreme -> end of day).
+    # SMALLER = deeper. A setup that never pulls back below the breakout
+    # boundary yields deepest_frac >= 1.0.
+    retrace_window = post_or[extreme_idx:]
+    if bias == "CALL":
+        deepest_px = min(c["low"] for c in retrace_window)
+        deepest_frac = (deepest_px - or_low) / or_range
+    else:
+        deepest_px = max(c["high"] for c in retrace_window)
+        deepest_frac = (or_high - deepest_px) / or_range
+
+    setup_row: dict[str, Any] = {
+        "kind": "setup",                 # the denominator record
+        "day": day, "bias": bias, "regime": regime,
+        "or_high": round(or_high, 2), "or_low": round(or_low, 2),
+        "or_range": round(or_range, 2),
+        "breakout_extreme": round(extreme, 2),
+        "deepest_px": round(deepest_px, 2),
+        "deepest_frac": round(deepest_frac, 4),
+        "adx_930": round(adx_930, 1) if adx_930 is not None else None,
+        "atr_930": round(atr_930, 2) if atr_930 is not None else None,
+        "rsi_930": round(rsi_930, 1),
+        "levels_touched": [],            # filled below
+    }
+
+    rows: list[dict[str, Any]] = [setup_row]
     for f in FIB_LEVELS:
         level_px = levels[f]
         touch_idx = None
@@ -191,9 +231,41 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         if touch_idx is None:
             continue   # level never reached today — no row, not a fabricated loss
 
+        setup_row["levels_touched"].append(f)
+
         entry_px = level_px
         entry_time = post_or[touch_idx]["time"]
         stop_px = or_low if bias == "CALL" else or_high
+
+        # ── ENTRY-QUALITY CONTEXT AT THE TOUCH (owner, 2026-08-08) ─────────
+        # The owner's rule: "Fib touched" and "Fib gave a high-quality entry"
+        # must be distinguishable. Nothing here decides anything — these are
+        # recorded so the stats layer can later compare a bare touch against
+        # a touch WITH confirmation, from real outcomes instead of belief.
+        # Every field is derived from candles already in hand; nothing is
+        # fetched, and nothing unavailable is guessed (None instead).
+        tc = post_or[touch_idx]
+        _body = abs(tc["close"] - tc["open"])
+        if bias == "CALL":
+            _wick = min(tc["open"], tc["close"]) - tc["low"]
+        else:
+            _wick = tc["high"] - max(tc["open"], tc["close"])
+        # A rejection bar: the wick into the level is longer than the body,
+        # i.e. price probed the level and was pushed back within the bar.
+        rejection = bool(_wick > _body > 0) if _body > 0 else bool(_wick > 0)
+        wick_body_ratio = round(_wick / _body, 2) if _body > 0 else None
+
+        # session VWAP up to and including the touch bar (cumulative, honest —
+        # uses only candles that had already printed at that moment)
+        _upto = candles[:candles.index(tc) + 1] if tc in candles else None
+        vwap_at_touch = vwap(_upto) if _upto else None
+        if vwap_at_touch:
+            vwap_side = ("ABOVE" if tc["close"] > vwap_at_touch else "BELOW")
+        else:
+            vwap_side = None
+        # with-trend means VWAP agrees with the setup's own bias
+        vwap_supports = (None if vwap_side is None else
+                         (vwap_side == "ABOVE") == (bias == "CALL"))
         target1_px = extreme
         target2_px = target1_px + or_range if bias == "CALL" else target1_px - or_range
 
@@ -251,6 +323,10 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
                     break                         # T1 already banked — stays WIN_T1
 
         rows.append({
+            "kind": "touch",
+            "rejection": rejection, "wick_body_ratio": wick_body_ratio,
+            "vwap_side": vwap_side, "vwap_supports": vwap_supports,
+            "deepest_frac": round(deepest_frac, 4),
             "day": day, "bias": bias, "regime": regime,
             "or_high": round(or_high, 2), "or_low": round(or_low, 2),
             "fib_level": f, "entry_time": _hhmm(entry_time), "entry_px": round(entry_px, 2),
@@ -294,25 +370,72 @@ def level_stats(symbol: str) -> dict[str, Any]:
     """Aggregate win-rate / avg MFE / avg MAE per fib level, and per
     (regime, level) — read-only over the persisted rows. Nothing here
     changes any threshold; it only reports what already happened."""
-    rows = _read_rows(symbol)
+    all_rows = _read_rows(symbol)
+    # Legacy rows (written before 2026-08-08) carry no "kind" — every one of
+    # them is a touch record, so default accordingly rather than dropping them.
+    setups = [r for r in all_rows if r.get("kind") == "setup"]
+    rows = [r for r in all_rows if r.get("kind", "touch") == "touch"]
+
     by_level: dict[float, list[dict]] = {}
     for r in rows:
         by_level.setdefault(r["fib_level"], []).append(r)
+
+    def _pct(vals: list[float], q: float) -> float | None:
+        """Nearest-rank percentile. Reported alongside the mean because MAE is
+        skewed — an average hides the tail that actually stops a trade out."""
+        if not vals:
+            return None
+        s = sorted(vals)
+        i = min(len(s) - 1, max(0, int(round(q * (len(s) - 1)))))
+        return round(s[i], 2)
 
     def _agg(rs: list[dict]) -> dict[str, Any]:
         decided = [r for r in rs if r["outcome"] != "OPEN"]
         wins = [r for r in decided if r["outcome"].startswith("WIN")]
         t2 = [r for r in decided if r["outcome"] == "WIN_T2"]
+        maes = [r["mae_pts"] for r in decided]
+        # Bare touch vs touch WITH a rejection bar — the owner's explicit
+        # distinction between "Fib touched" and "Fib gave a quality entry".
+        # None (not 0) when the split has no samples, so an absent comparison
+        # never reads as a measured zero.
+        conf = [r for r in decided if r.get("rejection")]
+        bare = [r for r in decided if r.get("rejection") is False]
+        def _wr(x):
+            return (round(100 * sum(1 for r in x if r["outcome"].startswith("WIN")) / len(x), 1)
+                    if x else None)
         return {
             "sample": len(decided),
             "open": len(rs) - len(decided),
             "win_rate": round(100 * len(wins) / len(decided), 1) if decided else None,
             "t2_rate": round(100 * len(t2) / len(decided), 1) if decided else None,
             "avg_mfe_pts": round(sum(r["mfe_pts"] for r in decided) / len(decided), 2) if decided else None,
-            "avg_mae_pts": round(sum(r["mae_pts"] for r in decided) / len(decided), 2) if decided else None,
+            "avg_mae_pts": round(sum(maes) / len(decided), 2) if decided else None,
+            "median_mae_pts": _pct(maes, 0.50),
+            "p90_mae_pts": _pct(maes, 0.90),
+            "win_rate_with_rejection": _wr(conf),
+            "n_with_rejection": len(conf),
+            "win_rate_bare_touch": _wr(bare),
+            "n_bare_touch": len(bare),
         }
 
-    levels = [{"fib_level": f, **_agg(by_level.get(f, []))} for f in FIB_LEVELS]
+    # REACH PROBABILITY — now computable because setup rows supply the
+    # denominator. deepest_frac <= f means the retracement got at least as
+    # deep as level f (levels are measured from the far side, so smaller is
+    # deeper). None when no setup rows exist yet (legacy-only logs), never 0 —
+    # "not measured" and "never happened" must not look identical.
+    n_setups = len(setups)
+
+    def _reach(f: float) -> dict[str, Any]:
+        if not n_setups:
+            return {"reach_pct": None, "reached": None, "of_setups": 0,
+                    "note": "no setup rows yet — re-run to populate the denominator"}
+        hit = sum(1 for s in setups if (s.get("deepest_frac") is not None
+                                        and s["deepest_frac"] <= f))
+        return {"reach_pct": round(100 * hit / n_setups, 1),
+                "reached": hit, "of_setups": n_setups}
+
+    levels = [{"fib_level": f, **_reach(f), **_agg(by_level.get(f, []))}
+              for f in FIB_LEVELS]
 
     by_regime: dict[str, list[dict]] = {}
     for regime in ("TRENDING", "RANGE", "MIXED", "UNKNOWN"):
@@ -325,12 +448,28 @@ def level_stats(symbol: str) -> dict[str, Any]:
         if per_level:
             by_regime[regime] = per_level
 
+    # Retracement-depth distribution across ALL setups (owner, 2026-08-08) —
+    # answers "how deep does this setup usually pull back?" independently of
+    # whether any particular fib level was traded.
+    depths = [s["deepest_frac"] for s in setups if s.get("deepest_frac") is not None]
+    depth_profile = {
+        "setups": n_setups,
+        "median_deepest_frac": _pct(depths, 0.50),
+        "p10_deepest_frac": _pct(depths, 0.10),   # the deep tail
+        "p90_deepest_frac": _pct(depths, 0.90),   # the shallow tail
+        "note": ("deepest_frac is on the fib scale: 1.0 = never pulled back past "
+                 "the breakout boundary, smaller = deeper retracement. "
+                 "SMALLER IS DEEPER."),
+    } if depths else {"setups": n_setups, "note": "no setup rows yet — re-run to populate"}
+
     return {
         "symbol": symbol,
         "total_rows": len(rows),
+        "setup_rows": n_setups,
         "days_with_a_setup": len({r["day"] for r in rows}),
         "levels": levels,
         "by_regime": by_regime,
+        "depth_profile": depth_profile,
         "note": ("Observed frequency over the persisted research rows — NOT a "
                  "live win probability and NOT wired into any gate or evidence "
                  "layer. Index-points only (no historical option chain "
