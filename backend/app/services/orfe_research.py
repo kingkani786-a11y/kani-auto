@@ -58,6 +58,7 @@ full window, not an incremental log).
 """
 from __future__ import annotations
 
+import collections
 import datetime
 import json
 import pathlib
@@ -67,6 +68,7 @@ from typing import Any
 from ..broker.dhan import DhanClient
 from ..broker.instruments import get_instrument
 from ..core.clock import IST
+from ..engines import supertrend
 from ..engines.technicals import adx, atr, ema, rsi, vwap
 
 # Retracement depths measured UP from or_low (CALL) / DOWN from or_high (PUT),
@@ -371,6 +373,23 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
         # with-trend means VWAP agrees with the setup's own bias
         vwap_supports = (None if vwap_side is None else
                          (vwap_side == "ABOVE") == (bias == "CALL"))
+
+        # ── TOUCH-TIME technical context (owner, 2026-08-08 — Fib Level
+        # Selector). adx_930/atr_930/rsi_930 on the setup row are a 09:30
+        # SNAPSHOT — the market has moved by the time a deep level is touched,
+        # possibly hours later, so a decision-quality comparison needs the
+        # context AT THE TOUCH, not at the open. Reuses the exact functions
+        # the live confluence.py trend layer and supertrend.py engine use —
+        # no new indicator math, no new data source, only a different slice
+        # of candles already in hand.
+        _closes_upto = [c["close"] for c in _upto] if _upto else []
+        rsi_touch = rsi(_closes_upto, 14) if len(_closes_upto) >= 15 else None
+        atr_touch = atr(_upto, 14) if _upto and len(_upto) >= 2 else None
+        st_touch = supertrend.analyze(_upto) if _upto else {"ready": False}
+        supertrend_direction = st_touch.get("direction") if st_touch.get("ready") else None
+        supertrend_agrees = (None if supertrend_direction is None else
+                             (supertrend_direction == "BULLISH") == (bias == "CALL"))
+
         target1_px = extreme
         target2_px = target1_px + or_range if bias == "CALL" else target1_px - or_range
 
@@ -405,6 +424,10 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
             "kind": "touch",
             "rejection": rejection, "wick_body_ratio": wick_body_ratio,
             "vwap_side": vwap_side, "vwap_supports": vwap_supports,
+            "rsi_touch": round(rsi_touch, 1) if rsi_touch is not None else None,
+            "atr_touch": round(atr_touch, 2) if atr_touch is not None else None,
+            "supertrend_direction": supertrend_direction,
+            "supertrend_agrees": supertrend_agrees,
             "deepest_frac": round(deepest_frac, 4),
             "day": day, "bias": bias, "regime": regime,
             "or_high": round(or_high, 2), "or_low": round(or_low, 2),
@@ -419,6 +442,12 @@ def _process_day(day: str, candles: list[dict]) -> list[dict[str, Any]]:
             "t2_time": _hhmm(t2_ts) if t2_ts else None,
             "mins_to_t1": round((t1_ts - entry_time) / 60, 1) if t1_ts else None,
             "mins_to_t2": round((t2_ts - entry_time) / 60, 1) if t2_ts else None,
+            # R stored on the row so every aggregation (level selector,
+            # regime/session/CALL-PUT splits) reads the SAME number rather
+            # than each recomputing it — the exact drift risk _resolve_trade
+            # was extracted to prevent, applied one level up.
+            "r_multiple": _r_multiple({"outcome": outcome, "exit_px": exit_px},
+                                      entry_px, stop_px, target1_px, target2_px),
             "vwap_930": round(vwap_930, 2), "ema9_930": round(ema9, 2),
             "ema21_930": round(ema21, 2),
             "adx_930": round(adx_930, 1) if adx_930 is not None else None,
@@ -876,6 +905,172 @@ def dynamic_zone_backtest(symbol: str = "NIFTY",
         "regime_sensitivity": regime_gap,
         "cost_warning": ("No brokerage, slippage or spread modelled. Index points "
                          "only — not option premium P&L."),
+        "as_of": int(time.time()),
+    }
+
+
+def _level_row_stats(rs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Core per-level statistics over a set of touch rows. Shared by every
+    breakdown below (overall / CALL-PUT / regime / train-test) so the
+    definition of 'win rate' or 'mean R' can never drift between views —
+    the exact discipline _resolve_trade already enforces one level down."""
+    decided = [r for r in rs if r["outcome"] != "OPEN"]
+    Rs = [r["r_multiple"] for r in decided if r.get("r_multiple") is not None]
+    maes = [r["mae_pts"] for r in decided]
+
+    def _pct(xs, q):
+        if not xs:
+            return None
+        s = sorted(xs)
+        return round(s[min(len(s) - 1, max(0, int(round(q * (len(s) - 1)))))], 3)
+
+    def _split(key: str, want) -> dict[str, Any]:
+        sub = [r for r in decided if r.get(key) is want]
+        subR = [r["r_multiple"] for r in sub if r.get("r_multiple") is not None]
+        wins = sum(1 for r in sub if r["outcome"].startswith("WIN"))
+        return {"n": len(sub),
+                "win_rate": round(100 * wins / len(sub), 1) if sub else None,
+                "mean_R": round(sum(subR) / len(subR), 3) if subR else None}
+
+    wins = sum(1 for r in decided if r["outcome"].startswith("WIN"))
+    t2 = sum(1 for r in decided if r["outcome"] == "WIN_T2")
+    return {
+        "sample": len(decided), "open": len(rs) - len(decided),
+        "t1_rate": round(100 * wins / len(decided), 1) if decided else None,
+        "t2_rate": round(100 * t2 / len(decided), 1) if decided else None,
+        "mean_R": round(sum(Rs) / len(Rs), 3) if Rs else None,
+        "median_R": _pct(Rs, 0.50),
+        "p90_R": _pct(Rs, 0.90),
+        "mean_mae_pts": round(sum(maes) / len(decided), 2) if decided else None,
+        "median_mae_pts": _pct(maes, 0.50),
+        "p90_mae_pts": _pct(maes, 0.90),
+        "by_confirmation": {"rejection": _split("rejection", True),
+                            "bare_touch": _split("rejection", False)},
+        "by_vwap": {"supports": _split("vwap_supports", True),
+                   "against": _split("vwap_supports", False)},
+        "by_supertrend": {"agrees": _split("supertrend_agrees", True),
+                          "disagrees": _split("supertrend_agrees", False)},
+    }
+
+
+def fib_level_selector(symbol: str = "NIFTY",
+                       train_fraction: float = TRAIN_FRACTION) -> dict[str, Any]:
+    """STEP 3 — the combined per-level table (owner, 2026-08-08): reach
+    probability x T1/T2 probability x expectancy x confirmation context,
+    broken down by CALL/PUT, regime, and chronological train/test, all in
+    one place — the "Fib Level Selector" the owner asked for.
+
+    GATED IDENTICALLY to dynamic_zone_backtest, and for the same measured
+    reason: this dataset's own regime-sensitivity finding (identical fixed
+    rule, +0.551 R delta between train and test halves purely from market
+    change) applies here just as much as to the zone backtest. A per-level,
+    per-bias, per-regime cross-tab thins the sample further, not less — so
+    the gate is, if anything, MORE necessary here.
+
+    `mode: BACKTEST_ONLY`. Never wired to any live decision path — see the
+    dedicated test asserting no orfe_research import in confluence.py /
+    decision_contract.py / execution_gate.py / kill_switch.py / decision.py.
+    """
+    rows = _read_rows(symbol)
+    setups = [r for r in rows if r.get("kind") == "setup"]
+    touch = [r for r in rows if r.get("kind", "touch") == "touch"]
+    n_setups = len(setups)
+
+    def _reach(f: float) -> dict[str, Any]:
+        if not n_setups:
+            return {"reach_pct": None, "reached": None, "of_setups": 0}
+        hit = sum(1 for s in setups if (s.get("deepest_frac") is not None
+                                        and s["deepest_frac"] <= f))
+        return {"reach_pct": round(100 * hit / n_setups, 1),
+                "reached": hit, "of_setups": n_setups}
+
+    def _by_level(ts: list[dict], reach_setups: list[dict] | None = None) -> list[dict]:
+        by: dict[float, list[dict]] = collections.defaultdict(list)
+        for r in ts:
+            by[r["fib_level"]].append(r)
+        n_ref = len(reach_setups) if reach_setups is not None else n_setups
+        out = []
+        for f in FIB_LEVELS:
+            if reach_setups is not None:
+                hit = sum(1 for s in reach_setups if (s.get("deepest_frac") is not None
+                                                       and s["deepest_frac"] <= f))
+                reach = ({"reach_pct": round(100 * hit / n_ref, 1), "reached": hit,
+                         "of_setups": n_ref} if n_ref else
+                        {"reach_pct": None, "reached": None, "of_setups": 0})
+            else:
+                reach = _reach(f)
+            out.append({"fib_level": f, **reach, **_level_row_stats(by.get(f, []))})
+        return out
+
+    overall = _by_level(touch)
+
+    by_bias = {}
+    for bias in ("CALL", "PUT"):
+        bias_setups = [s for s in setups if s.get("bias") == bias]
+        bias_touch = [r for r in touch if r.get("bias") == bias]
+        by_bias[bias] = _by_level(bias_touch, bias_setups)
+
+    by_regime = {}
+    for regime in ("TRENDING", "RANGE", "MIXED", "UNKNOWN"):
+        rg_setups = [s for s in setups if s.get("regime") == regime]
+        rg_touch = [r for r in touch if r.get("regime") == regime]
+        if not rg_setups:
+            continue
+        by_regime[regime] = _by_level(rg_touch, rg_setups)
+
+    # ── Chronological train/test — SAME split boundary as
+    # dynamic_zone_backtest, so a level ranking here and a zone fit there are
+    # never accidentally evaluated on different windows.
+    all_days = sorted({r["day"] for r in rows})
+    split = int(len(all_days) * train_fraction)
+    train_day_set, test_day_set = set(all_days[:split]), set(all_days[split:])
+    train_setups = [s for s in setups if s["day"] in train_day_set]
+    test_setups = [s for s in setups if s["day"] in test_day_set]
+    train_touch = [r for r in touch if r["day"] in train_day_set]
+    test_touch = [r for r in touch if r["day"] in test_day_set]
+
+    n_test_setups = len(test_setups)
+    unlocked = (n_test_setups >= UNLOCK_MIN_SIGNALS) or (len(test_day_set) >= UNLOCK_MIN_DAYS)
+    gate = {
+        "unlocked_for_decisions": bool(unlocked),
+        "status": "DECISION_GRADE" if unlocked else "DIRECTIONAL_ONLY",
+        "bar": f">={UNLOCK_MIN_DAYS} trading days OR >={UNLOCK_MIN_SIGNALS} signals "
+               f"in the TEST split (owner's own standard, 2026-08-07)",
+        "sample_size": {"test_setups": n_test_setups, "test_days": len(test_day_set),
+                        "train_setups": len(train_setups), "train_days": len(train_day_set)},
+        "shortfall": (None if unlocked else
+                      {"signals_short": max(0, UNLOCK_MIN_SIGNALS - n_test_setups),
+                       "days_short": max(0, UNLOCK_MIN_DAYS - len(test_day_set))}),
+        "regime_warning": (
+            f"n={n_test_setups} test setups over {len(test_day_set)} days, further split "
+            "by level/bias/regime — cell sizes here are SMALLER than the already-thin "
+            "dynamic-zone backtest, not larger. DIRECTIONAL ONLY. A per-level ranking "
+            "that reverses sign between splits (e.g. rejection helping at one level, "
+            "hurting at the next, on n=9-20) is the signature of noise, not structure — "
+            "do not read the highest mean_R level in `by_level` as a proven best entry."),
+    }
+
+    return {
+        "symbol": symbol,
+        "mode": "BACKTEST_ONLY",
+        "gate": gate,
+        "sample_size": gate["sample_size"],
+        "regime_warning": gate["regime_warning"],
+        "overall": {"setups": n_setups, "days_with_a_setup": len({r["day"] for r in touch}),
+                   "by_level": overall},
+        "by_bias": by_bias,
+        "by_regime": by_regime,
+        "train_test": {
+            "split": {"method": "chronological (never random)",
+                      "train_days": len(train_day_set), "test_days": len(test_day_set)},
+            "train": {"setups": len(train_setups), "by_level": _by_level(train_touch, train_setups)},
+            "test": {"setups": len(test_setups), "by_level": _by_level(test_touch, test_setups)},
+        },
+        "note": ("BACKTEST_ONLY. Combines reach probability, T1/T2 rate, expectancy (R), "
+                 "MAE, and confirmation context (rejection/VWAP/Supertrend agreement) per "
+                 "Fibonacci level. Read `by_level`'s mean_R as a CANDIDATE list, not a "
+                 "ranking to act on — see regime_warning and gate.unlocked_for_decisions. "
+                 "Index points only; no option premium P&L; no costs modelled."),
         "as_of": int(time.time()),
     }
 

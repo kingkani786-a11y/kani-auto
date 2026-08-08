@@ -340,6 +340,42 @@ class BacktestGateTests(unittest.TestCase):
             self.assertEqual(g["status"], "DIRECTIONAL_ONLY")
             self.assertIsNotNone(g["shortfall"])
 
+    def test_fib_level_selector_is_also_gated(self):
+        """The Level Selector cross-tabs by level/bias/regime — smaller cells
+        than the zone backtest, not larger — so it must be at least as gated."""
+        r = orfe.fib_level_selector("TEST_EMPTY_SYMBOL_NO_CACHE")
+        self.assertEqual(r["mode"], "BACKTEST_ONLY")
+        self.assertFalse(r["gate"]["unlocked_for_decisions"])
+        self.assertIn("sample_size", r)
+        self.assertIn("regime_warning", r)
+
+    def test_fib_level_selector_reach_matches_level_stats(self):
+        """Two different aggregations (level_stats vs fib_level_selector) over
+        the SAME persisted rows must agree on reach probability — divergence
+        here would mean one of them has a bug, not a market finding."""
+        try:
+            ls = orfe.level_stats("NIFTY")
+            sel = orfe.fib_level_selector("NIFTY")
+        except Exception:
+            self.skipTest("no persisted NIFTY research rows in this environment")
+        if not ls.get("levels") or not sel["overall"]["by_level"]:
+            self.skipTest("no rows")
+        a = {L["fib_level"]: L["reach_pct"] for L in ls["levels"]}
+        b = {L["fib_level"]: L["reach_pct"] for L in sel["overall"]["by_level"]}
+        self.assertEqual(a, b)
+
+    def test_fib_level_selector_confirmation_split_never_fabricates_a_cell(self):
+        """A confirmation split with zero samples must report n=0 and a None
+        mean_R, never a manufactured number."""
+        rows = [{"kind": "setup", "day": "2026-06-01", "bias": "CALL",
+                "regime": "TRENDING", "deepest_frac": 0.5}]
+        orfe._write_rows("TEST_SEL", rows)
+        r = orfe.fib_level_selector("TEST_SEL")
+        for L in r["overall"]["by_level"]:
+            for side in L["by_confirmation"].values():
+                if side["n"] == 0:
+                    self.assertIsNone(side["mean_R"])
+
     def test_train_test_split_is_chronological_not_random(self):
         """A random split leaks future regime into training and flatters the
         result — the one methodological error that would invalidate all of it."""

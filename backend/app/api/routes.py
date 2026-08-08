@@ -437,6 +437,22 @@ async def state_consistency_ep():
     return state_consistency.report()
 
 
+@router.get("/internal/orfe-research/fib-level-selector")
+async def orfe_fib_level_selector_ep(symbol: str = "NIFTY"):
+    """INTERNAL / BACKTEST-ONLY (owner-gated, 2026-08-08) — "Fib Level
+    Selector". Reach probability x T1/T2 rate x expectancy (R) x confirmation
+    context (rejection/VWAP/Supertrend), per Fibonacci level, broken down by
+    CALL/PUT, regime, and chronological train/test.
+
+    Gated identically to dynamic-zone-backtest and for the same measured
+    reason: cross-tabbing by level/bias/regime thins the sample FURTHER, not
+    less. `gate.unlocked_for_decisions` stays False until the TEST split
+    clears the owner's bar. Read `by_level`'s mean_R as a candidate list, not
+    a ranking to act on. Offline: reads persisted research rows, no broker."""
+    from ..services import orfe_research
+    return orfe_research.fib_level_selector(symbol.upper())
+
+
 @router.get("/internal/orfe-research/dynamic-zone-backtest")
 async def orfe_dynamic_zone_backtest_ep(symbol: str = "NIFTY"):
     """INTERNAL / BACKTEST-ONLY (owner-gated, 2026-08-08).
