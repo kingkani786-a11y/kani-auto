@@ -230,6 +230,62 @@ class IndicatorTests(unittest.TestCase):
         self.assertEqual(rsi([100.0 + i for i in range(30)]), 100.0)
 
 
+class StrategyRouterTests(unittest.TestCase):
+    """Read-only aggregator over the four measurement systems. Its danger is
+    not crashing — it is grading evidence more leniently than the owner does."""
+
+    def test_grade_bar_matches_the_owners_declared_standard(self):
+        """The owner's bar (2026-08-07) is ">=100 trading days OR >=500
+        signals". A first draft used 100 samples/20 days and graded ORFE
+        (83 days, 288 rows) DECISION_GRADE — telling the owner their own
+        hypothesis was proven when by their own rule it was not. Locked here
+        so it cannot silently drift looser again."""
+        from app.services import strategy_router as sr
+        self.assertEqual(sr.MIN_SAMPLE_DECISION_GRADE, 500)
+        self.assertEqual(sr.MIN_DAYS_DECISION_GRADE, 100)
+
+        self.assertEqual(sr._grade(288, 83), "DIRECTIONAL")   # ORFE today
+        self.assertEqual(sr._grade(500, 1), "DECISION_GRADE")  # signals axis
+        self.assertEqual(sr._grade(50, 100), "DECISION_GRADE")  # days axis
+        self.assertEqual(sr._grade(10, 2), "BUILDING")
+        self.assertEqual(sr._grade(0, 0), "NO_DATA")
+
+    def test_imports_nothing_that_can_gate_a_trade(self):
+        tree = ast.parse((_BACKEND / "app/services/strategy_router.py").read_text())
+        imported = []
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                imported.append((getattr(node, "module", "") or "")
+                                + " " + ",".join(a.name for a in node.names))
+        for imp in imported:
+            for f in ("kill_switch", "confluence", "execution_gate", "weight_approval"):
+                self.assertNotIn(f, imp)
+
+    def test_survives_a_broken_source(self):
+        """One measurement system failing must not take the aggregator down."""
+        from app.services import strategy_router as sr
+
+        def boom():
+            raise RuntimeError("source exploded")
+
+        value, err = sr._safe(boom)
+        self.assertIsNone(value)
+        self.assertIn("RuntimeError", err)
+
+    def test_publishes_no_blended_edge_score(self):
+        """Combining detection rate, calibration error, veto value and index
+        points into one ranked number would invent a meaningless metric. The
+        report must expose per-source units only."""
+        from app.services import strategy_router as sr
+        r = sr.report()
+        for banned in ("overall_edge", "combined_score", "edge_score", "ranking"):
+            self.assertNotIn(banned, r)
+        self.assertIn("why_no_single_score", r)
+        # calibration can never claim to express profit
+        cal = next(s for s in r["sources"] if s["id"] == "shadow_calibration")
+        self.assertFalse(cal["edge_expressible"])
+
+
 class ObservationalLayerTests(unittest.TestCase):
     """Layers added as 'observational' must stay out of the scored composite.
     The moment one enters WEIGHTS or MANDATORY it starts moving real trades."""

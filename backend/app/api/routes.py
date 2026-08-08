@@ -437,6 +437,21 @@ async def state_consistency_ep():
     return state_consistency.report()
 
 
+@router.get("/strategy-router")
+async def strategy_router_ep(symbol: str = "NIFTY"):
+    """STRATEGY ROUTER (owner, 2026-08-08) — one evidence view across all four
+    measurement systems (premium radar, shadow calibration, gate verdicts,
+    ORFE research), each in its OWN units.
+
+    Deliberately publishes no combined 'edge score': the four answer different
+    questions (detection rate / probability honesty / per-veto value / setup
+    points), so a blended ranking would be a number corresponding to nothing.
+    Each source declares edge_expressible and what still blocks it from being
+    decision-grade. Read-only; touches no gate, threshold or weight."""
+    from ..services import strategy_router
+    return strategy_router.report(symbol.upper())
+
+
 @router.get("/shadow-calibration")
 async def shadow_calibration_ep():
     """SHADOW CALIBRATION (owner, 2026-08-07) — RESEARCH ONLY.
