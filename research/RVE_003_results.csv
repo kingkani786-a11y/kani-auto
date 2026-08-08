@@ -1,0 +1,7 @@
+feature,runners_median,rest_median,ratio,n_runners,n_rest
+or_width_pct,0.4074,0.4649,0.876,28,251
+gap_pct,-0.1397,0.0664,-2.104,28,251
+or_vol_share,8.8863,9.5716,0.928,28,251
+adx,31.35,32.7,0.959,28,251
+rsi,46.2,52.0,0.888,28,251
+atr,27.1,25.4,1.067,28,251
