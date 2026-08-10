@@ -34,6 +34,7 @@ from app.core.clock import IST                                    # noqa: E402
 from app.engines import confluence                                # noqa: E402
 from app.engines.technicals import rsi                            # noqa: E402
 from app.services import audit                                    # noqa: E402
+from app.services import decision_contract                        # noqa: E402
 from app.services import orfe_research as orfe                    # noqa: E402
 from app.services import shadow_calibration as sc                 # noqa: E402
 from app.services.analytics import _calibration, _confidence_buckets  # noqa: E402
@@ -739,6 +740,43 @@ class EntryEvidenceBoardTests(unittest.TestCase):
             ee.board("NIFTY")
         except Exception as e:
             self.fail(f"board() raised on empty state: {e}")
+
+
+class InvalidationDirectionTests(unittest.TestCase):
+    """Bug fix (owner, 2026-08-10): _invalidations() derived bullish/bearish
+    from dec["action"], which is only "BUY CALL"/"BUY PUT" once a trade is
+    ARMED — during every WAIT cycle it's just "WAIT", so this silently
+    defaulted to bearish-side phrasing regardless of the live bias. Confirmed
+    live: BULL bias, spot already above VWAP, yet invalidation read "above
+    VWAP" (backwards for a bullish setup — that's already true, not a future
+    invalidation). Fixed by passing the live sig["direction"] through, same
+    signal _ai_dealer() already used correctly for the identical check."""
+
+    def test_bullish_wait_state_invalidates_below_vwap_not_above(self):
+        dec = {"action": "WAIT", "stop_loss": None}
+        tech = {"vwap": 7654.8}
+        inv = decision_contract._invalidations(dec, tech, direction="BULL")
+        joined = " | ".join(inv)
+        self.assertIn("below VWAP", joined)
+        self.assertNotIn("above VWAP", joined)
+
+    def test_bearish_wait_state_invalidates_above_vwap_not_below(self):
+        dec = {"action": "WAIT", "stop_loss": None}
+        tech = {"vwap": 7654.8}
+        inv = decision_contract._invalidations(dec, tech, direction="BEAR")
+        joined = " | ".join(inv)
+        self.assertIn("above VWAP", joined)
+        self.assertNotIn("below VWAP", joined)
+
+    def test_no_direction_falls_back_to_action_not_always_bearish(self):
+        """When direction isn't passed at all (defensive default), an armed
+        CALL trade must still read as bullish — the pre-fix behavior for the
+        one case it did handle right."""
+        dec = {"action": "BUY CALL", "stop_loss": None}
+        tech = {"vwap": 7654.8}
+        inv = decision_contract._invalidations(dec, tech)
+        joined = " | ".join(inv)
+        self.assertIn("below VWAP", joined)
 
 
 class IndicatorTests(unittest.TestCase):

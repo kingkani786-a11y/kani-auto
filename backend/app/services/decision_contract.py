@@ -39,20 +39,31 @@ def _layers() -> dict[str, float]:
 
 
 def _invalidations(dec: dict, tech: dict, cpr_pivot: float | None = None,
-                    struct: dict | None = None) -> list[str]:
+                    struct: dict | None = None, direction: str | None = None) -> list[str]:
     """Pre-stated exit conditions from data we actually have — never invented.
 
     Owner Step 9 (Explainability Final, 2026-07-27) extended this with 2 more
     conditions from the target INVALIDATION list — both from data that
     already exists elsewhere (CPR pivot: support_resistance.py; swing
     break: structure.py's bos_choch), just newly threaded across this
-    function's boundary. No new computation."""
+    function's boundary. No new computation.
+
+    Bug fix (owner, 2026-08-10): bullish was read off dec.get("action"),
+    which is only ever "BUY CALL"/"BUY PUT" once a trade is already ARMED —
+    during every WAIT cycle (the vast majority of the day) action is just
+    "WAIT", so this silently defaulted to bearish-side phrasing ("break
+    above VWAP") even with a clearly bullish live bias, confirmed live: BULL
+    bias, spot already above VWAP, yet invalidation read "above VWAP".
+    _ai_dealer() below already reads the correct live signal (sig["direction"])
+    for the identical bullish/bearish check — this now matches it instead of
+    depending on whether a trade happens to be armed."""
     inv: list[str] = []
     sl = dec.get("stop_loss")
     if sl:
         inv.append(f"Price crosses stop {round(float(sl), 1)}")
     vwap = tech.get("vwap")
-    bullish = (dec.get("action") or "").endswith("CALL")
+    bullish = (direction == "BULL") if direction in ("BULL", "BEAR") \
+        else (dec.get("action") or "").endswith("CALL")
     if vwap:
         side = "below" if bullish else "above"
         inv.append(f"Sustained break {side} VWAP {round(float(vwap), 1)}")
@@ -505,7 +516,8 @@ def _contract() -> dict[str, Any]:
     except Exception:
         pass
     _struct_raw = _raw_layers.get("structure") or {}
-    _invalidations_list = _invalidations(dec, tech, cpr_pivot=_cpr_pivot, struct=_struct_raw)
+    _invalidations_list = _invalidations(dec, tech, cpr_pivot=_cpr_pivot, struct=_struct_raw,
+                                          direction=sig.get("direction"))
 
     # ── MTF Confluence (owner Step 10, 2026-07-27) — pure passthrough of the
     # engine's own result (backend/app/engines/mtf_confluence.py), computed
