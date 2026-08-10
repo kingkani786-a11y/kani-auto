@@ -46,6 +46,7 @@ import { AIDealerPanel } from "@/components/AIDealerPanel";
 import { MeasurementHealthCard } from "@/components/MeasurementHealthCard";
 import { CalibrationWatchCard } from "@/components/CalibrationWatchCard";
 import { ShadowCalibrationCard } from "@/components/ShadowCalibrationCard";
+import { EntryEvidenceBoard } from "@/components/EntryEvidenceBoard";
 import { SRHeroCard } from "@/components/SRHeroCard";
 import { PremiumSRStrip } from "@/components/PremiumSRStrip";
 import { ExecutionStatusStrip } from "@/components/ExecutionStatusStrip";
@@ -534,6 +535,13 @@ export default function Dashboard() {
           production number. */}
       <SafeBoundary name="Shadow Calibration">
         <ShadowCalibrationCard />
+      </SafeBoundary>
+      {/* Entry Evidence Board (owner, 2026-08-10) — where price sits today on
+          its opening-range fib ladder, joined against the historical study.
+          Evidence only, never a second decision surface; the Hero card above
+          remains the one place a trade is ever called. */}
+      <SafeBoundary name="Entry Evidence Board">
+        <EntryEvidenceBoard />
       </SafeBoundary>
       <SafeBoundary name="S/R Heat Map">
         <SRHeatMap />

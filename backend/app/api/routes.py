@@ -441,6 +441,16 @@ async def state_consistency_ep():
     return state_consistency.report()
 
 
+@router.get("/entry-evidence")
+async def entry_evidence_ep(symbol: str = "NIFTY"):
+    """ENTRY EVIDENCE BOARD (owner, 2026-08-10) — where price sits today on
+    its opening-range fib ladder, joined against the 894-setup / 1,230-day
+    historical study. EVIDENCE ONLY: no BUY/SELL call, no threshold, no gate.
+    The Hero card (TradeNowCard) remains the only decision surface."""
+    from ..services import entry_evidence
+    return entry_evidence.board(symbol.upper())
+
+
 @router.get("/internal/orfe-research/fib-level-selector")
 async def orfe_fib_level_selector_ep(symbol: str = "NIFTY"):
     """INTERNAL / BACKTEST-ONLY (owner-gated, 2026-08-08) — "Fib Level

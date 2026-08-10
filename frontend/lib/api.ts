@@ -83,6 +83,7 @@ export const api = {
   decisionContract: () => req<any>(`/api/decision-contract`),
   calibrationWatch: () => req<any>(`/api/calibration-watch`),
   shadowCalibration: () => req<any>(`/api/shadow-calibration`),
+  entryEvidence: (symbol: string = "NIFTY") => req<any>(`/api/entry-evidence?symbol=${symbol}`),
   stateConsistency: () => req<any>(`/api/state-consistency`),
   blockedSignals: () => req<any>(`/api/blocked-signals`),
   supportResistance: () => req<any>(`/api/support-resistance`),

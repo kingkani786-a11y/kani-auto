@@ -643,6 +643,49 @@ class EventLoopBlockingTests(unittest.TestCase):
                           f"{marker} must not run its blocking AI call on the event loop")
 
 
+class EntryEvidenceBoardTests(unittest.TestCase):
+    """The board joins live position to the historical study. Its whole
+    value depends on reading mean_R from the RIGHT aggregator — level_stats()
+    predates R-multiple math entirely and would silently render every mean_R
+    as None (caught by hand before this test existed)."""
+
+    def test_historical_mean_R_is_populated_not_none(self):
+        from app.services import entry_evidence as ee
+        h = ee._historical("NIFTY")
+        if not h.get("available"):
+            self.skipTest("no cached NIFTY study in this environment")
+        populated = [r for r in h["by_level"] if r.get("n", 0) >= 10]
+        self.assertTrue(populated, "no level had enough sample to check")
+        self.assertTrue(any(r["mean_R"] is not None for r in populated),
+                        "mean_R is None across every level — wrong aggregator wired")
+
+    def test_verdict_preferred_level_is_none(self):
+        """The board must pass the study's own conclusion through unchanged,
+        never a stronger claim than the study itself makes."""
+        from app.services import entry_evidence as ee
+        h = ee._historical("NIFTY")
+        if not h.get("available"):
+            self.skipTest("no cached NIFTY study in this environment")
+        self.assertIsNone(h["verdict"]["preferred_level"])
+
+    def test_no_setup_today_is_reported_not_guessed(self):
+        from app.services import entry_evidence as ee
+        from app.core.state import state
+        state.candles = []
+        b = ee.board("NIFTY")
+        self.assertFalse(b["live"]["available"])
+        self.assertIn("reason", b["live"])
+
+    def test_board_never_raises_on_empty_state(self):
+        from app.services import entry_evidence as ee
+        from app.core.state import state
+        state.candles = []
+        try:
+            ee.board("NIFTY")
+        except Exception as e:
+            self.fail(f"board() raised on empty state: {e}")
+
+
 class IndicatorTests(unittest.TestCase):
     def test_rsi_on_a_flat_series_is_neutral_not_maximum(self):
         """Regression (fixed in a313c9d): a completely flat series has zero
