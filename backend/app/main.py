@@ -64,7 +64,18 @@ async def _weekend_ai_loop():
         try:
             if settings.weekend_ai_enabled:
                 from .services import weekend_ai
-                weekend_ai.run_cycle()
+                # SECOND INSTANCE of the 2026-08-10 event-loop-blocking incident,
+                # found only because the restart loop recurred after the route
+                # fix. This is a background asyncio task, not an HTTP handler —
+                # the earlier fix wrapped /cortex/analyze etc. with to_thread,
+                # but this call reaches the identical blocking generate_content()
+                # from a path with no route to wrap. It fires 30s after every
+                # boot (the sleep above), which is exactly why the crash loop
+                # self-sustained: boot -> 30s -> blocking Gemini call -> freeze
+                # -> watchdog kill -> boot again. Root-caused this time in
+                # Cortex.ask() itself (provider.py) rather than at each call
+                # site, so no future caller can reintroduce the same bug.
+                await asyncio.to_thread(weekend_ai.run_cycle)
         except Exception:
             log.exception("weekend AI cycle failed")
         await asyncio.sleep(max(300.0, settings.weekend_ai_interval))

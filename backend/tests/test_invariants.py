@@ -591,6 +591,7 @@ class EventLoopBlockingTests(unittest.TestCase):
 
     _ROUTES = _BACKEND / "app/api/routes.py"
     _PROVIDER = _BACKEND / "app/services/cortex/provider.py"
+    _MAIN = _BACKEND / "app/main.py"
 
     def test_gemini_call_has_a_hard_timeout(self):
         src = self._PROVIDER.read_text()
@@ -614,25 +615,49 @@ class EventLoopBlockingTests(unittest.TestCase):
             max_output_tokens=64, http_options=types.HttpOptions(timeout=45_000))
         self.assertEqual(cfg.http_options.timeout, 45_000)
 
-    def test_no_async_endpoint_calls_a_blocking_ai_path_directly(self):
-        """AST-level: inside any `async def` route, a call to a known
-        blocking AI entry point must be wrapped (to_thread/run_in_executor),
-        never invoked bare on the event loop."""
-        blocking = ("analyze", "eod_report", "run_cycle")
-        tree = ast.parse(self._ROUTES.read_text())
+    # Blocking AI entry points, in ANY file with an async def that can reach
+    # them. "run_cycle" is here specifically because weekend_ai.run_cycle()
+    # was the SECOND instance of this bug, found only after the fix to
+    # routes.py alone didn't stop the restart loop — it was reached from a
+    # background asyncio task in main.py, not an HTTP handler, so scanning
+    # only routes.py missed it entirely. Never scope this scan to one file
+    # again for that reason.
+    _BLOCKING_AI_CALLS = ("analyze", "eod_report", "run_cycle", "ask")
+
+    def _scan_for_unwrapped_blocking_calls(self, path: pathlib.Path) -> list[str]:
+        src = path.read_text()
+        tree = ast.parse(src)
         offenders = []
         for node in ast.walk(tree):
             if not isinstance(node, ast.AsyncFunctionDef):
                 continue
             for sub in ast.walk(node):
-                # a bare `return X.analyze(...)` with no await anywhere near it
                 if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute):
-                    if sub.func.attr in blocking:
-                        seg = ast.get_source_segment(self._ROUTES.read_text(), node) or ""
+                    if sub.func.attr in self._BLOCKING_AI_CALLS:
+                        seg = ast.get_source_segment(src, node) or ""
                         if "to_thread" not in seg and "run_in_executor" not in seg:
-                            offenders.append(f"{node.name} -> {sub.func.attr}")
+                            offenders.append(f"{path.name}:{node.name} -> {sub.func.attr}")
+        return offenders
+
+    def test_no_async_endpoint_calls_a_blocking_ai_path_directly(self):
+        """AST-level, across every file with async defs that can reach a
+        blocking AI call — not just HTTP routes. A call must be wrapped
+        (to_thread/run_in_executor), never invoked bare on the event loop."""
+        offenders = (self._scan_for_unwrapped_blocking_calls(self._ROUTES)
+                    + self._scan_for_unwrapped_blocking_calls(self._MAIN))
         self.assertEqual(offenders, [],
                          f"blocking AI call on the event loop: {offenders}")
+
+    def test_weekend_ai_background_loop_is_off_the_loop(self):
+        """Direct check on the exact function that caused the 2026-08-10
+        restart loop: _weekend_ai_loop fires 30s after every boot, so an
+        un-wrapped blocking call here self-sustains a crash loop rather than
+        just occasionally freezing."""
+        src = self._MAIN.read_text()
+        i = src.index("async def _weekend_ai_loop")
+        body = src[i:i + 1200]
+        self.assertIn("to_thread", body,
+                      "_weekend_ai_loop must not run weekend_ai.run_cycle bare")
 
     def test_cortex_endpoints_are_off_the_loop(self):
         src = self._ROUTES.read_text()
