@@ -907,7 +907,7 @@ async def evolution_run_nightly():
     """Phase 23 — trigger the nightly audit on demand (human-initiated).
     Generates + archives the report; still applies nothing automatically."""
     from ..services import evolution
-    return evolution.run_nightly()
+    return await asyncio.to_thread(evolution.run_nightly)
 
 
 @router.get("/weights")

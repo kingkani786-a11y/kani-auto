@@ -35,7 +35,11 @@ async def _nightly_audit_loop():
         await asyncio.sleep(max(60, (target - now).total_seconds()))
         try:
             from .services import evolution
-            rep = evolution.run_nightly()
+            # THIRD INSTANCE of the 2026-08-10 event-loop-blocking incident:
+            # run_nightly() -> _persist() makes a synchronous Supabase
+            # .execute() call. Same bug class as the two Gemini instances,
+            # different blocking I/O (DB write instead of LLM inference).
+            rep = await asyncio.to_thread(evolution.run_nightly)
             log.info("nightly audit complete — grade %s, %d settled",
                      rep.get("system_grade"), rep.get("overview", {}).get("settled", 0))
         except Exception:

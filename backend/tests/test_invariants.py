@@ -624,16 +624,27 @@ class EventLoopBlockingTests(unittest.TestCase):
     # again for that reason.
     _BLOCKING_AI_CALLS = ("analyze", "eod_report", "run_cycle", "ask")
 
+    # THIRD INSTANCE, same incident window: evolution.run_nightly() always
+    # persists (persist=True hardcoded), and _persist() makes a synchronous
+    # Supabase .execute() call — same bug class as the AI calls above, but
+    # blocking DB I/O instead of LLM inference. Reachable from both
+    # _nightly_audit_loop (main.py, background task) and the
+    # POST /evolution/run-nightly route (routes.py, human-triggered).
+    # Kept as a separate tuple since it's not an AI call, but scanned
+    # together with _BLOCKING_AI_CALLS below — never scope this to one file.
+    _BLOCKING_DB_CALLS = ("run_nightly",)
+
     def _scan_for_unwrapped_blocking_calls(self, path: pathlib.Path) -> list[str]:
         src = path.read_text()
         tree = ast.parse(src)
         offenders = []
+        blocking_names = self._BLOCKING_AI_CALLS + self._BLOCKING_DB_CALLS
         for node in ast.walk(tree):
             if not isinstance(node, ast.AsyncFunctionDef):
                 continue
             for sub in ast.walk(node):
                 if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute):
-                    if sub.func.attr in self._BLOCKING_AI_CALLS:
+                    if sub.func.attr in blocking_names:
                         seg = ast.get_source_segment(src, node) or ""
                         if "to_thread" not in seg and "run_in_executor" not in seg:
                             offenders.append(f"{path.name}:{node.name} -> {sub.func.attr}")
@@ -666,6 +677,25 @@ class EventLoopBlockingTests(unittest.TestCase):
             body = src[i:i + 1600]
             self.assertIn("to_thread", body,
                           f"{marker} must not run its blocking AI call on the event loop")
+
+    def test_nightly_audit_background_loop_is_off_the_loop(self):
+        """THIRD INSTANCE: _nightly_audit_loop runs evolution.run_nightly(),
+        which always persists to Supabase synchronously. Direct pinned check
+        on the exact function, same reasoning as _weekend_ai_loop above."""
+        src = self._MAIN.read_text()
+        i = src.index("async def _nightly_audit_loop")
+        body = src[i:i + 1600]
+        self.assertIn("to_thread", body,
+                      "_nightly_audit_loop must not run evolution.run_nightly bare")
+
+    def test_run_nightly_http_route_is_off_the_loop(self):
+        """Same evolution.run_nightly() blocking-DB-call bug, second call
+        site: the human-triggered POST /evolution/run-nightly route."""
+        src = self._ROUTES.read_text()
+        i = src.index("def evolution_run_nightly")
+        body = src[i:i + 800]
+        self.assertIn("to_thread", body,
+                      "evolution_run_nightly route must not run run_nightly bare")
 
 
 class EntryEvidenceBoardTests(unittest.TestCase):
