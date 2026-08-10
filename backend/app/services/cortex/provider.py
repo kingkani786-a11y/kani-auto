@@ -126,6 +126,12 @@ class Cortex:
 
 _THINKING_UNSUPPORTED = False   # learned at runtime; see _ask_gemini
 
+# Declared, not fitted. 45s is generous for an explainer call (observed
+# latency is ~1-3s) while still bounded far below the watchdog's own
+# tolerance, so a stalled provider degrades to the existing "AI temporarily
+# busy" message instead of taking the whole backend down with it.
+GEMINI_TIMEOUT_MS = 45_000
+
 # Provider-specific finish/stop reasons that mean "the reply is not safe to
 # trust as complete" — cut off by the token budget, or blocked/filtered.
 # STOP (Gemini) / end_turn, stop_sequence (Anthropic) are normal completion
@@ -169,9 +175,20 @@ def _ask_gemini(key: str, model: str, system: str, user: str,
         except Exception:
             cfg.pop("thinking_config", None)
 
+    # HARD TIMEOUT (owner incident, 2026-08-10). google-genai's
+    # generate_content() is a BLOCKING call with NO default deadline. When
+    # Gemini stalls under load — the exact "AI temporarily busy (high demand)"
+    # condition this file already handles for 503/429 — the call simply never
+    # returns. Root-caused from the live log: the last line before every
+    # backend freeze was `google_genai AFC is enabled`, followed by 88-107s of
+    # TOTAL silence at ~0% CPU, then the watchdog's restart. Twenty such
+    # restarts across 2026-08-03..10, previously mis-attributed to a mystery
+    # "hang". The SDK honours http_options.timeout (milliseconds).
     def _call(c: dict):
         return client.models.generate_content(
-            model=model, contents=user, config=types.GenerateContentConfig(**c))
+            model=model, contents=user,
+            config=types.GenerateContentConfig(
+                **c, http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS)))
 
     try:
         resp = _call(cfg)

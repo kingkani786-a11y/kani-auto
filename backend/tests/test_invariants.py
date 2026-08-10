@@ -577,6 +577,72 @@ class NoLookaheadTests(unittest.TestCase):
         self.assertEqual(touch_ctx(short), touch_ctx(wild))
 
 
+class EventLoopBlockingTests(unittest.TestCase):
+    """THE 2026-08-10 INCIDENT. google-genai's generate_content() is a
+    BLOCKING network call with no default deadline. It was being invoked
+    directly inside `async def` FastAPI handlers, so a stalled Gemini froze
+    the ENTIRE backend — every tick loop, the WebSocket, and /health itself.
+    The watchdog read that as "backend unresponsive" and restarted: 20 times
+    between 2026-08-03 and 2026-08-10. The live log signature was the SDK
+    call starting, then 88-107s of total silence at ~0% CPU.
+
+    Two defences, both asserted here: a hard timeout bounds the stall, and
+    to_thread keeps it off the event loop entirely."""
+
+    _ROUTES = _BACKEND / "app/api/routes.py"
+    _PROVIDER = _BACKEND / "app/services/cortex/provider.py"
+
+    def test_gemini_call_has_a_hard_timeout(self):
+        src = self._PROVIDER.read_text()
+        self.assertIn("GEMINI_TIMEOUT_MS", src)
+        self.assertIn("http_options", src,
+                      "the generate_content call must pass an http_options timeout")
+        import re
+        m = re.search(r"GEMINI_TIMEOUT_MS\s*=\s*([0-9_]+)", src)
+        self.assertIsNotNone(m)
+        self.assertLessEqual(int(m.group(1).replace("_", "")), 120_000,
+                             "a timeout longer than ~2min defeats its own purpose")
+
+    def test_the_timeout_api_exists_in_the_installed_sdk(self):
+        """Guards against an SDK upgrade silently dropping the kwarg — the
+        timeout would then be ignored and the freeze would return."""
+        try:
+            from google.genai import types
+        except ImportError:
+            self.skipTest("google-genai not installed in this environment")
+        cfg = types.GenerateContentConfig(
+            max_output_tokens=64, http_options=types.HttpOptions(timeout=45_000))
+        self.assertEqual(cfg.http_options.timeout, 45_000)
+
+    def test_no_async_endpoint_calls_a_blocking_ai_path_directly(self):
+        """AST-level: inside any `async def` route, a call to a known
+        blocking AI entry point must be wrapped (to_thread/run_in_executor),
+        never invoked bare on the event loop."""
+        blocking = ("analyze", "eod_report", "run_cycle")
+        tree = ast.parse(self._ROUTES.read_text())
+        offenders = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.AsyncFunctionDef):
+                continue
+            for sub in ast.walk(node):
+                # a bare `return X.analyze(...)` with no await anywhere near it
+                if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute):
+                    if sub.func.attr in blocking:
+                        seg = ast.get_source_segment(self._ROUTES.read_text(), node) or ""
+                        if "to_thread" not in seg and "run_in_executor" not in seg:
+                            offenders.append(f"{node.name} -> {sub.func.attr}")
+        self.assertEqual(offenders, [],
+                         f"blocking AI call on the event loop: {offenders}")
+
+    def test_cortex_endpoints_are_off_the_loop(self):
+        src = self._ROUTES.read_text()
+        for marker in ("cortex_analyze_ep", "cortex_ask_ep"):
+            i = src.index(f"def {marker}")
+            body = src[i:i + 1600]
+            self.assertIn("to_thread", body,
+                          f"{marker} must not run its blocking AI call on the event loop")
+
+
 class IndicatorTests(unittest.TestCase):
     def test_rsi_on_a_flat_series_is_neutral_not_maximum(self):
         """Regression (fixed in a313c9d): a completely flat series has zero

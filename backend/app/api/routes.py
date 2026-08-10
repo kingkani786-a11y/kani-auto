@@ -278,10 +278,12 @@ async def cortex_ask_ep(body: CortexAskBody):
     """On-demand Cortex call (Tier 2). Explanation/research only — the Safety
     Layer flags any trade-directive language and the engine decision is always
     attached as the source of truth."""
+    # Same blocking-call hazard as /cortex/analyze — see its docstring.
+    import asyncio
     from ..services.cortex import context_builder
     from ..services.cortex.provider import cortex
     ctx = context_builder.build_context()
-    return cortex.ask(body.role, ctx, body.question)
+    return await asyncio.to_thread(cortex.ask, body.role, ctx, body.question)
 
 
 @router.post("/cortex/eod-report")
@@ -289,8 +291,10 @@ async def cortex_eod_report_ep():
     """Generate the end-of-day AI review (Tier 3). Grounded in measured
     ledgers; returns an honest disabled/capped note if AI is off or budget
     is spent."""
+    # Blocking Gemini path — off the event loop (see /cortex/analyze).
+    import asyncio
     from ..services.cortex import report
-    return report.eod_report()
+    return await asyncio.to_thread(report.eod_report)
 
 
 # Captured ONCE at import (process start) — reflects the commit the RUNNING
@@ -635,9 +639,23 @@ async def opportunity_log_ep(limit: int = 50):
 async def cortex_analyze_ep(force: bool = False):
     """AI Analysis — Gemini explains the CURRENT decision, cached by
     decision-band so the dashboard can poll cheaply. Pass ?force=true to
-    regenerate now."""
+    regenerate now.
+
+    OFF THE EVENT LOOP (owner incident, 2026-08-10). analysis.analyze() ends
+    in google-genai's generate_content(), which is a BLOCKING network call.
+    Declared `async def`, FastAPI runs it directly on the event loop — so a
+    stalled Gemini froze the ENTIRE backend: every tick loop, the WebSocket,
+    and /health itself. That is what the watchdog kept seeing as "backend
+    unresponsive" (20 restarts, 2026-08-03..10); the live log shows the SDK
+    call starting, then 88-107s of total silence at ~0% CPU.
+
+    to_thread moves the blocking call to a worker thread, matching what
+    alerts.py / missed_winner.py / verdicts.py already do for their own
+    blocking work. Paired with GEMINI_TIMEOUT_MS in provider.py: the timeout
+    bounds the stall, this keeps the stall off the loop entirely."""
+    import asyncio
     from ..services.cortex import analysis
-    return analysis.analyze(force=force)
+    return await asyncio.to_thread(analysis.analyze, force=force)
 
 
 @router.get("/weekend-ai")
@@ -651,8 +669,10 @@ async def weekend_ai_status_ep():
 @router.post("/weekend-ai/run")
 async def weekend_ai_run_ep():
     """Manually trigger one weekend AI cycle now (respects the Cost cap)."""
+    # Blocking Gemini path — off the event loop (see /cortex/analyze).
+    import asyncio
     from ..services import weekend_ai
-    return weekend_ai.run_cycle(force=True)
+    return await asyncio.to_thread(weekend_ai.run_cycle, force=True)
 
 
 @router.get("/brain/auto")
