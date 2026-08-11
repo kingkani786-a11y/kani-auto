@@ -40,6 +40,7 @@ import { AIAttention } from "@/components/AIAttention";
 import { AIThinkingPanel } from "@/components/AIThinkingPanel";
 import { TradeNowCard } from "@/components/TradeNowCard";
 import { BlockReasonHero } from "@/components/BlockReasonHero";
+import { DecisionIntegrity } from "@/components/DecisionIntegrity";
 import { EvidencePanel } from "@/components/EvidencePanel";
 import { TradeRiskPanel } from "@/components/TradeRiskPanel";
 import { AIDealerPanel } from "@/components/AIDealerPanel";
@@ -321,6 +322,16 @@ export default function Dashboard() {
           market = quiet UI). */}
       <SafeBoundary name="Block Reason">
         <BlockReasonHero />
+      </SafeBoundary>
+
+      {/* DECISION INTEGRITY (owner, 2026-08-11) — separates "is the SOFTWARE
+          working?" from "is a TRADE allowed?", which no single panel answered
+          before. Sits at the end of Layer 1: top-area and visible without
+          scrolling, but deliberately BELOW the Hero so it never competes with
+          it (Rule 11) — it states no verdict, it only restates whether each
+          stage ran. Pure rearrange of already-published state. */}
+      <SafeBoundary name="Decision Integrity">
+        <DecisionIntegrity />
       </SafeBoundary>
 
       {/* ══════════════════════════════════════════════════════════════
