@@ -193,7 +193,13 @@ done
 # [17] Restart churn today — the watchdog log is the honest record of hangs.
 WLOG="$HOME/Library/Logs/cloudaitrader-watchdog.log"
 if [ -f "$WLOG" ]; then
-  N="$(grep -c "$(date '+%Y-%m-%d')" "$WLOG" 2>/dev/null || echo 0)"
+  # `grep -c` PRINTS 0 and EXITS 1 when there are no matches, so a `|| echo 0`
+  # fallback appends a SECOND zero -> "0\n0" -> `[: integer expression expected`
+  # -> a false FAIL on the healthiest possible result (zero restarts today).
+  # Caught by the 2026-08-12 market-open audit run. `|| true` swallows the
+  # exit code without adding output; the :-0 covers a genuinely empty read.
+  N="$(grep -c "$(date '+%Y-%m-%d')" "$WLOG" 2>/dev/null || true)"
+  N="${N:-0}"
   if [ "$N" -eq 0 ]; then ok   "Restarts today" "none"
   elif [ "$N" -le 2 ]; then warn "Restarts today" "$N — watch"
   else bad "Restarts today" "$N — investigate before trading"; fi
