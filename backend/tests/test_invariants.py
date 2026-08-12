@@ -53,6 +53,13 @@ def _audit_rec(conf: float, win: int, ts: float, with_new_fields: bool = True) -
     if with_new_fields:
         r["signal_confidence"] = float(conf)
         r["direction"] = "BULL"
+        # Post-2026-08-12, _settle() stamps the instrument on every record and
+        # shadow_calibration scores ONLY records that carry one. A fixture
+        # without these is a LEGACY record by definition, so leaving them out
+        # would silently make every formula test score an empty sample and
+        # pass for the wrong reason. Keep this in step with _settle().
+        r["symbol"] = "NIFTY"
+        r["market"] = "INDEX"
     return r
 
 
@@ -790,6 +797,28 @@ class CrossMarketContaminationTests(unittest.TestCase):
         self.assertEqual(len(audit._history), n0 + 1)
         self.assertEqual(audit._history[-1]["symbol"], "NATURALGAS",
                          "settled record took the symbol it settled UNDER, not the one it was opened on")
+
+    def test_legacy_symbolless_records_are_excluded_from_scoring(self):
+        """Pre-fix records carry no symbol and are a confirmed market blend.
+        They must be counted and disclosed, but never scored — otherwise the
+        symbol fix is cosmetic and the decision surface stays contaminated."""
+        from app.services import shadow_calibration as sc
+        rows = [
+            {"hypothetical": True, "confidence": 75.0, "win": 1, "ts": 1.0},               # legacy
+            {"hypothetical": True, "confidence": 75.0, "win": 1, "ts": 2.0},               # legacy
+            {"hypothetical": True, "confidence": 65.0, "win": 0, "ts": 3.0,
+             "symbol": "NIFTY", "market": "INDEX"},                                        # clean
+        ]
+        orig = sc._read_all
+        sc._read_all = lambda: rows
+        try:
+            rep = sc.report()
+        finally:
+            sc._read_all = orig
+        self.assertEqual(rep["sample_blocked"], 1, "only the symbol-bearing record may be scored")
+        self.assertEqual(rep["sample_legacy"], 2)
+        self.assertIn("NIFTY", rep["symbols"])
+        self.assertNotIn("?", rep["symbols"], "a scored record must never have an unknown symbol")
 
     def test_evidence_board_refuses_to_join_across_markets(self):
         from app.services import entry_evidence as ee

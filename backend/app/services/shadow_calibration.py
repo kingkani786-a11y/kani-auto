@@ -162,7 +162,18 @@ def report() -> dict[str, Any]:
     """The SHADOW calibration scorecard. Pure read over the durable log —
     computes nothing that any gate can see."""
     rows = _read_all()
-    blocked = [r for r in rows if r.get("hypothetical")]
+    # LEGACY EXCLUSION (owner, 2026-08-12): records written before the
+    # cross-market fix carry no `symbol`, and are a confirmed blend of
+    # NIFTY / SENSEX / BANKNIFTY / FINNIFTY / MIDCPNIFTY plus MCX commodities
+    # after 15:30. A calibration score over that pool describes no tradeable
+    # instrument, so it must not reach the decision surface. They are NOT
+    # deleted — kept on disk and counted below as `sample_legacy` — but they
+    # are non-decisional. Owner's framing: "LEGACY / MIXED-MARKET /
+    # NON-DECISIONAL ... 2026-08-12 onward = clean evidence Day 1".
+    # Expect the score to read BUILDING again for a while: that is the fix
+    # working, not a regression.
+    legacy = [r for r in rows if r.get("hypothetical") and not r.get("symbol")]
+    blocked = [r for r in rows if r.get("hypothetical") and r.get("symbol")]
 
     def _score(sample: list[dict[str, Any]]) -> dict[str, Any]:
         buckets: dict[str, list[int]] = {k: [] for k in BUCKET_MIDS}
@@ -214,6 +225,15 @@ def report() -> dict[str, Any]:
         "sample_total": len(rows),
         "sample_blocked": len(blocked),
         "blocked_win_rate": round(100 * wins / len(blocked), 1) if blocked else None,
+        # Shown, not hidden: the reader must be able to see that a large
+        # legacy pool exists AND that it is deliberately not being scored.
+        "sample_legacy": len(legacy),
+        "legacy_note": (f"{len(legacy)} pre-2026-08-12 records excluded from scoring — "
+                        "written before instruments were recorded, so they blend "
+                        "several indices with MCX commodities. Retained on disk, "
+                        "non-decisional." if legacy else ""),
+        "markets": sorted({r.get("market") or "?" for r in blocked}) if blocked else [],
+        "symbols": sorted({r.get("symbol") or "?" for r in blocked}) if blocked else [],
         "days_covered": len(days),
         "first_day": days[0] if days else None,
         "last_day": days[-1] if days else None,
