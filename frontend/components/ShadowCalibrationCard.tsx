@@ -120,6 +120,16 @@ export function ShadowCalibrationCard() {
             {r.first_day ? `${r.first_day} → ${r.last_day}` : "—"}
           </span>
         </div>
+        {/* LEGACY DISCLOSURE (owner, 2026-08-12). The backend excludes
+            pre-fix, market-blind records from scoring — but without this the
+            card just reads "Blocked samples 0", which looks like a broken
+            collector rather than a deliberate reset. The count is already
+            computed server-side; this only surfaces it. */}
+        {r.sample_legacy > 0 && (
+          <div className="col-span-2 text-[11px] text-terminal-warn border-t border-terminal-border/40 pt-1 mt-1">
+            <b>{r.sample_legacy} legacy records excluded</b> — {r.legacy_note}
+          </div>
+        )}
       </div>
 
       <div className="text-[11px] text-terminal-muted leading-relaxed border-t border-terminal-border/40 pt-2">
