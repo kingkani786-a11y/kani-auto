@@ -25,6 +25,24 @@ _history: deque = deque(maxlen=400)    # settled audit records
 _action_counts: Counter = Counter()    # lifetime decision distribution
 
 
+def _sym() -> str:
+    """Active instrument at record time. Imported lazily and wrapped: this is
+    a measurement module and must never be able to break the AI cycle."""
+    try:
+        from ..core.state import state
+        return str(state.symbol or "")
+    except Exception:
+        return ""
+
+
+def _mkt() -> str:
+    try:
+        from ..core.state import state
+        return str(state.market_type or "")
+    except Exception:
+        return ""
+
+
 def record_decision(decision: dict[str, Any], intel: dict[str, Any],
                     signal: dict[str, Any], spot: float, atr: float,
                     bias: str, regime: str, session: str) -> None:
@@ -66,6 +84,19 @@ def record_decision(decision: dict[str, Any], intel: dict[str, Any],
         "clarity": (intel.get("decision_clarity") or {}).get("label", ""),
         "data_confidence": intel.get("data_confidence", ""),
         "regime": regime, "session": session,
+        # CROSS-MARKET CONTAMINATION FIX (owner, 2026-08-12). Until now no
+        # record carried WHICH instrument it came from, so every downstream
+        # consumer — Shadow Calibration above all — pooled NIFTY, SENSEX,
+        # BANKNIFTY, FINNIFTY, MIDCPNIFTY and (after 15:30, via auto-switch)
+        # MCX commodities into one undifferentiated sample. Measured on the
+        # 342 records collected 08-10..08-12: 88% index-window, 12% MCX-only
+        # window, and the index share is itself a blend of several indices.
+        # A win rate over that pool describes no tradeable instrument. The
+        # old records cannot be split retroactively — the field simply is not
+        # in them — so this only fixes data from here forward, which is
+        # exactly why it could not wait. Read from state rather than added as
+        # a parameter to keep every existing caller unchanged.
+        "symbol": _sym(), "market": _mkt(),
         # Shadow Calibration (owner, 2026-08-07) — the ONE field this module
         # was missing. It already forward-tracks a HYPOTHETICAL sample on
         # every blocked cycle (hypothetical=True above) all the way to a real
@@ -127,6 +158,11 @@ def _settle(s: dict) -> None:
         # byte-identical.
         "signal_confidence": s.get("signal_confidence", 0.0),
         "direction": s.get("direction", ""),
+        # Carried from the open sample, NOT re-read from state here: by the
+        # time a sample settles (up to 45 min later) the auto-switch may have
+        # moved to a different market, which would mislabel the record with
+        # the instrument it settled under instead of the one it was taken on.
+        "symbol": s.get("symbol", ""), "market": s.get("market", ""),
     })
 
 

@@ -56,6 +56,17 @@ def _today_candles() -> list[dict]:
     return [c for c in cs if orfe._day_key(c["time"]) == today]
 
 
+def _active_symbol() -> str:
+    """Instrument the AI cycle is currently running on — the one state.candles
+    actually belongs to. Empty on any failure so the guard fails OPEN rather
+    than blanking a working board on an unrelated error."""
+    try:
+        from ..core.state import state
+        return str(state.symbol or "")
+    except Exception:
+        return ""
+
+
 def board(symbol: str = "NIFTY") -> dict[str, Any]:
     """The whole board. Never raises — a missing piece is reported as
     unavailable with its reason, never guessed."""
@@ -68,6 +79,25 @@ def board(symbol: str = "NIFTY") -> dict[str, Any]:
                  "index points on opening-range setups; no costs modelled; not "
                  "option-premium P&L."),
     }
+
+    # CROSS-MARKET GUARD (owner, 2026-08-12). `symbol` selects the HISTORICAL
+    # study, but _today_candles() reads state.candles — whatever instrument the
+    # AI cycle is currently on. Nothing tied the two together, so with the
+    # board pinned to "NIFTY" and the auto-switch on SENSEX, it rendered SENSEX
+    # spot and SENSEX opening range under the heading "Where NIFTY sits today",
+    # joined to NIFTY's 894-setup statistics. Observed live on 2026-08-12
+    # (SPOT 77576 / OR 77881-78244 are SENSEX values). On MCX it would be worse
+    # still: Natural Gas trades near ₹270 against a study whose own disclaimer
+    # reads "index points only". Refuse the live half rather than mislabel it —
+    # the historical half is honest on its own and still renders.
+    active = _active_symbol()
+    if active and active.upper() != symbol.upper():
+        out["live"] = {"available": False,
+                       "reason": f"active instrument is {active}, but this study is "
+                                 f"{symbol} — refusing to join one market's live "
+                                 f"price to another market's history"}
+        out["historical"] = _historical(symbol)
+        return out
 
     cs = _today_candles()
     if len(cs) < orfe.MIN_OR_CANDLES:

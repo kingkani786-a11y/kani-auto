@@ -742,6 +742,75 @@ class EntryEvidenceBoardTests(unittest.TestCase):
             self.fail(f"board() raised on empty state: {e}")
 
 
+class CrossMarketContaminationTests(unittest.TestCase):
+    """Owner, 2026-08-12. The app auto-switches instruments (indices during
+    09:15-15:30, MCX commodities after), but nothing recorded WHICH one a
+    measurement came from, and the Entry Evidence Board joined whatever was
+    live to NIFTY's history regardless. Both were confirmed happening, not
+    hypothetical: 342 shadow records carried no symbol at all, and the board
+    rendered SENSEX spot/opening-range under a 'NIFTY' heading."""
+
+    # NOTE: an earlier draft asserted on audit._history[0] directly. It passed
+    # alone and failed in the full suite, because _history is a shared global
+    # that other tests seed with hand-built fixtures — so it was asserting on
+    # another test's synthetic record, not on anything this code produces.
+    # Dropped rather than patched: the two end-to-end tests below drive the
+    # real record and settle paths, which is the actual property worth pinning.
+
+    def test_audit_records_the_active_instrument(self):
+        """End-to-end through the real record path, then the real settle path."""
+        from app.services import audit
+        from app.core.state import state
+        state.symbol, state.market_type = "CRUDEOIL", "COMMODITY"
+        audit._open.clear()
+        audit.record_decision(
+            {"primary_action": "WAIT"}, {}, {"signal": None},
+            spot=6000.0, atr=50.0, bias="BEARISH", regime="TRENDING", session="Evening",
+        )
+        self.assertTrue(audit._open, "no forward sample was armed")
+        self.assertEqual(audit._open[-1]["symbol"], "CRUDEOIL")
+        self.assertEqual(audit._open[-1]["market"], "COMMODITY")
+
+    def test_settled_record_keeps_the_symbol_it_was_opened_on(self):
+        """A sample can settle up to 45 min later, by which time the
+        auto-switch may sit on a different market — the record must keep the
+        instrument it was TAKEN on, not the one it settled under."""
+        from app.services import audit
+        from app.core.state import state
+        state.symbol, state.market_type = "NATURALGAS", "COMMODITY"
+        audit._open.clear()
+        audit.record_decision(
+            {"primary_action": "WAIT"}, {}, {"signal": None},
+            spot=270.0, atr=5.0, bias="BULLISH", regime="TRENDING", session="Evening",
+        )
+        s = audit._open[-1]
+        state.symbol, state.market_type = "NIFTY", "INDEX"   # switch before settle
+        n0 = len(audit._history)
+        audit._settle(s)
+        self.assertEqual(len(audit._history), n0 + 1)
+        self.assertEqual(audit._history[-1]["symbol"], "NATURALGAS",
+                         "settled record took the symbol it settled UNDER, not the one it was opened on")
+
+    def test_evidence_board_refuses_to_join_across_markets(self):
+        from app.services import entry_evidence as ee
+        from app.core.state import state
+        state.symbol = "SENSEX"
+        b = ee.board("NIFTY")
+        self.assertFalse(b["live"]["available"])
+        self.assertIn("SENSEX", b["live"]["reason"])
+
+    def test_evidence_board_still_works_on_a_matching_market(self):
+        """The guard must not blank the board when the markets DO agree."""
+        from app.services import entry_evidence as ee
+        from app.core.state import state
+        state.symbol = "NIFTY"
+        state.candles = []
+        b = ee.board("NIFTY")
+        # No candles, so live is unavailable — but for the CANDLE reason,
+        # never the cross-market one.
+        self.assertNotIn("refusing to join", b["live"]["reason"])
+
+
 class InvalidationDirectionTests(unittest.TestCase):
     """Bug fix (owner, 2026-08-10): _invalidations() derived bullish/bearish
     from dec["action"], which is only "BUY CALL"/"BUY PUT" once a trade is

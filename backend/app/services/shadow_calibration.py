@@ -120,6 +120,14 @@ def harvest() -> int:
                 "session": r.get("session"),
                 "reached": r.get("reached"),
                 "sl_hit": bool(r.get("sl_hit")),
+                # Cross-market provenance (owner, 2026-08-12). Without these
+                # the pooled sample silently blends every instrument the
+                # auto-switch visited — indices during 09:15-15:30, MCX
+                # commodities after. Empty string on pre-fix records, which
+                # is how a reader tells "unknown market" apart from a real
+                # symbol; those older records stay unsplittable by design.
+                "symbol": r.get("symbol", ""),
+                "market": r.get("market", ""),
             })
         if not new:
             return 0
